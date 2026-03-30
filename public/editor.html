@@ -1,793 +1,2179 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stellar Heir · 创作者编辑器</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand:  { DEFAULT: '#6366f1', light: '#818cf8', dark: '#4f46e5' },
-            surface: '#1e1e2e',
-            base:    '#13131f',
-            border:  '#2e2e45',
-            muted:   '#6b7280',
-          },
-          fontFamily: { mono: ['JetBrains Mono', 'Fira Code', 'Courier New', 'monospace'] },
-        }
-      }
-    }
-  </script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; background: #0f0f1a; color: #e2e8f0; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STELLAR HEIR · Creator Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   STELLAR HEIR · Creator Studio  —  Eclipse Hybrid Theme
+   Deep dark canvas + Light frosted panels
+   ═══════════════════════════════════════════════════════════════ */
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #2e2e45; border-radius: 3px; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── Node Card ── */
-    .node-card {
-      background: #1a1a2e;
-      border: 1px solid #2e2e45;
-      border-radius: 12px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .node-card:hover { border-color: #6366f1; box-shadow: 0 0 0 1px #6366f120; }
-    .node-card.node-branching { border-left: 3px solid #6366f1; }
-    .node-card.node-ending    { border-left: 3px solid #10b981; }
+:root {
+  /* Eclipse Hybrid Palette */
+  --bg-canvas:      #1a1d23;
+  --bg-canvas-grid: #1e2128;
+  --bg-panel:       #f0f1f3;
+  --bg-panel-card:  #ffffff;
+  --bg-sidebar:     #16181e;
+  --bg-topbar:      rgba(22,24,30,0.92);
 
-    /* ── Badge ── */
-    .badge-branching { background: #6366f120; color: #818cf8; border: 1px solid #6366f140; }
-    .badge-ending    { background: #10b98120; color: #34d399; border: 1px solid #10b98140; }
+  --border-dark:    rgba(255,255,255,0.07);
+  --border-light:   rgba(0,0,0,0.09);
+  --border-accent:  rgba(0,212,255,0.5);
 
-    /* ── Input ── */
-    .field-input {
-      width: 100%;
-      background: #0f0f1a;
-      border: 1px solid #2e2e45;
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: #e2e8f0;
-      font-size: 13px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      outline: none;
-    }
-    .field-input:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px #6366f120;
-    }
-    .field-input::placeholder { color: #4b5563; }
+  --text-primary:   #e8eaf0;
+  --text-secondary: rgba(232,234,240,0.55);
+  --text-dark:      #1a1d23;
+  --text-dark-sub:  #6b7280;
 
-    /* ── Choice Row ── */
-    .choice-row {
-      background: #13131f;
-      border: 1px solid #2e2e45;
-      border-radius: 8px;
-      padding: 12px;
-      position: relative;
-    }
+  --accent-cyan:    #00d4ff;
+  --accent-cyan-glow: rgba(0,212,255,0.25);
+  --accent-red:     #ff4d6a;
+  --accent-green:   #00e5a0;
+  --accent-amber:   #ffb347;
+  --accent-purple:  #a78bfa;
 
-    /* ── Toast ── */
-    #toast {
-      position: fixed;
-      bottom: 24px; right: 24px;
-      padding: 12px 20px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 500;
-      z-index: 9999;
-      transform: translateY(80px);
-      opacity: 0;
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      pointer-events: none;
-    }
-    #toast.show { transform: translateY(0); opacity: 1; }
-    #toast.success { background: #10b981; color: #fff; }
-    #toast.error   { background: #ef4444; color: #fff; }
-    #toast.info    { background: #6366f1; color: #fff; }
+  --node-start:     #00d4ff;
+  --node-branch:    #ffb347;
+  --node-ending:    #a78bfa;
 
-    /* ── Drag handle ── */
-    .drag-handle { cursor: grab; color: #4b5563; }
-    .drag-handle:active { cursor: grabbing; }
+  --sidebar-w:      52px;
+  --sidebar-w-open: 200px;
+  --right-panel-w:  320px;
+  --topbar-h:       44px;
+  --timeline-h:     48px;
+  --toolbar-h:      60px;
 
-    /* ── Skeleton ── */
-    .skeleton {
-      background: linear-gradient(90deg, #1a1a2e 25%, #2e2e45 50%, #1a1a2e 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite;
-      border-radius: 6px;
-    }
-    @keyframes shimmer { to { background-position: -200% 0; } }
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  16px;
+  --shadow-panel: 0 2px 16px rgba(0,0,0,0.18);
+  --shadow-node:  0 4px 24px rgba(0,0,0,0.45);
+  --shadow-glow:  0 0 20px rgba(0,212,255,0.3);
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+}
 
-    /* ── Pulse dot ── */
-    .pulse-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #10b981;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 #10b98140; }
-      50%       { opacity: 0.7; box-shadow: 0 0 0 6px transparent; }
-    }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  user-select: none;
+}
 
-    /* ── Confirm modal ── */
-    #confirm-modal {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
-      z-index: 10000;
-      align-items: center;
-      justify-content: center;
-    }
-    #confirm-modal.open { display: flex; }
-  </style>
+/* ── TOP BAR ─────────────────────────────────────────────────── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--topbar-h);
+  background: var(--bg-topbar);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-dark);
+  display: flex; align-items: center; gap: 0;
+  z-index: 1000;
+  padding: 0 12px 0 0;
+}
+#topbar .tb-logo {
+  width: var(--sidebar-w);
+  height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-dark);
+}
+#topbar .tb-logo svg { width: 22px; height: 22px; }
+#topbar .tb-project {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-primary);
+  border-right: 1px solid var(--border-dark);
+  height: 100%;
+}
+#topbar .tb-project .proj-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--accent-cyan);
+}
+#topbar .tb-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 16px;
+  font-size: 12px; color: var(--text-secondary);
+  flex: 1;
+}
+#topbar .tb-breadcrumb span { color: var(--text-secondary); }
+#topbar .tb-breadcrumb .bc-cur { color: var(--text-primary); }
+#topbar .tb-actions {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: auto;
+}
+.tb-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-dark);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px; font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.tb-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.tb-btn.primary {
+  background: var(--accent-cyan);
+  color: #000;
+  border-color: transparent;
+  font-weight: 600;
+}
+.tb-btn.primary:hover { background: #33ddff; box-shadow: var(--shadow-glow); }
+.tb-btn svg { width: 14px; height: 14px; }
+.tb-divider { width: 1px; height: 20px; background: var(--border-dark); }
+.tb-zoom-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text-secondary);
+  padding: 0 8px;
+}
+
+/* ── LAYOUT ROOT ─────────────────────────────────────────────── */
+#app {
+  position: fixed;
+  top: var(--topbar-h); left: 0; right: 0; bottom: 0;
+  display: flex;
+}
+
+/* ── LEFT SIDEBAR ────────────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  height: 100%;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-dark);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 12px 0;
+  gap: 4px;
+  z-index: 100;
+  transition: width var(--transition);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#sidebar.open { width: var(--sidebar-w-open); }
+.sb-item {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: var(--transition);
+  position: relative;
+  flex-shrink: 0;
+}
+.sb-item:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.sb-item.active { background: rgba(0,212,255,0.12); color: var(--accent-cyan); }
+.sb-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+.sb-item .sb-label {
+  display: none;
+  font-size: 12px; white-space: nowrap;
+  margin-left: 10px;
+}
+#sidebar.open .sb-item { width: calc(var(--sidebar-w-open) - 16px); justify-content: flex-start; padding: 0 10px; }
+#sidebar.open .sb-label { display: block; }
+.sb-spacer { flex: 1; }
+.sb-divider { width: 28px; height: 1px; background: var(--border-dark); margin: 4px 0; }
+#sidebar.open .sb-divider { width: calc(100% - 16px); }
+
+/* ── WORKSPACE (CANVAS AREA) ─────────────────────────────────── */
+#workspace {
+  flex: 1;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── TIMELINE ────────────────────────────────────────────────── */
+#timeline {
+  height: var(--timeline-h);
+  background: rgba(22,24,30,0.95);
+  border-bottom: 1px solid var(--border-dark);
+  display: flex; align-items: center;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#timeline-ruler {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  overflow: hidden;
+}
+#timeline-canvas { display: block; }
+#timeline-scrubber {
+  position: absolute; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  cursor: ew-resize;
+  z-index: 10;
+  transform: translateX(80px);
+}
+#timeline-scrubber::before {
+  content: '';
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 10px; height: 10px;
+  background: var(--accent-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-cyan);
+}
+#timeline-time {
+  position: absolute; top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--accent-cyan);
+  pointer-events: none;
+  z-index: 11;
+  transform: translateX(80px);
+  white-space: nowrap;
+  padding: 1px 4px;
+  background: rgba(0,212,255,0.15);
+  border-radius: 3px;
+}
+
+/* ── CANVAS CONTAINER ────────────────────────────────────────── */
+#canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+}
+#canvas-wrap.grabbing { cursor: grabbing; }
+#canvas-wrap.connecting { cursor: crosshair; }
+
+/* Grid background */
+#canvas-wrap::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+#canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 4000px; height: 3000px;
+  transform-origin: 0 0;
+}
+
+/* SVG connections layer */
+#connections-svg {
+  position: absolute; top: 0; left: 0;
+  width: 4000px; height: 3000px;
+  pointer-events: none;
+  overflow: visible;
+}
+.conn-path {
+  fill: none;
+  stroke: var(--accent-cyan);
+  stroke-width: 2;
+  stroke-dasharray: none;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 4px var(--accent-cyan));
+  transition: opacity 0.2s;
+}
+.conn-path:hover { opacity: 1; }
+.conn-path.branch { stroke: var(--accent-amber); filter: drop-shadow(0 0 4px var(--accent-amber)); }
+.conn-path.ending { stroke: var(--accent-purple); filter: drop-shadow(0 0 4px var(--accent-purple)); }
+.conn-arrow {
+  fill: var(--accent-cyan);
+  filter: drop-shadow(0 0 3px var(--accent-cyan));
+}
+.conn-arrow.branch { fill: var(--accent-amber); filter: drop-shadow(0 0 3px var(--accent-amber)); }
+
+/* Temp connection line while dragging */
+#temp-conn {
+  fill: none;
+  stroke: rgba(0,212,255,0.5);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  pointer-events: none;
+}
+
+/* ── NODE CARDS ──────────────────────────────────────────────── */
+.node-card {
+  position: absolute;
+  width: 200px;
+  background: #1e2128;
+  border: 1.5px solid var(--border-dark);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-node);
+  cursor: move;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  overflow: visible;
+}
+.node-card:hover { border-color: rgba(0,212,255,0.4); box-shadow: 0 4px 28px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,255,0.15); }
+.node-card.selected { border-color: var(--accent-cyan); box-shadow: var(--shadow-node), 0 0 0 2px rgba(0,212,255,0.3); }
+.node-card.type-start .node-header { border-top: 3px solid var(--node-start); }
+.node-card.type-branching .node-header { border-top: 3px solid var(--node-branch); }
+.node-card.type-ending .node-header { border-top: 3px solid var(--node-ending); }
+
+.node-thumb {
+  width: 100%; height: 100px;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: #0d0f14;
+}
+.node-thumb-placeholder {
+  width: 100%; height: 100px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0d0f14 0%, #1a1d23 100%);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: rgba(255,255,255,0.12);
+  font-size: 28px;
+}
+
+.node-header {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--border-dark);
+}
+.node-type-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.badge-start    { background: rgba(0,212,255,0.15); color: var(--node-start); }
+.badge-branching{ background: rgba(255,179,71,0.15); color: var(--node-branch); }
+.badge-ending   { background: rgba(167,139,250,0.15); color: var(--node-ending); }
+
+.node-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+.node-title {
+  font-size: 12px; font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.node-body { padding: 8px 10px; }
+.node-video-url {
+  font-size: 10px; color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+.node-choices { display: flex; flex-direction: column; gap: 3px; }
+.node-choice-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--text-secondary);
+  padding: 3px 6px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  border-left: 2px solid var(--accent-amber);
+}
+.node-choice-item .choice-key {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: var(--accent-amber);
+  background: rgba(255,179,71,0.12);
+  padding: 1px 4px; border-radius: 3px;
+  flex-shrink: 0;
+}
+.node-ending-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: var(--accent-purple);
+  background: rgba(167,139,250,0.1);
+  padding: 2px 6px; border-radius: 3px;
+  display: inline-block;
+}
+
+/* Connection ports */
+.port {
+  position: absolute;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #1e2128;
+  border: 2px solid var(--border-dark);
+  cursor: crosshair;
+  transition: var(--transition);
+  z-index: 10;
+}
+.port:hover { transform: scale(1.4); border-color: var(--accent-cyan); background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
+.port-in  { left: -7px; top: 50%; transform: translateY(-50%); }
+.port-out { right: -7px; top: 50%; transform: translateY(-50%); }
+.port-out:hover { transform: translateY(-50%) scale(1.4); }
+.port-choice {
+  right: -7px;
+  width: 10px; height: 10px;
+  background: rgba(255,179,71,0.2);
+  border-color: var(--accent-amber);
+}
+.port-choice:hover { background: var(--accent-amber); border-color: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber); }
+
+/* Node actions (on hover) */
+.node-actions {
+  position: absolute; top: -28px; right: 0;
+  display: none; gap: 4px;
+}
+.node-card:hover .node-actions,
+.node-card.selected .node-actions { display: flex; }
+.node-act-btn {
+  width: 24px; height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--border-dark);
+  background: #1e2128;
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  transition: var(--transition);
+}
+.node-act-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.node-act-btn.del:hover { background: rgba(255,77,106,0.15); color: var(--accent-red); border-color: rgba(255,77,106,0.3); }
+
+/* ── CANVAS TOOLBAR (BOTTOM DOCK) ────────────────────────────── */
+#toolbar {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  height: 52px;
+  background: rgba(22,24,30,0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-dark);
+  border-radius: 28px;
+  display: flex; align-items: center;
+  padding: 0 12px; gap: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 200;
+}
+.tool-btn {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  flex-direction: column; gap: 2px;
+  font-size: 9px;
+}
+.tool-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.tool-btn.active { background: rgba(0,212,255,0.12); color: var(--accent-cyan); }
+.tool-btn svg { width: 18px; height: 18px; }
+.tool-divider { width: 1px; height: 24px; background: var(--border-dark); margin: 0 4px; }
+.tool-btn .tool-tip {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: #0d0f14;
+  border: 1px solid var(--border-dark);
+  color: var(--text-primary);
+  font-size: 11px; white-space: nowrap;
+  padding: 4px 8px; border-radius: 5px;
+  pointer-events: none;
+  opacity: 0; transition: opacity 0.15s;
+}
+.tool-btn:hover .tool-tip { opacity: 1; }
+
+/* ── RIGHT PANEL ─────────────────────────────────────────────── */
+#right-panel {
+  width: var(--right-panel-w);
+  height: 100%;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-light);
+  display: flex; flex-direction: column;
+  flex-shrink: 0;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+}
+
+/* ── MOBILE PREVIEW ──────────────────────────────────────────── */
+#preview-panel {
+  flex: 1;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-light);
+}
+.panel-header {
+  height: 38px;
+  background: var(--bg-panel-card);
+  border-bottom: 1px solid var(--border-light);
+  display: flex; align-items: center;
+  padding: 0 12px; gap: 8px;
+  flex-shrink: 0;
+}
+.panel-header-title {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-dark);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  flex: 1;
+}
+.panel-header-actions { display: flex; gap: 4px; }
+.ph-btn {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  background: transparent;
+  color: var(--text-dark-sub);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.ph-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-dark); }
+.ph-btn.active { background: rgba(0,132,227,0.1); color: #0984e3; border-color: rgba(0,132,227,0.3); }
+.ph-btn svg { width: 13px; height: 13px; }
+
+#preview-body {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px 12px;
+  background: #e8e9ec;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Phone shell */
+#phone-shell {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+#phone-shell.portrait {
+  width: 160px; height: 290px;
+}
+#phone-shell.landscape {
+  width: 290px; height: 160px;
+}
+.phone-frame {
+  position: absolute; inset: 0;
+  background: #1a1a1a;
+  border-radius: 24px;
+  box-shadow:
+    0 0 0 1.5px #333,
+    0 0 0 3px #111,
+    0 12px 40px rgba(0,0,0,0.5),
+    inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+.phone-screen {
+  position: absolute;
+  top: 10px; left: 8px; right: 8px; bottom: 10px;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+}
+#phone-shell.landscape .phone-frame { border-radius: 20px; }
+#phone-shell.landscape .phone-screen {
+  top: 8px; left: 10px; right: 10px; bottom: 8px;
+  border-radius: 12px;
+}
+
+/* Notch */
+.phone-notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 60px; height: 8px;
+  background: #1a1a1a;
+  border-radius: 0 0 8px 8px;
+  z-index: 10;
+}
+#phone-shell.landscape .phone-notch { display: none; }
+
+/* Screen content */
+.screen-content {
+  width: 100%; height: 100%;
+  position: relative;
+  background: #000;
+  overflow: hidden;
+}
+.screen-video-bg {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+}
+.screen-video-placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(160deg, #0d1117 0%, #1a2332 50%, #0d1117 100%);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 6px;
+}
+.screen-node-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; color: rgba(0,212,255,0.7);
+  letter-spacing: 0.1em;
+}
+.screen-node-title {
+  font-size: 10px; font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  text-align: center; padding: 0 8px;
+}
+.screen-play-icon { font-size: 20px; opacity: 0.4; }
+
+/* Interactive buttons overlay on screen */
+.screen-choices {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 4px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+}
+.screen-choice-btn {
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(0,212,255,0.5);
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 8px; font-weight: 500;
+  cursor: move;
+  display: flex; align-items: center; gap: 4px;
+  position: relative;
+}
+.screen-choice-btn:hover { border-color: var(--accent-cyan); background: rgba(0,212,255,0.15); }
+.screen-choice-btn .choice-num {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(0,212,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7px; color: var(--accent-cyan);
+  flex-shrink: 0;
+}
+.drag-handle-icon {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  opacity: 0.4; font-size: 8px;
+}
+
+/* Preview node info */
+#preview-node-info {
+  padding: 8px 12px;
+  background: var(--bg-panel-card);
+  border-top: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+.pni-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.pni-label { font-size: 10px; color: var(--text-dark-sub); min-width: 50px; }
+.pni-value {
+  font-size: 10px; font-family: 'JetBrains Mono', monospace;
+  color: var(--text-dark); background: #f0f1f3;
+  padding: 2px 6px; border-radius: 3px; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pni-badge {
+  font-size: 9px; padding: 1px 6px; border-radius: 10px;
+  font-weight: 500;
+}
+.pni-badge.branching { background: rgba(255,179,71,0.15); color: #d97706; }
+.pni-badge.ending    { background: rgba(167,139,250,0.15); color: #7c3aed; }
+
+/* ── AI CHAT PANEL ───────────────────────────────────────────── */
+#ai-panel {
+  height: 280px;
+  display: flex; flex-direction: column;
+  background: var(--bg-panel-card);
+  flex-shrink: 0;
+}
+#ai-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+.ai-msg {
+  display: flex; gap: 7px; align-items: flex-start;
+}
+.ai-msg.user { flex-direction: row-reverse; }
+.ai-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; flex-shrink: 0;
+  font-weight: 600;
+}
+.ai-avatar.bot { background: linear-gradient(135deg, #00d4ff, #0984e3); color: #fff; }
+.ai-avatar.user-av { background: #e8e9ec; color: #2d3436; font-size: 10px; }
+.ai-bubble {
+  max-width: 200px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 11px; line-height: 1.5;
+  color: var(--text-dark);
+}
+.ai-msg.bot .ai-bubble { background: #f0f1f3; border-radius: 2px 10px 10px 10px; }
+.ai-msg.user .ai-bubble { background: #0984e3; color: #fff; border-radius: 10px 2px 10px 10px; }
+.ai-typing {
+  display: flex; gap: 3px; align-items: center; padding: 4px 0;
+}
+.ai-typing span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #0984e3; opacity: 0.4;
+  animation: typing 1.2s infinite;
+}
+.ai-typing span:nth-child(2) { animation-delay: 0.2s; }
+.ai-typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing { 0%,60%,100%{opacity:0.4;transform:translateY(0)} 30%{opacity:1;transform:translateY(-3px)} }
+
+#ai-input-area {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-light);
+  display: flex; gap: 6px; align-items: flex-end;
+  background: var(--bg-panel-card);
+}
+#ai-input {
+  flex: 1;
+  min-height: 32px; max-height: 80px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: #f5f6f8;
+  font-size: 11px; font-family: 'Inter', sans-serif;
+  color: var(--text-dark);
+  resize: none; outline: none;
+  line-height: 1.4;
+  transition: border-color 0.15s;
+}
+#ai-input:focus { border-color: #0984e3; background: #fff; }
+#ai-input::placeholder { color: #adb5bd; }
+#ai-send {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: #0984e3;
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+#ai-send:hover { background: #0773c5; }
+#ai-send svg { width: 14px; height: 14px; }
+
+/* ── CANVAS MINI-MAP ─────────────────────────────────────────── */
+#minimap {
+  position: absolute; bottom: 88px; right: 12px;
+  width: 140px; height: 90px;
+  background: rgba(22,24,30,0.85);
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  z-index: 150;
+  backdrop-filter: blur(8px);
+}
+#minimap canvas { display: block; }
+#minimap-viewport {
+  position: absolute;
+  border: 1.5px solid var(--accent-cyan);
+  background: rgba(0,212,255,0.06);
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+/* ── CONTEXT MENU ────────────────────────────────────────────── */
+#ctx-menu {
+  position: fixed;
+  background: #1e2128;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  min-width: 160px;
+  z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  display: none;
+}
+.ctx-item {
+  padding: 7px 10px;
+  font-size: 12px; color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  transition: var(--transition);
+}
+.ctx-item:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.ctx-item.danger:hover { background: rgba(255,77,106,0.1); color: var(--accent-red); }
+.ctx-divider { height: 1px; background: var(--border-dark); margin: 3px 0; }
+.ctx-item svg { width: 13px; height: 13px; opacity: 0.7; }
+
+/* ── TOAST ───────────────────────────────────────────────────── */
+#toast-container {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 6px;
+  z-index: 9999; pointer-events: none;
+}
+.toast {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+  animation: toastIn 0.25s ease;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.toast.success { background: rgba(0,229,160,0.15); border: 1px solid rgba(0,229,160,0.3); color: var(--accent-green); }
+.toast.error   { background: rgba(255,77,106,0.15); border: 1px solid rgba(255,77,106,0.3); color: var(--accent-red); }
+.toast.info    { background: rgba(0,212,255,0.12); border: 1px solid rgba(0,212,255,0.25); color: var(--accent-cyan); }
+@keyframes toastIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── NODE INSPECTOR (right-click edit panel) ─────────────────── */
+#inspector {
+  position: fixed;
+  top: 60px; right: calc(var(--right-panel-w) + 8px);
+  width: 260px;
+  background: #1e2128;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 500;
+  display: none;
+  overflow: hidden;
+}
+.insp-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-dark);
+  display: flex; align-items: center; gap: 8px;
+}
+.insp-title { font-size: 12px; font-weight: 600; color: var(--text-primary); flex: 1; }
+.insp-close {
+  width: 20px; height: 20px;
+  border-radius: 4px; border: none; background: transparent;
+  color: var(--text-secondary); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.insp-close:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+.insp-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; }
+.insp-field { display: flex; flex-direction: column; gap: 4px; }
+.insp-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.insp-input {
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border-dark);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 11px; font-family: 'Inter', sans-serif;
+  outline: none; transition: border-color 0.15s;
+}
+.insp-input:focus { border-color: var(--accent-cyan); background: rgba(0,212,255,0.04); }
+.insp-input::placeholder { color: rgba(255,255,255,0.2); }
+.insp-select {
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border-dark);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+}
+.insp-select option { background: #1e2128; }
+.insp-choices-list { display: flex; flex-direction: column; gap: 6px; }
+.insp-choice-row {
+  padding: 6px 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-dark);
+  border-radius: 5px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.insp-choice-row input {
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-dark);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 10px; outline: none;
+  width: 100%;
+}
+.insp-choice-row input:focus { border-color: var(--accent-amber); }
+.insp-add-btn {
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px dashed rgba(255,255,255,0.15);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px; cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+}
+.insp-add-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); background: rgba(0,212,255,0.04); }
+.insp-save-btn {
+  padding: 7px 12px;
+  border-radius: 5px;
+  border: none;
+  background: var(--accent-cyan);
+  color: #000;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.insp-save-btn:hover { background: #33ddff; }
+
+/* ── CANVAS ZOOM CONTROLS ────────────────────────────────────── */
+#zoom-controls {
+  position: absolute; bottom: 88px; left: 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  z-index: 150;
+}
+.zoom-btn {
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border-dark);
+  background: rgba(22,24,30,0.85);
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 16px; font-weight: 300;
+  transition: var(--transition);
+  backdrop-filter: blur(8px);
+}
+.zoom-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+/* ── SCROLLBARS ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* ── SELECTION BOX ───────────────────────────────────────────── */
+#selection-box {
+  position: absolute;
+  border: 1.5px solid var(--accent-cyan);
+  background: rgba(0,212,255,0.05);
+  pointer-events: none;
+  display: none;
+  z-index: 50;
+}
+
+/* ── LOADING OVERLAY ─────────────────────────────────────────── */
+#loading {
+  position: fixed; inset: 0;
+  background: var(--bg-canvas);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+  z-index: 9999;
+  transition: opacity 0.4s;
+}
+#loading.hidden { opacity: 0; pointer-events: none; }
+.loading-logo {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; color: var(--accent-cyan);
+  letter-spacing: 0.15em;
+}
+.loading-sub { font-size: 12px; color: var(--text-secondary); }
+.loading-bar {
+  width: 200px; height: 2px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 1px; overflow: hidden;
+}
+.loading-bar-fill {
+  height: 100%;
+  background: var(--accent-cyan);
+  border-radius: 1px;
+  animation: loadFill 1.2s ease forwards;
+}
+@keyframes loadFill { from{width:0} to{width:100%} }
+</style>
 </head>
-<body class="min-h-screen">
+<body>
 
-<!-- ── Navbar ──────────────────────────────────────────────────────────────── -->
-<nav class="sticky top-0 z-50 border-b border-[#2e2e45] bg-[#0f0f1a]/90 backdrop-blur-md">
-  <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-    <!-- Logo -->
-    <div class="flex items-center gap-3">
-      <div class="w-7 h-7 rounded-lg bg-brand flex items-center justify-center text-white text-xs font-bold">SH</div>
-      <span class="font-semibold text-sm text-white">Stellar Heir</span>
-      <span class="text-[#4b5563] text-sm">·</span>
-      <span class="text-[#6b7280] text-sm">创作者编辑器</span>
-    </div>
+<!-- LOADING SCREEN -->
+<div id="loading">
+  <div class="loading-logo">STELLAR HEIR</div>
+  <div class="loading-sub">Creator Studio · Loading workspace...</div>
+  <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+</div>
 
-    <!-- Right actions -->
-    <div class="flex items-center gap-3">
-      <!-- Server status -->
-      <div class="flex items-center gap-2 text-xs text-[#6b7280]" id="server-status">
-        <div class="w-2 h-2 rounded-full bg-[#4b5563]"></div>
-        <span>连接中…</span>
-      </div>
-
-      <!-- Player link -->
-      <a href="/" target="_blank"
-         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2e2e45] text-xs text-[#9ca3af] hover:text-white hover:border-[#6366f1] transition-colors">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        玩家端预览
-      </a>
-
-      <!-- Save button -->
-      <button id="save-btn" onclick="saveData()"
-              class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
-        </svg>
-        <span id="save-btn-text">保存并发布</span>
-      </button>
-    </div>
-  </div>
-</nav>
-
-<!-- ── Main Layout ──────────────────────────────────────────────────────────── -->
-<div class="max-w-6xl mx-auto px-6 py-8">
-
-  <!-- Page Header -->
-  <div class="mb-8">
-    <h1 class="text-2xl font-bold text-white mb-1">互动节点编辑器</h1>
-    <p class="text-sm text-[#6b7280]">修改各节点的视频链接、分支时间点和选项配置，点击「保存并发布」即时生效。</p>
-  </div>
-
-  <!-- Meta Panel -->
-  <div class="node-card p-5 mb-6" id="meta-panel">
-    <div class="flex items-center gap-2 mb-4">
-      <svg class="w-4 h-4 text-[#6366f1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-      </svg>
-      <h2 class="text-sm font-semibold text-white">全局配置</h2>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">游戏标题</label>
-        <input id="meta-title" type="text" class="field-input" placeholder="游戏标题" />
-      </div>
-      <div>
-        <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">起始节点 ID</label>
-        <input id="meta-start-node" type="text" class="field-input font-mono" placeholder="node_A" />
-      </div>
-    </div>
-  </div>
-
-  <!-- Nodes Container -->
-  <div id="nodes-container" class="space-y-5">
-    <!-- Skeleton loading state -->
-    <div id="skeleton-loader" class="space-y-5">
-      <div class="node-card p-5">
-        <div class="skeleton h-4 w-24 mb-4"></div>
-        <div class="skeleton h-9 w-full mb-3"></div>
-        <div class="skeleton h-9 w-3/4"></div>
-      </div>
-      <div class="node-card p-5">
-        <div class="skeleton h-4 w-24 mb-4"></div>
-        <div class="skeleton h-9 w-full mb-3"></div>
-        <div class="skeleton h-9 w-1/2"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Add Node Button -->
-  <button onclick="addNode()"
-          class="mt-5 w-full py-3 rounded-xl border border-dashed border-[#2e2e45] text-[#6b7280] text-sm
-                 hover:border-[#6366f1] hover:text-[#818cf8] hover:bg-[#6366f108] transition-all flex items-center justify-center gap-2">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="tb-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" stroke="#00d4ff" fill="rgba(0,212,255,0.1)"/>
     </svg>
-    添加新节点
-  </button>
-
-  <!-- Bottom spacer -->
-  <div class="h-20"></div>
-</div>
-
-<!-- ── Confirm Modal ────────────────────────────────────────────────────────── -->
-<div id="confirm-modal">
-  <div class="bg-[#1a1a2e] border border-[#2e2e45] rounded-2xl p-6 w-80 mx-4">
-    <h3 class="text-white font-semibold mb-2" id="modal-title">确认操作</h3>
-    <p class="text-[#9ca3af] text-sm mb-5" id="modal-body">确定要执行此操作吗？</p>
-    <div class="flex gap-3 justify-end">
-      <button onclick="closeModal()"
-              class="px-4 py-2 rounded-lg border border-[#2e2e45] text-[#9ca3af] text-sm hover:text-white transition-colors">
-        取消
-      </button>
-      <button id="modal-confirm-btn"
-              class="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors">
-        确认删除
-      </button>
-    </div>
+  </div>
+  <div class="tb-project">
+    <span>星之继承者</span>
+    <span class="proj-name">/ main</span>
+  </div>
+  <div class="tb-breadcrumb">
+    <span>Projects</span>
+    <span>›</span>
+    <span>星之继承者</span>
+    <span>›</span>
+    <span class="bc-cur">Node Graph</span>
+  </div>
+  <div class="tb-actions">
+    <span class="tb-zoom-info" id="zoom-display">100%</span>
+    <div class="tb-divider"></div>
+    <button class="tb-btn" onclick="window.open('/','_blank')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      玩家预览
+    </button>
+    <button class="tb-btn" onclick="exportJSON()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      导出
+    </button>
+    <div class="tb-divider"></div>
+    <button class="tb-btn primary" onclick="saveData()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      保存发布
+    </button>
   </div>
 </div>
 
-<!-- ── Toast ────────────────────────────────────────────────────────────────── -->
-<div id="toast"></div>
+<!-- APP LAYOUT -->
+<div id="app">
 
-<!-- ── JSON Preview Panel (collapsible) ────────────────────────────────────── -->
-<div class="fixed bottom-0 left-0 right-0 z-40" id="json-panel">
-  <div class="max-w-6xl mx-auto px-6">
-    <div class="bg-[#1a1a2e] border border-[#2e2e45] border-b-0 rounded-t-xl overflow-hidden">
-      <button onclick="toggleJsonPanel()"
-              class="w-full px-5 py-3 flex items-center justify-between text-xs text-[#6b7280] hover:text-white hover:bg-[#ffffff08] transition-colors">
-        <div class="flex items-center gap-2">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
-          </svg>
-          <span>JSON 预览</span>
-        </div>
-        <svg id="json-panel-chevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+  <!-- LEFT SIDEBAR -->
+  <div id="sidebar">
+    <div class="sb-item active" title="节点图" onclick="toggleSidebar()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span class="sb-label">节点图</span>
+    </div>
+    <div class="sb-item" title="项目管理">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span class="sb-label">项目管理</span>
+    </div>
+    <div class="sb-item" title="媒体库">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/>
+        <line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
+        <line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/>
+        <line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/>
+      </svg>
+      <span class="sb-label">媒体库</span>
+    </div>
+    <div class="sb-spacer"></div>
+    <div class="sb-divider"></div>
+    <div class="sb-item" title="全局设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span class="sb-label">全局设置</span>
+    </div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div id="workspace">
+
+    <!-- TIMELINE -->
+    <div id="timeline">
+      <div id="timeline-ruler">
+        <canvas id="timeline-canvas"></canvas>
+      </div>
+      <div id="timeline-scrubber"></div>
+      <div id="timeline-time">00:00</div>
+    </div>
+
+    <!-- CANVAS -->
+    <div id="canvas-wrap"
+      oncontextmenu="showCtxMenu(event)"
+      onmousedown="onCanvasMouseDown(event)"
+      onmousemove="onCanvasMouseMove(event)"
+      onmouseup="onCanvasMouseUp(event)"
+      onwheel="onCanvasWheel(event)">
+
+      <div id="canvas">
+        <svg id="connections-svg">
+          <defs>
+            <marker id="arrow-cyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" class="conn-arrow"/>
+            </marker>
+            <marker id="arrow-amber" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" class="conn-arrow branch"/>
+            </marker>
+          </defs>
+          <path id="temp-conn" d=""/>
         </svg>
-      </button>
-      <div id="json-panel-body" class="hidden px-5 pb-4">
-        <pre id="json-preview"
-             class="text-xs text-[#9ca3af] font-mono overflow-auto max-h-48 leading-relaxed"></pre>
+        <div id="selection-box"></div>
+      </div>
+
+      <!-- ZOOM CONTROLS -->
+      <div id="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="放大">+</button>
+        <button class="zoom-btn" onclick="zoomOut()" title="缩小">−</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="重置" style="font-size:11px">⊙</button>
+      </div>
+
+      <!-- MINIMAP -->
+      <div id="minimap">
+        <canvas id="minimap-canvas" width="140" height="90"></canvas>
+        <div id="minimap-viewport"></div>
+      </div>
+
+      <!-- BOTTOM TOOLBAR DOCK -->
+      <div id="toolbar">
+        <button class="tool-btn active" id="tool-select" onclick="setTool('select')" title="选择">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+          <span class="tool-tip">选择 (V)</span>
+        </button>
+        <div class="tool-divider"></div>
+        <button class="tool-btn" onclick="addNode('branching')" title="添加视频节点">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          <span class="tool-tip">添加视频 (A)</span>
+        </button>
+        <button class="tool-btn" onclick="addNode('image')" title="添加图片节点">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span class="tool-tip">添加图片</span>
+        </button>
+        <button class="tool-btn" onclick="addNode('ending')" title="添加交互节点">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span class="tool-tip">添加交互节点</span>
+        </button>
+        <button class="tool-btn" id="tool-connect" onclick="setTool('connect')" title="连接线">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          <span class="tool-tip">连接线 (C)</span>
+        </button>
+        <div class="tool-divider"></div>
+        <button class="tool-btn" title="AI NPC">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7H3a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"/><path d="M5 14v7"/><path d="M19 14v7"/><path d="M5 21h14"/></svg>
+          <span class="tool-tip">添加 AI NPC</span>
+        </button>
+        <button class="tool-btn" title="道具">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          <span class="tool-tip">添加道具</span>
+        </button>
+        <button class="tool-btn" title="重生点">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <span class="tool-tip">添加重生点</span>
+        </button>
+        <div class="tool-divider"></div>
+        <button class="tool-btn" title="更多">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          <span class="tool-tip">更多工具</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+
+    <!-- MOBILE PREVIEW -->
+    <div id="preview-panel">
+      <div class="panel-header">
+        <span class="panel-header-title">移动端预览</span>
+        <div class="panel-header-actions">
+          <button class="ph-btn active" id="btn-portrait" onclick="setOrientation('portrait')" title="竖屏">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/></svg>
+          </button>
+          <button class="ph-btn" id="btn-landscape" onclick="setOrientation('landscape')" title="横屏">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2"/></svg>
+          </button>
+          <button class="ph-btn" onclick="refreshPreview()" title="刷新">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="preview-body">
+        <div id="phone-shell" class="portrait">
+          <div class="phone-frame"></div>
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="screen-content" id="screen-content">
+              <div class="screen-video-placeholder" id="screen-placeholder">
+                <div class="screen-play-icon">▶</div>
+                <div class="screen-node-label" id="screen-node-label">NODE_A</div>
+                <div class="screen-node-title" id="screen-node-title">第一章：碳14的秘密</div>
+              </div>
+              <div class="screen-choices" id="screen-choices">
+                <div class="screen-choice-btn" draggable="true" id="choice-btn-0">
+                  <span class="choice-num">1</span>
+                  <span id="choice-label-0">抛出碳14证据</span>
+                  <span class="drag-handle-icon">⠿</span>
+                </div>
+                <div class="screen-choice-btn" draggable="true" id="choice-btn-1">
+                  <span class="choice-num">2</span>
+                  <span id="choice-label-1">保持沉默</span>
+                  <span class="drag-handle-icon">⠿</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="preview-node-info">
+        <div class="pni-row">
+          <span class="pni-label">节点</span>
+          <span class="pni-value" id="pni-id">node_A</span>
+          <span class="pni-badge branching" id="pni-type">分支</span>
+        </div>
+        <div class="pni-row">
+          <span class="pni-label">分支时间</span>
+          <span class="pni-value" id="pni-time">5s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI CHAT -->
+    <div id="ai-panel">
+      <div class="panel-header">
+        <span class="panel-header-title">AI 剧情助手</span>
+        <div class="panel-header-actions">
+          <button class="ph-btn" onclick="clearChat()" title="清空对话">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="ai-messages">
+        <div class="ai-msg bot">
+          <div class="ai-avatar bot">AI</div>
+          <div class="ai-bubble">你好，我是你的 AI 剧情助手。你可以告诉我：<br>• 修改某个节点的剧情<br>• 添加新的分支选项<br>• 生成新的故事走向</div>
+        </div>
+      </div>
+      <div id="ai-input-area">
+        <textarea id="ai-input" placeholder="描述你想要的剧情变化..." rows="1"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMsg()}"
+          oninput="autoResize(this)"></textarea>
+        <button id="ai-send" onclick="sendAiMsg()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════════════
-     JavaScript Engine
-═══════════════════════════════════════════════════════════════════════════ -->
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="addNode('branching');hideCtxMenu()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    添加视频节点
+  </div>
+  <div class="ctx-item" onclick="addNode('ending');hideCtxMenu()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    添加结局节点
+  </div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="fitView();hideCtxMenu()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+    适应视图
+  </div>
+  <div class="ctx-item" onclick="resetZoom();hideCtxMenu()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    重置缩放
+  </div>
+  <div id="ctx-node-actions" style="display:none">
+    <div class="ctx-divider"></div>
+    <div class="ctx-item" onclick="openInspector(ctxTargetNode);hideCtxMenu()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      编辑节点
+    </div>
+    <div class="ctx-item danger" onclick="deleteNode(ctxTargetNode);hideCtxMenu()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      删除节点
+    </div>
+  </div>
+</div>
+
+<!-- NODE INSPECTOR -->
+<div id="inspector">
+  <div class="insp-header">
+    <span class="insp-title" id="insp-title">编辑节点</span>
+    <button class="insp-close" onclick="closeInspector()">✕</button>
+  </div>
+  <div class="insp-body" id="insp-body"></div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
 <script>
-'use strict';
+// ═══════════════════════════════════════════════════════════════
+//  STELLAR HEIR · Creator Studio — Main Engine
+// ═══════════════════════════════════════════════════════════════
 
-// ── State ──────────────────────────────────────────────────────────────────────
-let gameData = null;          // 当前内存中的完整 JSON 数据
-let pendingDeleteNodeId = null;
+// ── STATE ──────────────────────────────────────────────────────
+const state = {
+  gameData: null,
+  nodes: {},        // { id: { x, y, el, data } }
+  connections: [],  // { from, to, fromPort, label }
+  selectedNodes: new Set(),
+  currentTool: 'select',
+  viewport: { x: 0, y: 0, scale: 1 },
+  dragging: null,   // { nodeId, startX, startY, origX, origY }
+  panning: null,    // { startX, startY, origVX, origVY }
+  connecting: null, // { fromId, fromPortEl, tempPath }
+  selBox: null,     // selection box drag
+  ctxPos: { x: 0, y: 0 },
+  selectedNode: null,
+  timelineOffset: 0,
+  timelineScrubX: 80,
+  scrubbing: false,
+  orientation: 'portrait',
+  nodeCounter: 0,
+};
+let ctxTargetNode = null;
 
-// ── DOM Refs ───────────────────────────────────────────────────────────────────
-const $nodesContainer = document.getElementById('nodes-container');
-const $skeletonLoader = document.getElementById('skeleton-loader');
-const $metaTitle      = document.getElementById('meta-title');
-const $metaStartNode  = document.getElementById('meta-start-node');
-const $jsonPreview    = document.getElementById('json-preview');
-const $saveBtn        = document.getElementById('save-btn');
-const $saveBtnText    = document.getElementById('save-btn-text');
-const $serverStatus   = document.getElementById('server-status');
-
-// ── Toast ──────────────────────────────────────────────────────────────────────
-let toastTimer = null;
-function showToast(msg, type = 'info') {
-  const $t = document.getElementById('toast');
-  $t.textContent = msg;
-  $t.className   = `show ${type}`;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { $t.className = type; }, 3000);
-}
-
-// ── Server Status ──────────────────────────────────────────────────────────────
-function setServerStatus(online) {
-  $serverStatus.innerHTML = online
-    ? `<div class="pulse-dot"></div><span class="text-xs text-[#10b981]">服务在线</span>`
-    : `<div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-xs text-red-400">服务离线</span>`;
-}
-
-// ── Fetch Game Data ────────────────────────────────────────────────────────────
-async function fetchData() {
-  try {
-    const res = await fetch('/api/game-data');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    gameData = await res.json();
-    setServerStatus(true);
-    renderAll();
-  } catch (err) {
-    setServerStatus(false);
-    $skeletonLoader.innerHTML = `
-      <div class="node-card p-8 text-center">
-        <div class="text-red-400 text-sm mb-2">⚠ 无法加载游戏数据</div>
-        <div class="text-[#6b7280] text-xs">${err.message}</div>
-        <button onclick="fetchData()" class="mt-4 px-4 py-2 rounded-lg bg-[#2e2e45] text-sm text-white hover:bg-[#3e3e55] transition-colors">
-          重试
-        </button>
-      </div>`;
-    showToast('加载失败：' + err.message, 'error');
-  }
-}
-
-// ── Render All ─────────────────────────────────────────────────────────────────
-function renderAll() {
-  if (!gameData) return;
-
-  // Meta
-  $metaTitle.value     = gameData.title     || '';
-  $metaStartNode.value = gameData.start_node || '';
-
-  // Remove skeleton
-  $skeletonLoader.remove();
-
-  // Clear existing node cards (keep skeleton ref)
-  $nodesContainer.querySelectorAll('.node-card[data-node-id]').forEach(el => el.remove());
-
-  // Render each node
-  Object.keys(gameData.nodes).forEach(nodeId => {
-    renderNodeCard(nodeId, gameData.nodes[nodeId]);
-  });
-
-  updateJsonPreview();
-}
-
-// ── Render Node Card ───────────────────────────────────────────────────────────
-function renderNodeCard(nodeId, node) {
-  const isBranching = node.type === 'branching';
-  const card = document.createElement('div');
-  card.className = `node-card node-${node.type} p-5`;
-  card.dataset.nodeId = nodeId;
-
-  card.innerHTML = `
-    <!-- Card Header -->
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex items-center gap-3">
-        <span class="font-mono text-sm font-bold text-white">${escHtml(nodeId)}</span>
-        <span class="badge-${node.type} text-xs px-2 py-0.5 rounded-full font-medium">
-          ${isBranching ? '⑂ 分支节点' : '⏹ 结局节点'}
-        </span>
-        ${nodeId === gameData.start_node
-          ? '<span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-xs px-2 py-0.5 rounded-full">起始</span>'
-          : ''}
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="toggleNodeType('${escAttr(nodeId)}')"
-                title="切换节点类型"
-                class="p-1.5 rounded-lg text-[#6b7280] hover:text-white hover:bg-[#2e2e45] transition-colors text-xs">
-          切换类型
-        </button>
-        <button onclick="confirmDeleteNode('${escAttr(nodeId)}')"
-                title="删除节点"
-                class="p-1.5 rounded-lg text-[#6b7280] hover:text-red-400 hover:bg-red-500/10 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Node ID (editable) -->
-    <div class="mb-4">
-      <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">节点 ID</label>
-      <input type="text" class="field-input font-mono"
-             value="${escHtml(nodeId)}"
-             data-field="id"
-             onchange="renameNode('${escAttr(nodeId)}', this.value)"
-             placeholder="node_A" />
-      <p class="text-xs text-[#4b5563] mt-1">修改 ID 后将同步更新所有引用此节点的 choices</p>
-    </div>
-
-    <!-- Video URL -->
-    <div class="mb-4">
-      <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">视频链接 (video_url)</label>
-      <div class="flex gap-2">
-        <input type="url" class="field-input"
-               value="${escHtml(node.video_url || '')}"
-               data-field="video_url"
-               onchange="updateNodeField('${escAttr(nodeId)}', 'video_url', this.value)"
-               placeholder="https://example.com/video.mp4" />
-        <button onclick="previewVideo('${escAttr(nodeId)}')"
-                title="预览视频"
-                class="flex-shrink-0 px-3 py-2 rounded-lg border border-[#2e2e45] text-[#6b7280] hover:text-white hover:border-[#6366f1] transition-colors text-xs whitespace-nowrap">
-          预览
-        </button>
-      </div>
-    </div>
-
-    <!-- Title (for ending nodes) -->
-    <div class="mb-4">
-      <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">节点标题</label>
-      <input type="text" class="field-input"
-             value="${escHtml(node.title || '')}"
-             data-field="title"
-             onchange="updateNodeField('${escAttr(nodeId)}', 'title', this.value)"
-             placeholder="节点标题（结局节点显示用）" />
-    </div>
-
-    ${isBranching ? renderBranchingFields(nodeId, node) : renderEndingFields(nodeId, node)}
-  `;
-
-  $nodesContainer.appendChild(card);
-}
-
-// ── Branching Fields ───────────────────────────────────────────────────────────
-function renderBranchingFields(nodeId, node) {
-  const choices = node.choices || [];
-  return `
-    <!-- Branch At Second -->
-    <div class="mb-5">
-      <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">
-        分支触发时间 (branch_at_second)
-        <span class="text-[#4b5563] font-normal ml-1">— 视频播放到第几秒弹出选项</span>
-      </label>
-      <div class="flex items-center gap-3">
-        <input type="number" min="0" step="0.5" class="field-input w-32"
-               value="${node.branch_at_second ?? 5}"
-               onchange="updateNodeField('${escAttr(nodeId)}', 'branch_at_second', parseFloat(this.value))"
-               placeholder="5" />
-        <span class="text-xs text-[#6b7280]">秒</span>
-      </div>
-    </div>
-
-    <!-- Choices -->
-    <div>
-      <div class="flex items-center justify-between mb-3">
-        <label class="text-xs text-[#6b7280] font-medium">选项列表 (choices)</label>
-        <button onclick="addChoice('${escAttr(nodeId)}')"
-                class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#6366f120] text-[#818cf8] text-xs hover:bg-[#6366f130] transition-colors">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-          </svg>
-          添加选项
-        </button>
-      </div>
-      <div id="choices-${escAttr(nodeId)}" class="space-y-3">
-        ${choices.map((c, i) => renderChoiceRow(nodeId, c, i)).join('')}
-      </div>
-    </div>
-  `;
-}
-
-// ── Ending Fields ──────────────────────────────────────────────────────────────
-function renderEndingFields(nodeId, node) {
-  return `
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">结局标签 (ending_tag)</label>
-        <input type="text" class="field-input"
-               value="${escHtml(node.ending_tag || '')}"
-               onchange="updateNodeField('${escAttr(nodeId)}', 'ending_tag', this.value)"
-               placeholder="ENDING · 01" />
-      </div>
-      <div>
-        <label class="block text-xs text-[#6b7280] mb-1.5 font-medium">结局描述 (description)</label>
-        <input type="text" class="field-input"
-               value="${escHtml(node.description || '')}"
-               onchange="updateNodeField('${escAttr(nodeId)}', 'description', this.value)"
-               placeholder="结局描述文字" />
-      </div>
-    </div>
-  `;
-}
-
-// ── Choice Row ─────────────────────────────────────────────────────────────────
-function renderChoiceRow(nodeId, choice, index) {
-  return `
-    <div class="choice-row" data-choice-index="${index}">
-      <div class="flex items-start gap-3">
-        <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs text-[#6b7280] mb-1 font-medium">选项标签</label>
-            <input type="text" class="field-input"
-                   value="${escHtml(choice.label || '')}"
-                   onchange="updateChoice('${escAttr(nodeId)}', ${index}, 'label', this.value)"
-                   placeholder="选项文字" />
-          </div>
-          <div>
-            <label class="block text-xs text-[#6b7280] mb-1 font-medium">目标节点 ID</label>
-            <input type="text" class="field-input font-mono"
-                   value="${escHtml(choice.target_node || '')}"
-                   onchange="updateChoice('${escAttr(nodeId)}', ${index}, 'target_node', this.value)"
-                   placeholder="node_B" />
-          </div>
-          <div>
-            <label class="block text-xs text-[#6b7280] mb-1 font-medium">副标签 (sublabel)</label>
-            <input type="text" class="field-input"
-                   value="${escHtml(choice.sublabel || '')}"
-                   onchange="updateChoice('${escAttr(nodeId)}', ${index}, 'sublabel', this.value)"
-                   placeholder="选项说明文字" />
-          </div>
-          <div>
-            <label class="block text-xs text-[#6b7280] mb-1 font-medium">快捷键 (hotkey)</label>
-            <input type="text" class="field-input w-20 font-mono"
-                   value="${escHtml(choice.hotkey || '')}"
-                   maxlength="1"
-                   onchange="updateChoice('${escAttr(nodeId)}', ${index}, 'hotkey', this.value)"
-                   placeholder="1" />
-          </div>
-        </div>
-        <button onclick="removeChoice('${escAttr(nodeId)}', ${index})"
-                title="删除此选项"
-                class="mt-5 p-1.5 rounded-lg text-[#6b7280] hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-// ── Data Mutation Helpers ──────────────────────────────────────────────────────
-function updateNodeField(nodeId, field, value) {
-  if (!gameData.nodes[nodeId]) return;
-  gameData.nodes[nodeId][field] = value;
-  updateJsonPreview();
-}
-
-function updateChoice(nodeId, index, field, value) {
-  const choices = gameData.nodes[nodeId]?.choices;
-  if (!choices || !choices[index]) return;
-  choices[index][field] = value;
-  updateJsonPreview();
-}
-
-function addChoice(nodeId) {
-  const node = gameData.nodes[nodeId];
-  if (!node) return;
-  if (!node.choices) node.choices = [];
-  const newIndex = node.choices.length;
-  node.choices.push({
-    label:       '新选项',
-    sublabel:    '选项说明',
-    hotkey:      String(newIndex + 1),
-    target_node: '',
-  });
-  // Re-render choices section only
-  const $choicesEl = document.getElementById(`choices-${nodeId}`);
-  if ($choicesEl) {
-    $choicesEl.innerHTML = node.choices.map((c, i) => renderChoiceRow(nodeId, c, i)).join('');
-  }
-  updateJsonPreview();
-  showToast('已添加新选项', 'info');
-}
-
-function removeChoice(nodeId, index) {
-  const node = gameData.nodes[nodeId];
-  if (!node?.choices) return;
-  node.choices.splice(index, 1);
-  const $choicesEl = document.getElementById(`choices-${nodeId}`);
-  if ($choicesEl) {
-    $choicesEl.innerHTML = node.choices.map((c, i) => renderChoiceRow(nodeId, c, i)).join('');
-  }
-  updateJsonPreview();
-}
-
-function toggleNodeType(nodeId) {
-  const node = gameData.nodes[nodeId];
-  if (!node) return;
-  node.type = node.type === 'branching' ? 'ending' : 'branching';
-  if (node.type === 'branching' && !node.choices) {
-    node.choices = [];
-    node.branch_at_second = 5;
-  }
-  // Re-render this card
-  const $card = $nodesContainer.querySelector(`[data-node-id="${nodeId}"]`);
-  if ($card) $card.remove();
-  renderNodeCard(nodeId, node);
-  updateJsonPreview();
-  showToast(`节点 ${nodeId} 已切换为 ${node.type}`, 'info');
-}
-
-function renameNode(oldId, newId) {
-  newId = newId.trim();
-  if (!newId || newId === oldId) return;
-  if (gameData.nodes[newId]) {
-    showToast(`节点 ID "${newId}" 已存在`, 'error');
-    return;
-  }
-
-  // Move node
-  gameData.nodes[newId] = gameData.nodes[oldId];
-  delete gameData.nodes[oldId];
-
-  // Update start_node if needed
-  if (gameData.start_node === oldId) {
-    gameData.start_node = newId;
-    $metaStartNode.value = newId;
-  }
-
-  // Update all choices referencing oldId
-  Object.values(gameData.nodes).forEach(node => {
-    (node.choices || []).forEach(c => {
-      if (c.target_node === oldId) c.target_node = newId;
-    });
-  });
-
-  // Re-render
-  const $card = $nodesContainer.querySelector(`[data-node-id="${oldId}"]`);
-  if ($card) $card.remove();
-  renderNodeCard(newId, gameData.nodes[newId]);
-  updateJsonPreview();
-  showToast(`节点 ID 已重命名：${oldId} → ${newId}`, 'info');
-}
-
-function addNode() {
-  const id = `node_${Date.now()}`;
-  gameData.nodes[id] = {
-    id,
-    type:             'ending',
-    title:            '新节点',
-    video_url:        '',
-    ending_tag:       'ENDING',
-    description:      '',
-  };
-  renderNodeCard(id, gameData.nodes[id]);
-  updateJsonPreview();
-  // Scroll to new card
+// ── INIT ───────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadData();
+  initTimeline();
+  initKeyboard();
+  initMinimap();
   setTimeout(() => {
-    const $card = $nodesContainer.querySelector(`[data-node-id="${id}"]`);
-    if ($card) $card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 100);
-  showToast(`已添加节点 ${id}`, 'info');
-}
-
-// ── Confirm Delete ─────────────────────────────────────────────────────────────
-function confirmDeleteNode(nodeId) {
-  pendingDeleteNodeId = nodeId;
-  document.getElementById('modal-title').textContent = `删除节点 "${nodeId}"`;
-  document.getElementById('modal-body').textContent  = '此操作不可撤销，确定要删除该节点吗？';
-  document.getElementById('confirm-modal').classList.add('open');
-}
-
-function closeModal() {
-  pendingDeleteNodeId = null;
-  document.getElementById('confirm-modal').classList.remove('open');
-}
-
-document.getElementById('modal-confirm-btn').addEventListener('click', () => {
-  if (!pendingDeleteNodeId) return;
-  const nodeId = pendingDeleteNodeId;
-  delete gameData.nodes[nodeId];
-  const $card = $nodesContainer.querySelector(`[data-node-id="${nodeId}"]`);
-  if ($card) $card.remove();
-  updateJsonPreview();
-  closeModal();
-  showToast(`节点 ${nodeId} 已删除`, 'info');
+    document.getElementById('loading').classList.add('hidden');
+  }, 1400);
 });
 
-// ── Preview Video ──────────────────────────────────────────────────────────────
-function previewVideo(nodeId) {
-  const url = gameData.nodes[nodeId]?.video_url;
-  if (!url) { showToast('请先填写视频链接', 'error'); return; }
-  window.open(url, '_blank', 'noopener');
+async function loadData() {
+  try {
+    const r = await fetch('/api/game-data');
+    state.gameData = await r.json();
+    renderGraph();
+    showToast('项目加载成功', 'success');
+  } catch(e) {
+    showToast('加载失败，请检查服务', 'error');
+  }
 }
 
-// ── Meta field sync ────────────────────────────────────────────────────────────
-$metaTitle.addEventListener('input', () => {
-  if (gameData) { gameData.title = $metaTitle.value; updateJsonPreview(); }
-});
-$metaStartNode.addEventListener('input', () => {
-  if (gameData) { gameData.start_node = $metaStartNode.value; updateJsonPreview(); }
-});
+// ── GRAPH RENDERING ────────────────────────────────────────────
+const DEFAULT_POSITIONS = {
+  node_A: { x: 180, y: 220 },
+  node_B: { x: 500, y: 120 },
+  node_C: { x: 500, y: 340 },
+};
 
-// ── JSON Preview ───────────────────────────────────────────────────────────────
-function updateJsonPreview() {
-  if (!gameData) return;
-  $jsonPreview.textContent = JSON.stringify(gameData, null, 2);
+function renderGraph() {
+  const canvas = document.getElementById('canvas');
+  // Clear existing nodes (keep SVG and selection box)
+  canvas.querySelectorAll('.node-card').forEach(el => el.remove());
+  document.querySelectorAll('.conn-path-g').forEach(el => el.remove());
+  state.nodes = {};
+  state.connections = [];
+
+  const data = state.gameData;
+  if (!data || !data.nodes) return;
+
+  // Create node cards
+  Object.values(data.nodes).forEach((nodeData, i) => {
+    const pos = DEFAULT_POSITIONS[nodeData.id] || { x: 180 + i * 260, y: 200 };
+    createNodeCard(nodeData, pos.x, pos.y);
+  });
+
+  // Create connections
+  Object.values(data.nodes).forEach(nodeData => {
+    if (nodeData.choices) {
+      nodeData.choices.forEach((choice, ci) => {
+        if (choice.target_node && state.nodes[choice.target_node]) {
+          addConnection(nodeData.id, choice.target_node, ci, choice.label);
+        }
+      });
+    }
+  });
+
+  updateMinimap();
+  updatePreviewPanel(data.nodes[data.start_node]);
 }
 
-function toggleJsonPanel() {
-  const $body    = document.getElementById('json-panel-body');
-  const $chevron = document.getElementById('json-panel-chevron');
-  const isHidden = $body.classList.contains('hidden');
-  $body.classList.toggle('hidden', !isHidden);
-  $chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
-  if (isHidden) updateJsonPreview();
-}
+function createNodeCard(nodeData, x, y) {
+  const canvas = document.getElementById('canvas');
+  const el = document.createElement('div');
+  el.className = `node-card type-${nodeData.type}`;
+  el.dataset.nodeId = nodeData.id;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
 
-// ── Save Data ──────────────────────────────────────────────────────────────────
-async function saveData() {
-  if (!gameData) { showToast('数据尚未加载', 'error'); return; }
+  const typeLabel = { branching: '分支节点', ending: '结局节点', start: '起始节点' }[nodeData.type] || nodeData.type;
+  const badgeClass = { branching: 'badge-branching', ending: 'badge-ending', start: 'badge-start' }[nodeData.type] || 'badge-branching';
+  const isStart = nodeData.id === state.gameData.start_node;
 
-  // Sync meta fields
-  gameData.title      = $metaTitle.value.trim()     || gameData.title;
-  gameData.start_node = $metaStartNode.value.trim() || gameData.start_node;
+  // Thumbnail
+  const thumbHtml = `<div class="node-thumb-placeholder">🎬</div>`;
 
-  // Validate start_node
-  if (!gameData.nodes[gameData.start_node]) {
-    showToast(`起始节点 "${gameData.start_node}" 不存在，请检查`, 'error');
-    return;
+  // Choices
+  let choicesHtml = '';
+  if (nodeData.choices && nodeData.choices.length) {
+    choicesHtml = `<div class="node-choices">` +
+      nodeData.choices.map((c,i) => `
+        <div class="node-choice-item">
+          <span class="choice-key">${c.hotkey||i+1}</span>
+          <span>${escHtml(c.label)}</span>
+        </div>`).join('') +
+      `</div>`;
+  }
+  if (nodeData.ending_tag) {
+    choicesHtml = `<span class="node-ending-tag">${escHtml(nodeData.ending_tag)}</span>`;
   }
 
-  // Disable button
-  $saveBtn.disabled    = true;
-  $saveBtnText.textContent = '保存中…';
-
-  try {
-    const res = await fetch('/api/save-data', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(gameData),
+  // Choice ports (one per choice for branching nodes)
+  let choicePortsHtml = '';
+  if (nodeData.choices) {
+    nodeData.choices.forEach((c, i) => {
+      const topPct = 55 + i * 22;
+      choicePortsHtml += `<div class="port port-out port-choice" data-node="${nodeData.id}" data-choice="${i}" style="top:${topPct}%" onmousedown="startConnect(event, '${nodeData.id}', ${i})"></div>`;
     });
-    const json = await res.json();
+  }
 
-    if (!res.ok || !json.ok) {
-      throw new Error(json.error || `HTTP ${res.status}`);
+  el.innerHTML = `
+    <div class="node-actions">
+      <div class="node-act-btn" onclick="openInspector('${nodeData.id}')" title="编辑">✎</div>
+      <div class="node-act-btn del" onclick="deleteNode('${nodeData.id}')" title="删除">✕</div>
+    </div>
+    ${thumbHtml}
+    <div class="node-header">
+      <div class="node-type-badge ${badgeClass}">${isStart ? '▶ 起点' : typeLabel}</div>
+      <div class="node-id">${escHtml(nodeData.id)}</div>
+      <div class="node-title">${escHtml(nodeData.title || '')}</div>
+    </div>
+    <div class="node-body">
+      <div class="node-video-url">${escHtml((nodeData.video_url||'').replace('https://',''))}</div>
+      ${choicesHtml}
+    </div>
+    <div class="port port-in" data-node="${nodeData.id}" onmouseup="endConnect(event, '${nodeData.id}')"></div>
+    ${nodeData.choices ? choicePortsHtml : `<div class="port port-out" data-node="${nodeData.id}" onmousedown="startConnect(event, '${nodeData.id}', -1)"></div>`}
+  `;
+
+  // Drag to move node
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('port') || e.target.classList.contains('node-act-btn')) return;
+    e.stopPropagation();
+    selectNode(nodeData.id, e.shiftKey);
+    if (state.currentTool === 'select') {
+      state.dragging = {
+        nodeId: nodeData.id,
+        startX: e.clientX, startY: e.clientY,
+        origX: x, origY: y,
+      };
+    }
+  });
+
+  el.addEventListener('dblclick', () => openInspector(nodeData.id));
+
+  canvas.appendChild(el);
+  state.nodes[nodeData.id] = { x, y, el, data: nodeData };
+  return el;
+}
+
+function addConnection(fromId, toId, choiceIdx, label) {
+  const conn = { from: fromId, to: toId, choiceIdx, label };
+  state.connections.push(conn);
+  renderConnections();
+}
+
+function renderConnections() {
+  const svg = document.getElementById('connections-svg');
+  svg.querySelectorAll('.conn-path-g').forEach(el => el.remove());
+
+  state.connections.forEach((conn, i) => {
+    const fromNode = state.nodes[conn.from];
+    const toNode   = state.nodes[conn.to];
+    if (!fromNode || !toNode) return;
+
+    const fw = 200, fh = getNodeHeight(fromNode.el);
+    const tw = 200, th = getNodeHeight(toNode.el);
+
+    // Port positions
+    let fy;
+    if (conn.choiceIdx >= 0) {
+      fy = fromNode.y + fh * (0.55 + conn.choiceIdx * 0.22);
+    } else {
+      fy = fromNode.y + fh / 2;
+    }
+    const fx = fromNode.x + fw;
+    const tx = toNode.x;
+    const ty = toNode.y + th / 2;
+
+    const dx = Math.abs(tx - fx) * 0.5;
+    const d  = `M${fx},${fy} C${fx+dx},${fy} ${tx-dx},${ty} ${tx},${ty}`;
+
+    const isEnding = conn.choiceIdx >= 0;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.className.baseVal = 'conn-path-g';
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', `conn-path ${isEnding ? 'branch' : ''}`);
+    path.setAttribute('marker-end', isEnding ? 'url(#arrow-amber)' : 'url(#arrow-cyan)');
+    g.appendChild(path);
+
+    // Label
+    if (conn.label) {
+      const mx = (fx + tx) / 2, my = (fy + ty) / 2;
+      const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+      text.setAttribute('x', mx); text.setAttribute('y', my - 6);
+      text.setAttribute('text-anchor','middle');
+      text.setAttribute('fill', isEnding ? '#ffb347' : '#00d4ff');
+      text.setAttribute('font-size','10');
+      text.setAttribute('font-family','JetBrains Mono, monospace');
+      text.setAttribute('opacity','0.8');
+      text.textContent = conn.label.length > 8 ? conn.label.slice(0,8)+'…' : conn.label;
+      g.appendChild(text);
     }
 
-    showToast(`✓ 保存成功 · ${new Date(json.timestamp).toLocaleTimeString()}`, 'success');
-    $saveBtnText.textContent = '已保存 ✓';
-    setTimeout(() => { $saveBtnText.textContent = '保存并发布'; }, 2500);
-  } catch (err) {
-    showToast('保存失败：' + err.message, 'error');
-    $saveBtnText.textContent = '保存并发布';
-  } finally {
-    $saveBtn.disabled = false;
-  }
+    svg.appendChild(g);
+  });
 }
 
-// ── Keyboard shortcut: Ctrl/Cmd + S ───────────────────────────────────────────
-document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+function getNodeHeight(el) {
+  return el ? el.offsetHeight || 180 : 180;
+}
+
+// ── VIEWPORT / PAN / ZOOM ──────────────────────────────────────
+function applyViewport() {
+  const canvas = document.getElementById('canvas');
+  const { x, y, scale } = state.viewport;
+  canvas.style.transform = `translate(${x}px,${y}px) scale(${scale})`;
+  document.getElementById('zoom-display').textContent = Math.round(scale * 100) + '%';
+  updateMinimap();
+}
+
+function zoomIn()  { setZoom(state.viewport.scale * 1.15); }
+function zoomOut() { setZoom(state.viewport.scale / 1.15); }
+function resetZoom() { state.viewport = { x: 0, y: 0, scale: 1 }; applyViewport(); }
+function setZoom(s) {
+  state.viewport.scale = Math.max(0.2, Math.min(3, s));
+  applyViewport();
+}
+
+function fitView() {
+  if (!Object.keys(state.nodes).length) return;
+  const wrap = document.getElementById('canvas-wrap');
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  Object.values(state.nodes).forEach(n => {
+    minX=Math.min(minX,n.x); minY=Math.min(minY,n.y);
+    maxX=Math.max(maxX,n.x+200); maxY=Math.max(maxY,n.y+200);
+  });
+  const pw=maxX-minX+120, ph=maxY-minY+120;
+  const scale=Math.min(ww/pw, wh/ph, 1.5);
+  state.viewport = {
+    x: (ww - pw*scale)/2 - minX*scale + 60*scale,
+    y: (wh - ph*scale)/2 - minY*scale + 60*scale,
+    scale
+  };
+  applyViewport();
+}
+
+// ── MOUSE EVENTS ───────────────────────────────────────────────
+function onCanvasMouseDown(e) {
+  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    // Middle click or Alt+drag = pan
     e.preventDefault();
-    saveData();
+    state.panning = { startX: e.clientX, startY: e.clientY, origVX: state.viewport.x, origVY: state.viewport.y };
+    document.getElementById('canvas-wrap').classList.add('grabbing');
+    return;
   }
-});
-
-// ── Escape closes modal ────────────────────────────────────────────────────────
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
-});
-
-// ── XSS Helpers ───────────────────────────────────────────────────────────────
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function escAttr(str) {
-  return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  if (e.button === 0 && e.target.id === 'canvas-wrap') {
+    // Deselect
+    clearSelection();
+    // Start selection box
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = (e.clientX - rect.left - state.viewport.x) / state.viewport.scale;
+    const cy = (e.clientY - rect.top  - state.viewport.y) / state.viewport.scale;
+    state.selBox = { startX: e.clientX, startY: e.clientY, startCX: cx, startCY: cy };
+  }
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────────
-fetchData();
+function onCanvasMouseMove(e) {
+  if (state.panning) {
+    state.viewport.x = state.panning.origVX + (e.clientX - state.panning.startX);
+    state.viewport.y = state.panning.origVY + (e.clientY - state.panning.startY);
+    applyViewport();
+    return;
+  }
+  if (state.dragging) {
+    const dx = (e.clientX - state.dragging.startX) / state.viewport.scale;
+    const dy = (e.clientY - state.dragging.startY) / state.viewport.scale;
+    const nx = state.dragging.origX + dx;
+    const ny = state.dragging.origY + dy;
+    const node = state.nodes[state.dragging.nodeId];
+    if (node) {
+      node.x = nx; node.y = ny;
+      node.el.style.left = nx + 'px';
+      node.el.style.top  = ny + 'px';
+      renderConnections();
+      updateMinimap();
+    }
+    return;
+  }
+  if (state.connecting) {
+    const wrap = document.getElementById('canvas-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const mx = (e.clientX - rect.left - state.viewport.x) / state.viewport.scale;
+    const my = (e.clientY - rect.top  - state.viewport.y) / state.viewport.scale;
+    const fromNode = state.nodes[state.connecting.fromId];
+    if (fromNode) {
+      const fx = fromNode.x + 200, fy = fromNode.y + 90;
+      const dx = Math.abs(mx - fx) * 0.5;
+      document.getElementById('temp-conn').setAttribute('d',
+        `M${fx},${fy} C${fx+dx},${fy} ${mx-dx},${my} ${mx},${my}`);
+    }
+    return;
+  }
+  if (state.selBox) {
+    const wrap = document.getElementById('canvas-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const x1 = Math.min(state.selBox.startX, e.clientX) - rect.left;
+    const y1 = Math.min(state.selBox.startY, e.clientY) - rect.top;
+    const w  = Math.abs(e.clientX - state.selBox.startX);
+    const h  = Math.abs(e.clientY - state.selBox.startY);
+    const sb = document.getElementById('selection-box');
+    sb.style.display = 'block';
+    sb.style.left = x1 + 'px'; sb.style.top = y1 + 'px';
+    sb.style.width = w + 'px'; sb.style.height = h + 'px';
+  }
+}
+
+function onCanvasMouseUp(e) {
+  if (state.panning) {
+    state.panning = null;
+    document.getElementById('canvas-wrap').classList.remove('grabbing');
+    return;
+  }
+  if (state.dragging) { state.dragging = null; return; }
+  if (state.connecting) {
+    document.getElementById('temp-conn').setAttribute('d','');
+    state.connecting = null;
+    document.getElementById('canvas-wrap').classList.remove('connecting');
+    return;
+  }
+  if (state.selBox) {
+    state.selBox = null;
+    document.getElementById('selection-box').style.display = 'none';
+  }
+}
+
+function onCanvasWheel(e) {
+  e.preventDefault();
+  const wrap = document.getElementById('canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newScale = Math.max(0.2, Math.min(3, state.viewport.scale * delta));
+  state.viewport.x = mouseX - (mouseX - state.viewport.x) * (newScale / state.viewport.scale);
+  state.viewport.y = mouseY - (mouseY - state.viewport.y) * (newScale / state.viewport.scale);
+  state.viewport.scale = newScale;
+  applyViewport();
+}
+
+// ── CONNECT PORTS ──────────────────────────────────────────────
+function startConnect(e, nodeId, choiceIdx) {
+  e.stopPropagation();
+  if (state.currentTool !== 'select' && state.currentTool !== 'connect') return;
+  state.connecting = { fromId: nodeId, choiceIdx };
+  document.getElementById('canvas-wrap').classList.add('connecting');
+}
+
+function endConnect(e, toId) {
+  e.stopPropagation();
+  if (!state.connecting) return;
+  const fromId = state.connecting.fromId;
+  if (fromId === toId) { state.connecting = null; return; }
+  // Add connection to data
+  const fromData = state.gameData.nodes[fromId];
+  if (fromData && fromData.choices && state.connecting.choiceIdx >= 0) {
+    fromData.choices[state.connecting.choiceIdx].target_node = toId;
+  }
+  // Re-render
+  state.connections = [];
+  Object.values(state.gameData.nodes).forEach(nd => {
+    if (nd.choices) nd.choices.forEach((c,i) => {
+      if (c.target_node && state.nodes[c.target_node])
+        state.connections.push({ from: nd.id, to: c.target_node, choiceIdx: i, label: c.label });
+    });
+  });
+  renderConnections();
+  document.getElementById('temp-conn').setAttribute('d','');
+  state.connecting = null;
+  document.getElementById('canvas-wrap').classList.remove('connecting');
+  showToast(`已连接 ${fromId} → ${toId}`, 'info');
+}
+
+// ── SELECTION ──────────────────────────────────────────────────
+function selectNode(id, multi) {
+  if (!multi) clearSelection();
+  state.selectedNodes.add(id);
+  state.selectedNode = id;
+  const node = state.nodes[id];
+  if (node) node.el.classList.add('selected');
+  updatePreviewPanel(state.gameData.nodes[id]);
+}
+
+function clearSelection() {
+  state.selectedNodes.forEach(id => {
+    const n = state.nodes[id];
+    if (n) n.el.classList.remove('selected');
+  });
+  state.selectedNodes.clear();
+  state.selectedNode = null;
+}
+
+// ── ADD / DELETE NODE ──────────────────────────────────────────
+function addNode(type) {
+  const id = `node_${Date.now()}`;
+  const newNode = {
+    id, type,
+    title: type === 'ending' ? '新结局节点' : '新视频节点',
+    video_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    ...(type === 'branching' ? {
+      branch_at_second: 5,
+      choices: [
+        { label: '选项 1', sublabel: '', hotkey: '1', target_node: '' },
+        { label: '选项 2', sublabel: '', hotkey: '2', target_node: '' },
+      ]
+    } : {}),
+    ...(type === 'ending' ? { ending_tag: 'ENDING · NEW', description: '' } : {}),
+  };
+  state.gameData.nodes[id] = newNode;
+  // Place near center of viewport
+  const wrap = document.getElementById('canvas-wrap');
+  const cx = (wrap.clientWidth  / 2 - state.viewport.x) / state.viewport.scale;
+  const cy = (wrap.clientHeight / 2 - state.viewport.y) / state.viewport.scale;
+  createNodeCard(newNode, cx - 100, cy - 90);
+  showToast(`已添加节点 ${id}`, 'success');
+  openInspector(id);
+}
+
+function deleteNode(id) {
+  if (!id) return;
+  if (!confirm(`确认删除节点 "${id}"？相关连线也会被清除。`)) return;
+  delete state.gameData.nodes[id];
+  const node = state.nodes[id];
+  if (node) node.el.remove();
+  delete state.nodes[id];
+  state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
+  // Clean up references
+  Object.values(state.gameData.nodes).forEach(nd => {
+    if (nd.choices) nd.choices.forEach(c => { if (c.target_node === id) c.target_node = ''; });
+  });
+  renderConnections();
+  showToast(`节点 ${id} 已删除`, 'info');
+}
+
+// ── TOOL SELECTION ─────────────────────────────────────────────
+function setTool(t) {
+  state.currentTool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('tool-' + t);
+  if (btn) btn.classList.add('active');
+  const wrap = document.getElementById('canvas-wrap');
+  wrap.classList.toggle('connecting', t === 'connect');
+}
+
+// ── CONTEXT MENU ───────────────────────────────────────────────
+function showCtxMenu(e) {
+  e.preventDefault();
+  ctxTargetNode = e.target.closest('.node-card')?.dataset.nodeId || null;
+  document.getElementById('ctx-node-actions').style.display = ctxTargetNode ? 'block' : 'none';
+  const menu = document.getElementById('ctx-menu');
+  menu.style.display = 'block';
+  menu.style.left = e.clientX + 'px';
+  menu.style.top  = e.clientY + 'px';
+  state.ctxPos = {
+    x: (e.clientX - state.viewport.x) / state.viewport.scale,
+    y: (e.clientY - state.viewport.y) / state.viewport.scale,
+  };
+}
+function hideCtxMenu() { document.getElementById('ctx-menu').style.display = 'none'; }
+document.addEventListener('click', hideCtxMenu);
+
+// ── INSPECTOR ──────────────────────────────────────────────────
+function openInspector(nodeId) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  const insp = document.getElementById('inspector');
+  document.getElementById('insp-title').textContent = `编辑 · ${nodeId}`;
+
+  let choicesHtml = '';
+  if (nodeData.choices) {
+    choicesHtml = `
+      <div class="insp-field">
+        <div class="insp-label">分支时间 (秒)</div>
+        <input class="insp-input" id="insp-branch-sec" type="number" value="${nodeData.branch_at_second||5}" min="0"/>
+      </div>
+      <div class="insp-field">
+        <div class="insp-label">选项列表</div>
+        <div class="insp-choices-list" id="insp-choices">
+          ${nodeData.choices.map((c,i) => `
+            <div class="insp-choice-row" data-idx="${i}">
+              <input placeholder="选项文字" value="${escHtml(c.label||'')}" data-field="label" data-idx="${i}"/>
+              <input placeholder="副标题" value="${escHtml(c.sublabel||'')}" data-field="sublabel" data-idx="${i}"/>
+              <input placeholder="目标节点 ID" value="${escHtml(c.target_node||'')}" data-field="target_node" data-idx="${i}"/>
+            </div>`).join('')}
+        </div>
+        <button class="insp-add-btn" onclick="addChoiceInInspector('${nodeId}')">+ 添加选项</button>
+      </div>`;
+  }
+  if (nodeData.type === 'ending') {
+    choicesHtml = `
+      <div class="insp-field">
+        <div class="insp-label">结局标签</div>
+        <input class="insp-input" id="insp-ending-tag" value="${escHtml(nodeData.ending_tag||'')}"/>
+      </div>
+      <div class="insp-field">
+        <div class="insp-label">结局描述</div>
+        <input class="insp-input" id="insp-description" value="${escHtml(nodeData.description||'')}"/>
+      </div>`;
+  }
+
+  document.getElementById('insp-body').innerHTML = `
+    <div class="insp-field">
+      <div class="insp-label">节点 ID</div>
+      <input class="insp-input" id="insp-id" value="${escHtml(nodeId)}" readonly style="opacity:0.6"/>
+    </div>
+    <div class="insp-field">
+      <div class="insp-label">标题</div>
+      <input class="insp-input" id="insp-title-val" value="${escHtml(nodeData.title||'')}"/>
+    </div>
+    <div class="insp-field">
+      <div class="insp-label">视频 URL</div>
+      <input class="insp-input" id="insp-video-url" value="${escHtml(nodeData.video_url||'')}"/>
+    </div>
+    ${choicesHtml}
+    <button class="insp-save-btn" onclick="applyInspector('${nodeId}')">应用更改</button>
+  `;
+  insp.style.display = 'block';
+  insp.dataset.nodeId = nodeId;
+}
+
+function addChoiceInInspector(nodeId) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData.choices) return;
+  const i = nodeData.choices.length;
+  nodeData.choices.push({ label: `选项 ${i+1}`, sublabel: '', hotkey: String(i+1), target_node: '' });
+  openInspector(nodeId);
+}
+
+function applyInspector(nodeId) {
+  const nodeData = state.gameData.nodes[nodeId];
+  nodeData.title     = document.getElementById('insp-title-val')?.value || nodeData.title;
+  nodeData.video_url = document.getElementById('insp-video-url')?.value || nodeData.video_url;
+  if (nodeData.choices) {
+    nodeData.branch_at_second = parseFloat(document.getElementById('insp-branch-sec')?.value) || 5;
+    document.querySelectorAll('#insp-choices .insp-choice-row').forEach(row => {
+      const idx = parseInt(row.dataset.idx);
+      if (!nodeData.choices[idx]) return;
+      row.querySelectorAll('input').forEach(inp => {
+        nodeData.choices[idx][inp.dataset.field] = inp.value;
+      });
+    });
+  }
+  if (nodeData.type === 'ending') {
+    nodeData.ending_tag  = document.getElementById('insp-ending-tag')?.value || '';
+    nodeData.description = document.getElementById('insp-description')?.value || '';
+  }
+  // Re-render node card
+  const node = state.nodes[nodeId];
+  if (node) { node.el.remove(); delete state.nodes[nodeId]; }
+  createNodeCard(nodeData, node?.x || 200, node?.y || 200);
+  state.connections = [];
+  Object.values(state.gameData.nodes).forEach(nd => {
+    if (nd.choices) nd.choices.forEach((c,i) => {
+      if (c.target_node && state.nodes[c.target_node])
+        state.connections.push({ from: nd.id, to: c.target_node, choiceIdx: i, label: c.label });
+    });
+  });
+  renderConnections();
+  updatePreviewPanel(nodeData);
+  showToast('节点已更新', 'success');
+}
+
+function closeInspector() { document.getElementById('inspector').style.display = 'none'; }
+
+// ── PREVIEW PANEL ──────────────────────────────────────────────
+function updatePreviewPanel(nodeData) {
+  if (!nodeData) return;
+  document.getElementById('screen-node-label').textContent = nodeData.id?.toUpperCase() || '';
+  document.getElementById('screen-node-title').textContent = nodeData.title || '';
+  document.getElementById('pni-id').textContent = nodeData.id || '';
+  document.getElementById('pni-time').textContent = nodeData.branch_at_second ? nodeData.branch_at_second + 's' : '—';
+  const typeBadge = document.getElementById('pni-type');
+  typeBadge.textContent = nodeData.type === 'ending' ? '结局' : '分支';
+  typeBadge.className = `pni-badge ${nodeData.type}`;
+
+  const choicesEl = document.getElementById('screen-choices');
+  if (nodeData.choices && nodeData.choices.length) {
+    choicesEl.style.display = 'flex';
+    nodeData.choices.forEach((c, i) => {
+      const lbl = document.getElementById(`choice-label-${i}`);
+      if (lbl) lbl.textContent = c.label || `选项 ${i+1}`;
+    });
+  } else {
+    choicesEl.style.display = 'none';
+  }
+}
+
+function setOrientation(o) {
+  state.orientation = o;
+  const shell = document.getElementById('phone-shell');
+  shell.className = o;
+  document.getElementById('btn-portrait').classList.toggle('active', o === 'portrait');
+  document.getElementById('btn-landscape').classList.toggle('active', o === 'landscape');
+}
+
+function refreshPreview() {
+  if (state.selectedNode) updatePreviewPanel(state.gameData.nodes[state.selectedNode]);
+  showToast('预览已刷新', 'info');
+}
+
+// ── TIMELINE ───────────────────────────────────────────────────
+function initTimeline() {
+  const tl = document.getElementById('timeline');
+  const canvas = document.getElementById('timeline-canvas');
+  canvas.width  = tl.clientWidth;
+  canvas.height = tl.clientHeight;
+  drawTimeline();
+
+  // Scrubber drag
+  const scrubber = document.getElementById('timeline-scrubber');
+  let draggingScrub = false, scrubStartX = 0, scrubOrigX = 0;
+  scrubber.addEventListener('mousedown', e => {
+    draggingScrub = true; scrubStartX = e.clientX;
+    scrubOrigX = state.timelineScrubX;
+    e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!draggingScrub) return;
+    const newX = Math.max(0, scrubOrigX + (e.clientX - scrubStartX) + state.timelineOffset);
+    state.timelineScrubX = newX;
+    scrubber.style.transform = `translateX(${newX}px)`;
+    const timeEl = document.getElementById('timeline-time');
+    timeEl.style.transform = `translateX(${newX + 4}px)`;
+    const sec = newX / 60;
+    const m = Math.floor(sec/60), s = Math.floor(sec%60);
+    timeEl.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  });
+  document.addEventListener('mouseup', () => { draggingScrub = false; });
+
+  window.addEventListener('resize', () => {
+    canvas.width = tl.clientWidth;
+    drawTimeline();
+  });
+}
+
+function drawTimeline() {
+  const canvas = document.getElementById('timeline-canvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  const pxPerSec = 60;
+  const offset = state.timelineOffset;
+
+  ctx.fillStyle = 'rgba(22,24,30,0.95)';
+  ctx.fillRect(0,0,w,h);
+
+  for (let s = 0; s * pxPerSec - offset < w + pxPerSec; s++) {
+    const x = s * pxPerSec - offset;
+    if (x < -pxPerSec || x > w + pxPerSec) continue;
+    const isMajor = s % 5 === 0;
+    ctx.strokeStyle = isMajor ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, isMajor ? 0 : h * 0.6);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+    if (isMajor) {
+      const m = Math.floor(s/60), sec = s%60;
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillText(`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`, x+3, 14);
+    }
+  }
+
+  // branch_at_second markers
+  if (state.gameData) {
+    Object.values(state.gameData.nodes).forEach(nd => {
+      if (nd.branch_at_second) {
+        const x = nd.branch_at_second * pxPerSec - offset;
+        ctx.strokeStyle = 'rgba(255,179,71,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,179,71,0.8)';
+        ctx.font = '9px JetBrains Mono, monospace';
+        ctx.fillText(`${nd.id} ⬦`, x+3, h-4);
+      }
+    });
+  }
+}
+
+// ── MINIMAP ────────────────────────────────────────────────────
+function initMinimap() { updateMinimap(); }
+
+function updateMinimap() {
+  const canvas = document.getElementById('minimap-canvas');
+  const ctx = canvas.getContext('2d');
+  const w = 140, h = 90;
+  ctx.clearRect(0,0,w,h);
+
+  const scaleX = w / 1200, scaleY = h / 800;
+
+  // Draw nodes
+  Object.values(state.nodes).forEach(n => {
+    const typeColors = { branching: '#ffb347', ending: '#a78bfa', start: '#00d4ff' };
+    const color = typeColors[n.data.type] || '#00d4ff';
+    ctx.fillStyle = color + '50';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    const rx = n.x * scaleX, ry = n.y * scaleY;
+    ctx.beginPath();
+    ctx.roundRect(rx, ry, 200*scaleX, 160*scaleY, 2);
+    ctx.fill(); ctx.stroke();
+  });
+
+  // Draw connections
+  state.connections.forEach(conn => {
+    const fn = state.nodes[conn.from], tn = state.nodes[conn.to];
+    if (!fn || !tn) return;
+    ctx.strokeStyle = conn.choiceIdx >= 0 ? 'rgba(255,179,71,0.5)' : 'rgba(0,212,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo((fn.x+200)*scaleX, (fn.y+80)*scaleY);
+    ctx.lineTo(tn.x*scaleX, (tn.y+80)*scaleY);
+    ctx.stroke();
+  });
+
+  // Viewport indicator
+  const wrap = document.getElementById('canvas-wrap');
+  const vw = wrap.clientWidth / state.viewport.scale;
+  const vh = wrap.clientHeight / state.viewport.scale;
+  const vx = -state.viewport.x / state.viewport.scale;
+  const vy = -state.viewport.y / state.viewport.scale;
+  const mm = document.getElementById('minimap-viewport');
+  mm.style.left   = Math.max(0, vx * scaleX) + 'px';
+  mm.style.top    = Math.max(0, vy * scaleY) + 'px';
+  mm.style.width  = Math.min(w, vw * scaleX) + 'px';
+  mm.style.height = Math.min(h, vh * scaleY) + 'px';
+}
+
+// ── SAVE / EXPORT ──────────────────────────────────────────────
+async function saveData() {
+  const btn = document.querySelector('.tb-btn.primary');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 保存中...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/save-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.gameData),
+    });
+    const result = await r.json();
+    if (r.ok) showToast('保存成功 ✓', 'success');
+    else showToast('保存失败: ' + result.error, 'error');
+  } catch(e) {
+    showToast('网络错误，保存失败', 'error');
+  } finally {
+    btn.innerHTML = orig; btn.disabled = false;
+  }
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state.gameData, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stellar-heir-data.json';
+  a.click();
+  showToast('JSON 已导出', 'info');
+}
+
+// ── AI CHAT ────────────────────────────────────────────────────
+const AI_RESPONSES = [
+  '好的，我来帮你分析这个剧情节点的走向...',
+  '根据《星之继承者》的世界观，我建议可以增加一个"联系地球"的隐藏选项，触发条件是玩家在第3秒前做出选择。',
+  '我已为 Node_B 生成了两个新的分支选项：\n① "公开碳14数据" → 触发全球广播结局\n② "秘密保存证据" → 触发地下组织结局',
+  '这个节点的视频时长建议控制在15秒以内，以保持玩家的决策张力。',
+  '我注意到 Node_C 目前是一个死结局，是否需要我为它添加一个"重生点"，让玩家可以从检查点重新开始？',
+];
+let aiMsgIdx = 0;
+
+function sendAiMsg() {
+  const input = document.getElementById('ai-input');
+  const text = input.value.trim();
+  if (!text) return;
+  appendAiMsg(text, 'user');
+  input.value = '';
+  input.style.height = '';
+
+  // Typing indicator
+  const typingEl = document.createElement('div');
+  typingEl.className = 'ai-msg bot';
+  typingEl.innerHTML = `<div class="ai-avatar bot">AI</div><div class="ai-bubble"><div class="ai-typing"><span></span><span></span><span></span></div></div>`;
+  document.getElementById('ai-messages').appendChild(typingEl);
+  scrollAiToBottom();
+
+  setTimeout(() => {
+    typingEl.remove();
+    appendAiMsg(AI_RESPONSES[aiMsgIdx % AI_RESPONSES.length], 'bot');
+    aiMsgIdx++;
+  }, 1200 + Math.random() * 800);
+}
+
+function appendAiMsg(text, role) {
+  const msgs = document.getElementById('ai-messages');
+  const el = document.createElement('div');
+  el.className = `ai-msg ${role}`;
+  const avatar = role === 'bot'
+    ? `<div class="ai-avatar bot">AI</div>`
+    : `<div class="ai-avatar user-av">我</div>`;
+  el.innerHTML = `${avatar}<div class="ai-bubble">${escHtml(text).replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(el);
+  scrollAiToBottom();
+}
+
+function scrollAiToBottom() {
+  const msgs = document.getElementById('ai-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function clearChat() {
+  document.getElementById('ai-messages').innerHTML = `
+    <div class="ai-msg bot">
+      <div class="ai-avatar bot">AI</div>
+      <div class="ai-bubble">对话已清空。有什么我可以帮你的？</div>
+    </div>`;
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 80) + 'px';
+}
+
+// ── SIDEBAR TOGGLE ─────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ── KEYBOARD SHORTCUTS ─────────────────────────────────────────
+function initKeyboard() {
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); saveData(); return; }
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'c' || e.key === 'C') setTool('connect');
+    if (e.key === 'a' || e.key === 'A') addNode('branching');
+    if (e.key === 'f' || e.key === 'F') fitView();
+    if (e.key === 'Escape') { closeInspector(); clearSelection(); }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedNode) deleteNode(state.selectedNode);
+    if (e.key === '+' || e.key === '=') zoomIn();
+    if (e.key === '-') zoomOut();
+    if (e.key === '0') resetZoom();
+  });
+}
+
+// ── TOAST ──────────────────────────────────────────────────────
+function showToast(msg, type='info') {
+  const icons = { success:'✓', error:'✕', info:'ℹ' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]}</span><span>${escHtml(msg)}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── UTILS ──────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// CSS spin animation for save button
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
 </script>
 </body>
 </html>
