@@ -117,20 +117,52 @@
     }
 
     /* ── Video Container ──────────────────────────────────────────────────── */
+    /*
+     * 所有动态创建的 <video> 都被注入到此容器中。
+     * 活跃视频 class="vid-active"，预加载视频 class="vid-preload"（隐藏）。
+     */
     #video-container {
       position: absolute;
       inset: 0;
       background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
-    #game-video {
+    /* 活跃视频：铺满容器，可见 */
+    #video-container .vid-active {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
+      opacity: 1;
+      transition: opacity 0.25s ease;
+      z-index: 1;
+    }
+
+    /* 预加载视频：完全隐藏，不占布局，静音，后台拉流 */
+    #video-container .vid-preload {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      /* 仍在 DOM 中，浏览器会继续缓冲 */
+    }
+
+    /* 切换时的淡出过渡辅助 */
+    #video-container .vid-fadeout {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      z-index: 1;
+      pointer-events: none;
     }
 
     /* ── Corner Brackets (decorative) ────────────────────────────────────── */
@@ -214,6 +246,18 @@
       margin: 4px 0;
     }
 
+    /* Preload status badge */
+    .preload-badge {
+      font-size: 8px;
+      letter-spacing: 0.2em;
+      color: var(--clr-text-dim);
+      margin-top: -6px;
+    }
+
+    .preload-badge .badge-ready {
+      color: var(--clr-success);
+    }
+
     /* Choice Buttons */
     .choice-btn {
       position: relative;
@@ -275,6 +319,21 @@
       font-size: 8px;
       color: var(--clr-text-dim);
       letter-spacing: 0.1em;
+    }
+
+    /* Ready indicator on button */
+    .choice-btn .btn-ready-dot {
+      position: absolute;
+      bottom: 8px; right: 12px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--clr-text-dim);
+      transition: background 0.3s ease;
+    }
+
+    .choice-btn.is-ready .btn-ready-dot {
+      background: var(--clr-success);
+      box-shadow: 0 0 6px var(--clr-success);
     }
 
     /* ── HUD Footer ───────────────────────────────────────────────────────── */
@@ -475,7 +534,7 @@
       padding: 0 30px;
     }
 
-    /* ── Responsive: desktop shows phone in center ────────────────────────── */
+    /* ── Responsive: full-screen on real mobile ───────────────────────────── */
     @media (max-width: 430px) {
       #phone-shell {
         width: 100vw;
@@ -520,10 +579,8 @@
   <div class="corner corner-bl"></div>
   <div class="corner corner-br"></div>
 
-  <!-- Video Container -->
-  <div id="video-container">
-    <video id="game-video" playsinline webkit-playsinline muted controls preload="metadata"></video>
-  </div>
+  <!-- Video Container — 所有 <video> 实例动态注入此处 -->
+  <div id="video-container"></div>
 
   <!-- Choice Overlay -->
   <div id="choice-overlay">
@@ -533,6 +590,7 @@
     </div>
     <div class="choice-divider"></div>
     <div id="choices-container"></div>
+    <div class="preload-badge" id="preload-badge"></div>
   </div>
 
   <!-- Ending Screen -->
@@ -556,27 +614,60 @@
 <script>
 'use strict';
 
-// ── State ──────────────────────────────────────────────────────────────────────
-const state = {
-  gameData:       null,
-  currentNode:    null,
-  choiceShown:    false,
-  branchHandled:  false,
-};
+// ══════════════════════════════════════════════════════════════════════════════
+//  STELLAR HEIR · Video Pool Engine v2.0
+//  架构：多视频实例池（Video Pool）+ 无缝预加载（Seamless Preloading）
+//
+//  核心数据结构：
+//    videoPool  Map<nodeId, HTMLVideoElement>
+//      - 每个节点对应一个独立的 <video> 实例
+//      - 当前播放节点的实例：class="vid-active"，unmuted，可见
+//      - 预加载节点的实例：class="vid-preload"，muted，隐藏，后台缓冲
+//
+//  生命周期：
+//    1. loadNode(nodeId)
+//       → 从 pool 取出或创建目标 <video>
+//       → 激活（unmute + display + play）
+//       → 立即对该节点的所有 choices 目标发起 preloadNode()
+//    2. preloadNode(nodeId)
+//       → 若 pool 中已存在则跳过（已在缓冲）
+//       → 创建隐藏 <video preload="auto" muted>，注入 DOM，开始后台拉流
+//    3. handleChoice(choice)
+//       → 直接从 pool 取出已预加载的 <video>
+//       → 无需任何网络等待，立即 display + unmute + play → 无缝秒切
+//    4. releaseStaleVideos(keepIds)
+//       → 遍历 pool，pause + removeAttribute('src') + remove() 不在 keepIds 中的实例
+//       → 防止内存泄漏
+// ══════════════════════════════════════════════════════════════════════════════
 
 // ── DOM Refs ───────────────────────────────────────────────────────────────────
-const $loadingScreen  = document.getElementById('loading-screen');
-const $errorScreen    = document.getElementById('error-screen');
-const $video          = document.getElementById('game-video');
-const $choiceOverlay  = document.getElementById('choice-overlay');
+const $loadingScreen    = document.getElementById('loading-screen');
+const $errorScreen      = document.getElementById('error-screen');
+const $videoContainer   = document.getElementById('video-container');
+const $choiceOverlay    = document.getElementById('choice-overlay');
 const $choicesContainer = document.getElementById('choices-container');
-const $endingScreen   = document.getElementById('ending-screen');
-const $endingTag      = document.getElementById('ending-tag-text');
-const $endingTitle    = document.getElementById('ending-title-text');
-const $endingDesc     = document.getElementById('ending-desc-text');
-const $restartBtn     = document.getElementById('restart-btn');
-const $nodeLabel      = document.getElementById('node-label');
-const $timeDisplay    = document.getElementById('time-display');
+const $preloadBadge     = document.getElementById('preload-badge');
+const $endingScreen     = document.getElementById('ending-screen');
+const $endingTag        = document.getElementById('ending-tag-text');
+const $endingTitle      = document.getElementById('ending-title-text');
+const $endingDesc       = document.getElementById('ending-desc-text');
+const $restartBtn       = document.getElementById('restart-btn');
+const $nodeLabel        = document.getElementById('node-label');
+const $timeDisplay      = document.getElementById('time-display');
+
+// ── Engine State ───────────────────────────────────────────────────────────────
+const engine = {
+  gameData:      null,   // 完整 JSON 数据
+  currentNodeId: null,   // 当前活跃节点 ID
+  activeVideo:   null,   // 当前活跃 <video> 元素引用
+  choiceShown:   false,  // 是否已弹出选项
+  branchHandled: false,  // 是否已触发分支（防重入）
+  transitioning: false,  // 是否正在切换节点（防重复点击）
+};
+
+// ── Video Pool ─────────────────────────────────────────────────────────────────
+// Map<nodeId: string, video: HTMLVideoElement>
+const videoPool = new Map();
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function formatTime(sec) {
@@ -594,80 +685,312 @@ function showError() {
   hideLoading();
 }
 
-// ── Load Game Data ─────────────────────────────────────────────────────────────
+// ── Fetch Game Data ────────────────────────────────────────────────────────────
 async function fetchGameData() {
   try {
     const res = await fetch('/api/game-data');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.error('[STELLAR HEIR] Failed to fetch game data:', err);
+    console.error('[VideoPool] fetchGameData failed:', err);
     return null;
   }
 }
 
-// ── Load a Node ────────────────────────────────────────────────────────────────
-function loadNode(nodeId) {
-  const node = state.gameData.nodes[nodeId];
-  if (!node) {
-    console.error('[STELLAR HEIR] Node not found:', nodeId);
+// ── Create a Video Element ─────────────────────────────────────────────────────
+/**
+ * 工厂函数：创建一个标准化的 <video> 实例并注入 video-container。
+ * @param {string} nodeId   - 对应的节点 ID（用于 data 属性追踪）
+ * @param {string} url      - 视频 URL
+ * @param {boolean} hidden  - true = 预加载模式（隐藏）；false = 活跃模式（可见）
+ * @returns {HTMLVideoElement}
+ */
+function createVideoElement(nodeId, url, hidden) {
+  const v = document.createElement('video');
+  v.dataset.nodeId  = nodeId;
+  v.src             = url;
+  v.preload         = 'auto';          // 立即开始缓冲
+  v.playsInline     = true;
+  v.setAttribute('webkit-playsinline', '');
+  v.muted           = true;            // 初始静音（绕过自动播放策略）
+  v.className       = hidden ? 'vid-preload' : 'vid-active';
+
+  v.addEventListener('error', (e) => {
+    console.error(`[VideoPool] Video error on node ${nodeId}:`, e);
+  });
+
+  $videoContainer.appendChild(v);
+
+  // 立即触发加载（某些浏览器需要显式 load()）
+  v.load();
+
+  console.log(`[VideoPool] Created <video> for node="${nodeId}" hidden=${hidden}`);
+  return v;
+}
+
+// ── Preload Node ───────────────────────────────────────────────────────────────
+/**
+ * 后台预加载目标节点的视频。若 pool 中已存在则跳过。
+ * @param {string} nodeId
+ */
+function preloadNode(nodeId) {
+  if (videoPool.has(nodeId)) {
+    console.log(`[VideoPool] Preload skip (already in pool): ${nodeId}`);
     return;
   }
 
-  state.currentNode   = node;
-  state.choiceShown   = false;
-  state.branchHandled = false;
+  const node = engine.gameData.nodes[nodeId];
+  if (!node) {
+    console.warn(`[VideoPool] Preload target not found: ${nodeId}`);
+    return;
+  }
 
-  // Reset overlays
-  $choiceOverlay.classList.remove('visible');
-  $endingScreen.classList.remove('visible');
-  $choicesContainer.innerHTML = '';
+  const v = createVideoElement(nodeId, node.video_url, true /* hidden */);
+  videoPool.set(nodeId, v);
+  console.log(`[VideoPool] Preloading started: ${nodeId} → ${node.video_url}`);
 
-  // Update HUD
-  $nodeLabel.textContent = `NODE · ${node.id.replace('_', ' ')}`;
+  // 当视频缓冲到可以流畅播放时，更新选项按钮的就绪指示灯
+  v.addEventListener('canplaythrough', () => {
+    console.log(`[VideoPool] Preload ready: ${nodeId}`);
+    markChoiceReady(nodeId);
+    updatePreloadBadge();
+  }, { once: true });
+}
 
-  // Load video
-  $video.src = node.video_url;
-  $video.load();
-  $video.play().catch(err => {
-    // Autoplay may be blocked; user interaction can resume playback via controls/tap.
-    console.warn('[STELLAR HEIR] Autoplay blocked:', err.message);
+// ── Release Stale Videos ───────────────────────────────────────────────────────
+/**
+ * 内存管理：从 pool 中移除不再需要的视频实例，释放浏览器内存。
+ * @param {Set<string>} keepIds - 需要保留的节点 ID 集合
+ */
+function releaseStaleVideos(keepIds) {
+  for (const [nodeId, v] of videoPool.entries()) {
+    if (!keepIds.has(nodeId)) {
+      console.log(`[VideoPool] Releasing stale video: ${nodeId}`);
+      v.pause();
+      v.removeAttribute('src');  // 断开资源引用，触发 GC
+      v.load();                  // 强制浏览器释放缓冲区
+      v.remove();                // 从 DOM 移除
+      videoPool.delete(nodeId);
+    }
+  }
+}
+
+// ── Activate Video ─────────────────────────────────────────────────────────────
+/**
+ * 将 pool 中的视频从预加载状态切换为活跃状态（无缝秒切核心）。
+ * @param {HTMLVideoElement} v
+ */
+function activateVideo(v) {
+  v.className = 'vid-active';
+  v.muted     = false;   // 恢复声音
+  v.currentTime = 0;     // 从头播放
+  return v.play().catch(err => {
+    // 若自动播放仍被拦截（极少数情况），保持 muted 重试
+    console.warn('[VideoPool] Unmuted play blocked, retrying muted:', err.message);
+    v.muted = true;
+    return v.play().catch(() => {});
   });
 }
 
-// ── Build Choice Buttons ───────────────────────────────────────────────────────
-function showChoices(node) {
-  if (state.choiceShown) return;
-  state.choiceShown = true;
+// ── Deactivate Video ───────────────────────────────────────────────────────────
+/**
+ * 将当前活跃视频切换为淡出状态，然后移除。
+ * @param {HTMLVideoElement} v
+ */
+function deactivateVideo(v) {
+  v.className = 'vid-fadeout';
+  v.pause();
+  // 等待 CSS transition 结束后再从 DOM 移除（250ms）
+  setTimeout(() => {
+    if (v.parentNode) {
+      v.pause();
+      v.removeAttribute('src');
+      v.load();
+      v.remove();
+    }
+  }, 260);
+}
 
-  $video.pause();
+// ── Load Node (Main Entry) ─────────────────────────────────────────────────────
+/**
+ * 加载并播放指定节点：
+ *   1. 从 pool 取出预加载好的 <video>（或新建）
+ *   2. 激活（unmute + play）
+ *   3. 立即对所有 choices 目标发起预加载
+ *   4. 释放不再需要的旧视频
+ * @param {string} nodeId
+ */
+async function loadNode(nodeId) {
+  const node = engine.gameData.nodes[nodeId];
+  if (!node) {
+    console.error('[VideoPool] loadNode: node not found:', nodeId);
+    return;
+  }
+
+  engine.currentNodeId = nodeId;
+  engine.choiceShown   = false;
+  engine.branchHandled = false;
+  engine.transitioning = false;
+
+  // 重置 UI
+  $choiceOverlay.classList.remove('visible');
+  $endingScreen.classList.remove('visible');
+  $choicesContainer.innerHTML = '';
+  $preloadBadge.innerHTML     = '';
+  $nodeLabel.textContent = `NODE · ${nodeId.replace('_', ' ')}`;
+
+  // ── 步骤 1：获取或创建目标视频 ──────────────────────────────────────────
+  let targetVideo;
+  if (videoPool.has(nodeId)) {
+    // 命中预加载缓存 → 无缝秒切！
+    targetVideo = videoPool.get(nodeId);
+    console.log(`[VideoPool] Cache HIT for ${nodeId} — seamless switch!`);
+  } else {
+    // 未命中（首次加载或 restart）→ 新建并立即播放
+    targetVideo = createVideoElement(nodeId, node.video_url, false);
+    videoPool.set(nodeId, targetVideo);
+    console.log(`[VideoPool] Cache MISS for ${nodeId} — cold start`);
+  }
+
+  // ── 步骤 2：淡出旧视频，激活新视频 ─────────────────────────────────────
+  if (engine.activeVideo && engine.activeVideo !== targetVideo) {
+    deactivateVideo(engine.activeVideo);
+  }
+
+  engine.activeVideo = targetVideo;
+  await activateVideo(targetVideo);
+
+  // 绑定 timeupdate（每次激活后重新绑定，避免多实例事件冲突）
+  targetVideo.addEventListener('timeupdate', onTimeUpdate);
+  targetVideo.addEventListener('seeked',     onSeeked);
+  targetVideo.addEventListener('ended',      onEnded);
+
+  // ── 步骤 3：立即预加载所有分支目标 ──────────────────────────────────────
+  const targetIds = new Set([nodeId]);
+  if (node.choices && node.choices.length > 0) {
+    node.choices.forEach(choice => {
+      targetIds.add(choice.target_node);
+      preloadNode(choice.target_node);
+    });
+  }
+
+  // ── 步骤 4：释放不在保留集合中的旧视频（内存管理）────────────────────
+  releaseStaleVideos(targetIds);
+}
+
+// ── timeupdate Handler ─────────────────────────────────────────────────────────
+function onTimeUpdate() {
+  // 只响应当前活跃视频的事件
+  if (this !== engine.activeVideo) return;
+
+  const t = this.currentTime;
+  $timeDisplay.textContent = formatTime(t);
+  maybeTriggerBranch(t);
+}
+
+// ── seeked Handler ─────────────────────────────────────────────────────────────
+function onSeeked() {
+  if (this !== engine.activeVideo) return;
+  maybeTriggerBranch(this.currentTime);
+}
+
+// ── ended Handler ─────────────────────────────────────────────────────────────
+function onEnded() {
+  if (this !== engine.activeVideo) return;
+  const node = engine.gameData.nodes[engine.currentNodeId];
+  if (node && node.type === 'ending') {
+    showEnding(node);
+  }
+}
+
+// ── Branch Trigger ─────────────────────────────────────────────────────────────
+function maybeTriggerBranch(currentTime) {
+  if (engine.branchHandled || engine.choiceShown) return;
+
+  const node = engine.gameData.nodes[engine.currentNodeId];
+  if (!node || node.type !== 'branching') return;
+
+  const branchAt = Number(node.branch_at_second);
+  if (!Number.isFinite(branchAt)) return;
+
+  if (currentTime >= branchAt) {
+    engine.branchHandled = true;
+    showChoices(node);
+  }
+}
+
+// ── Show Choices ───────────────────────────────────────────────────────────────
+function showChoices(node) {
+  if (engine.choiceShown) return;
+  engine.choiceShown = true;
+
+  engine.activeVideo.pause();
   $choicesContainer.innerHTML = '';
 
   node.choices.forEach(choice => {
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
+    btn.dataset.targetNode = choice.target_node;
     btn.innerHTML = `
       <span class="btn-hotkey">KEY ${choice.hotkey}</span>
       <span class="btn-label">${choice.label}</span>
       <span class="btn-sublabel">${choice.sublabel}</span>
+      <span class="btn-ready-dot"></span>
     `;
     btn.addEventListener('click', () => handleChoice(choice));
     $choicesContainer.appendChild(btn);
+
+    // 若对应视频已在 pool 中且已可播放，立即标记就绪
+    const preloadedVid = videoPool.get(choice.target_node);
+    if (preloadedVid && preloadedVid.readyState >= 4) {
+      btn.classList.add('is-ready');
+    }
   });
 
   $choiceOverlay.classList.add('visible');
+  updatePreloadBadge();
+}
+
+// ── Mark Choice Ready ──────────────────────────────────────────────────────────
+function markChoiceReady(nodeId) {
+  const btn = $choicesContainer.querySelector(`[data-target-node="${nodeId}"]`);
+  if (btn) btn.classList.add('is-ready');
+}
+
+// ── Preload Badge ──────────────────────────────────────────────────────────────
+function updatePreloadBadge() {
+  const node = engine.gameData.nodes[engine.currentNodeId];
+  if (!node || !node.choices) return;
+
+  const total  = node.choices.length;
+  const ready  = node.choices.filter(c => {
+    const v = videoPool.get(c.target_node);
+    return v && v.readyState >= 4;
+  }).length;
+
+  if (ready === total && total > 0) {
+    $preloadBadge.innerHTML = `<span class="badge-ready">▶ ALL STREAMS CACHED · 无缝切换就绪</span>`;
+  } else {
+    $preloadBadge.textContent = `PRELOADING ${ready}/${total} STREAMS ···`;
+  }
 }
 
 // ── Handle Choice ──────────────────────────────────────────────────────────────
 function handleChoice(choice) {
+  if (engine.transitioning) return;
+  engine.transitioning = true;
+
   $choiceOverlay.classList.remove('visible');
-  // Brief fade before loading next node
-  $video.style.transition = 'opacity 0.3s ease';
-  $video.style.opacity = '0';
-  setTimeout(() => {
-    $video.style.opacity = '1';
-    loadNode(choice.target_node);
-  }, 300);
+
+  // 移除旧视频的事件监听（防止事件泄漏到新节点）
+  if (engine.activeVideo) {
+    engine.activeVideo.removeEventListener('timeupdate', onTimeUpdate);
+    engine.activeVideo.removeEventListener('seeked',     onSeeked);
+    engine.activeVideo.removeEventListener('ended',      onEnded);
+  }
+
+  // 直接切换到预加载好的视频（无黑屏等待）
+  loadNode(choice.target_node);
 }
 
 // ── Show Ending ────────────────────────────────────────────────────────────────
@@ -678,65 +1001,42 @@ function showEnding(node) {
   $endingScreen.classList.add('visible');
 }
 
-function maybeTriggerBranch() {
-  const node = state.currentNode;
-  if (!node || node.type !== 'branching' || state.branchHandled) return;
-
-  const branchSecond = Number(node.branch_at_second);
-  if (!Number.isFinite(branchSecond)) return;
-
-  if ($video.currentTime >= branchSecond) {
-    state.branchHandled = true;
-    showChoices(node);
-  }
-}
-
-// ── Video Event Listeners ──────────────────────────────────────────────────────
-$video.addEventListener('timeupdate', () => {
-  const t = $video.currentTime;
-  $timeDisplay.textContent = formatTime(t);
-  maybeTriggerBranch();
-});
-
-// If the user drags the progress bar past branch point, still trigger correctly.
-$video.addEventListener('seeked', maybeTriggerBranch);
-
-$video.addEventListener('ended', () => {
-  const node = state.currentNode;
-  if (!node) return;
-  if (node.type === 'ending') {
-    showEnding(node);
-  }
-});
-
-$video.addEventListener('error', () => {
-  console.error('[STELLAR HEIR] Video load error for node:', state.currentNode?.id);
-});
-
-// Extra safety: when autoplay is blocked, any first tap/click tries playback once.
-document.addEventListener('pointerdown', () => {
-  if ($video.paused && !$choiceOverlay.classList.contains('visible') && !$endingScreen.classList.contains('visible')) {
-    $video.play().catch(() => {});
-  }
-}, { once: true });
-
 // ── Keyboard Shortcuts ─────────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  const node = state.currentNode;
-  if (!node || !state.choiceShown) return;
+  if (!engine.choiceShown) return;
+  const node = engine.gameData.nodes[engine.currentNodeId];
+  if (!node) return;
   const choice = node.choices.find(c => c.hotkey === e.key);
   if (choice) handleChoice(choice);
 });
 
+// ── Autoplay Unblock (first user interaction) ──────────────────────────────────
+document.addEventListener('pointerdown', () => {
+  const v = engine.activeVideo;
+  if (v && v.paused && !engine.choiceShown && !$endingScreen.classList.contains('visible')) {
+    v.play().catch(() => {});
+  }
+}, { once: true });
+
 // ── Restart ────────────────────────────────────────────────────────────────────
 $restartBtn.addEventListener('click', () => {
   $endingScreen.classList.remove('visible');
-  loadNode(state.gameData.start_node);
+
+  // 清空整个 pool，重新冷启动（确保 restart 状态干净）
+  for (const [, v] of videoPool.entries()) {
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+    v.remove();
+  }
+  videoPool.clear();
+  engine.activeVideo = null;
+
+  loadNode(engine.gameData.start_node);
 });
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
-  // Simulate brief loading animation (1.5s)
   await new Promise(r => setTimeout(r, 1500));
 
   const data = await fetchGameData();
@@ -745,7 +1045,7 @@ async function init() {
     return;
   }
 
-  state.gameData = data;
+  engine.gameData = data;
   hideLoading();
   loadNode(data.start_node);
 }
