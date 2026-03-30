@@ -1,0 +1,48 @@
+{
+  "title": "星之继承者 · 交互演示",
+  "start_node": "node_A",
+  "nodes": {
+    "node_A": {
+      "id": "node_A",
+      "title": "第一章：碳14的证词",
+      "description": "舰桥审讯室。你手握一份足以颠覆人类史观的碳14检测报告。",
+      "video_url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "type": "branching",
+      "branch_at_second": 5,
+      "choices": [
+        {
+          "id": "choice_1",
+          "label": "[ 抛出碳14证据 ]",
+          "sublabel": "将报告投影至全舰广播",
+          "target_node": "node_B",
+          "hotkey": "1"
+        },
+        {
+          "id": "choice_2",
+          "label": "[ 保持沉默 ]",
+          "sublabel": "将数据封存于个人终端",
+          "target_node": "node_C",
+          "hotkey": "2"
+        }
+      ]
+    },
+    "node_B": {
+      "id": "node_B",
+      "title": "结局一：真相的代价",
+      "description": "证据公开，星际议会陷入动荡。你成为了历史的引爆点。",
+      "video_url": "https://www.w3schools.com/html/movie.mp4",
+      "type": "ending",
+      "ending_tag": "ENDING · TRUTH COSTS",
+      "choices": []
+    },
+    "node_C": {
+      "id": "node_C",
+      "title": "结局二：沉默的星海",
+      "description": "秘密随你沉入虚空。文明继续在谎言中运转，而你独自承载那颗恒星的重量。",
+      "video_url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "type": "ending",
+      "ending_tag": "ENDING · SILENT VOID",
+      "choices": []
+    }
+  }
+}
