@@ -6,7 +6,7 @@
       "id": "node_A",
       "title": "第一章：碳14的证词",
       "description": "舰桥审讯室。你手握一份足以颠覆人类史观的碳14检测报告。",
-      "video_url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "video_url": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
       "type": "branching",
       "branch_at_second": 5,
       "choices": [
@@ -30,7 +30,7 @@
       "id": "node_B",
       "title": "结局一：真相的代价",
       "description": "证据公开，星际议会陷入动荡。你成为了历史的引爆点。",
-      "video_url": "https://www.w3schools.com/html/movie.mp4",
+      "video_url": "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
       "type": "ending",
       "ending_tag": "ENDING · TRUTH COSTS",
       "choices": []
@@ -39,7 +39,7 @@
       "id": "node_C",
       "title": "结局二：沉默的星海",
       "description": "秘密随你沉入虚空。文明继续在谎言中运转，而你独自承载那颗恒星的重量。",
-      "video_url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "video_url": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
       "type": "ending",
       "ending_tag": "ENDING · SILENT VOID",
       "choices": []

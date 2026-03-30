@@ -522,7 +522,7 @@
 
   <!-- Video Container -->
   <div id="video-container">
-    <video id="game-video" playsinline webkit-playsinline></video>
+    <video id="game-video" playsinline webkit-playsinline muted controls preload="metadata"></video>
   </div>
 
   <!-- Choice Overlay -->
@@ -630,7 +630,7 @@ function loadNode(nodeId) {
   $video.src = node.video_url;
   $video.load();
   $video.play().catch(err => {
-    // Autoplay may be blocked; user interaction will resume
+    // Autoplay may be blocked; user interaction can resume playback via controls/tap.
     console.warn('[STELLAR HEIR] Autoplay blocked:', err.message);
   });
 }
@@ -678,24 +678,28 @@ function showEnding(node) {
   $endingScreen.classList.add('visible');
 }
 
+function maybeTriggerBranch() {
+  const node = state.currentNode;
+  if (!node || node.type !== 'branching' || state.branchHandled) return;
+
+  const branchSecond = Number(node.branch_at_second);
+  if (!Number.isFinite(branchSecond)) return;
+
+  if ($video.currentTime >= branchSecond) {
+    state.branchHandled = true;
+    showChoices(node);
+  }
+}
+
 // ── Video Event Listeners ──────────────────────────────────────────────────────
 $video.addEventListener('timeupdate', () => {
   const t = $video.currentTime;
   $timeDisplay.textContent = formatTime(t);
-
-  const node = state.currentNode;
-  if (!node) return;
-
-  // Branching trigger
-  if (
-    node.type === 'branching' &&
-    !state.branchHandled &&
-    t >= node.branch_at_second
-  ) {
-    state.branchHandled = true;
-    showChoices(node);
-  }
+  maybeTriggerBranch();
 });
+
+// If the user drags the progress bar past branch point, still trigger correctly.
+$video.addEventListener('seeked', maybeTriggerBranch);
 
 $video.addEventListener('ended', () => {
   const node = state.currentNode;
@@ -708,6 +712,13 @@ $video.addEventListener('ended', () => {
 $video.addEventListener('error', () => {
   console.error('[STELLAR HEIR] Video load error for node:', state.currentNode?.id);
 });
+
+// Extra safety: when autoplay is blocked, any first tap/click tries playback once.
+document.addEventListener('pointerdown', () => {
+  if ($video.paused && !$choiceOverlay.classList.contains('visible') && !$endingScreen.classList.contains('visible')) {
+    $video.play().catch(() => {});
+  }
+}, { once: true });
 
 // ── Keyboard Shortcuts ─────────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {

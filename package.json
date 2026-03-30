@@ -1,0 +1,24 @@
+{
+  "name": "inherit-the-stars-demo",
+  "version": "1.0.0",
+  "description": "> 一个基于《星之继承者》科幻背景的**互动视频游戏 Web Demo（MVP）**",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Honyhuang0102/inherit-the-stars-demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Honyhuang0102/inherit-the-stars-demo/issues"
+  },
+  "homepage": "https://github.com/Honyhuang0102/inherit-the-stars-demo#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
