@@ -15,14 +15,16 @@
           "label": "[ 抛出碳14证据 ]",
           "sublabel": "将报告投影至全舰广播",
           "target_node": "node_B",
-          "hotkey": "1"
+          "hotkey": "1",
+          "position": { "x": "50%", "y": "62%" }
         },
         {
           "id": "choice_2",
           "label": "[ 保持沉默 ]",
           "sublabel": "将数据封存于个人终端",
           "target_node": "node_C",
-          "hotkey": "2"
+          "hotkey": "2",
+          "position": { "x": "50%", "y": "74%" }
         }
       ]
     },

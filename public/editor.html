@@ -700,34 +700,61 @@ html, body {
   font-family: 'Inter', sans-serif;
   text-align: center; padding: 0 16px;
 }
+/* Hotspot layer — absolute overlay on preview-screen */
 .screen-choices {
-  display: flex; flex-direction: column;
-  gap: 8px; width: 100%; padding: 0 16px;
-  position: relative; z-index: 10;
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 10;
 }
+/* Individual hotspot button — absolutely positioned by JS */
 .screen-choice-btn {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
-  background: rgba(255,255,255,0.12);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 6px;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: rgba(15,15,15,0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 20px;
   color: #ffffff;
-  font-size: 12px;
+  font-size: 11px; font-weight: 500;
   cursor: grab;
-  transition: background 0.12s;
+  pointer-events: all;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: background 0.12s, box-shadow 0.12s;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.screen-choice-btn:hover { background: rgba(255,255,255,0.2); }
+.screen-choice-btn:hover {
+  background: rgba(30,30,30,0.88);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+.screen-choice-btn.dragging-hotspot {
+  cursor: grabbing;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  opacity: 0.9;
+}
+/* Position indicator badge shown while dragging */
+.hotspot-pos-badge {
+  position: absolute;
+  bottom: -20px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px; color: rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.5);
+  padding: 1px 5px; border-radius: 4px;
+  pointer-events: none; white-space: nowrap;
+}
 .choice-num {
-  width: 20px; height: 20px;
+  width: 18px; height: 18px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.18);
   display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 600;
+  font-size: 9px; font-weight: 700;
   flex-shrink: 0;
 }
 .drag-handle-icon {
-  margin-left: auto; color: rgba(255,255,255,0.3); font-size: 14px;
+  color: rgba(255,255,255,0.35); font-size: 12px;
 }
 
 //* ── AI CHAT PANEL — lovart style ──────────────────────────── */
@@ -1194,18 +1221,8 @@ html, body {
               <div class="screen-node-label" id="screen-node-label">NODE_A</div>
               <div class="screen-node-title" id="screen-node-title">第一章：碳14的秘密</div>
             </div>
-            <div class="screen-choices" id="screen-choices">
-              <div class="screen-choice-btn" draggable="true" id="choice-btn-0">
-                <span class="choice-num">1</span>
-                <span id="choice-label-0">抛出碳14证据</span>
-                <span class="drag-handle-icon">⠿</span>
-              </div>
-              <div class="screen-choice-btn" draggable="true" id="choice-btn-1">
-                <span class="choice-num">2</span>
-                <span id="choice-label-1">保持沉默</span>
-                <span class="drag-handle-icon">⠿</span>
-              </div>
-            </div>
+            <!-- Hotspot layer: buttons are injected by updatePreviewPanel() -->
+            <div class="screen-choices" id="screen-choices"></div>
           </div>
         </div>
       </div>
@@ -1692,8 +1709,8 @@ function addNode(type) {
     ...(type === 'branching' ? {
       branch_at_second: 5,
       choices: [
-        { label: '选项 1', sublabel: '', hotkey: '1', target_node: '' },
-        { label: '选项 2', sublabel: '', hotkey: '2', target_node: '' },
+        { label: '选项 1', sublabel: '', hotkey: '1', target_node: '', position: DEFAULT_HOTSPOT_POSITIONS[0] },
+        { label: '选项 2', sublabel: '', hotkey: '2', target_node: '', position: DEFAULT_HOTSPOT_POSITIONS[1] },
       ]
     } : {}),
     ...(type === 'ending' ? { ending_tag: 'ENDING · NEW', description: '' } : {}),
@@ -1774,13 +1791,24 @@ function openInspector(nodeId) {
         <input class="insp-input" id="insp-branch-sec" type="number" value="${nodeData.branch_at_second||5}" min="0"/>
       </div>
       <div class="insp-field">
-        <div class="insp-label">选项列表</div>
+        <div class="insp-label">选项列表 <span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(拖动预览区按鈕可重新定位)</span></div>
         <div class="insp-choices-list" id="insp-choices">
           ${nodeData.choices.map((c,i) => `
             <div class="insp-choice-row" data-idx="${i}">
-              <input placeholder="选项文字" value="${escHtml(c.label||'')}" data-field="label" data-idx="${i}"/>
+              <input placeholder="选项文字" value="${escHtml(c.label||'')}" data-field="label" data-idx="${i}"
+                oninput="syncHotspotLabel(${i}, this.value)"/>
               <input placeholder="副标题" value="${escHtml(c.sublabel||'')}" data-field="sublabel" data-idx="${i}"/>
               <input placeholder="目标节点 ID" value="${escHtml(c.target_node||'')}" data-field="target_node" data-idx="${i}"/>
+              <div style="display:flex;gap:4px;align-items:center;margin-top:2px;">
+                <span style="font-size:10px;color:var(--text-tertiary);">X:</span>
+                <input placeholder="50%" value="${escHtml((c.position&&c.position.x)||'50%')}" data-field="position_x" data-idx="${i}"
+                  style="width:52px;"
+                  oninput="syncHotspotPos(${i}, 'x', this.value)"/>
+                <span style="font-size:10px;color:var(--text-tertiary);">Y:</span>
+                <input placeholder="65%" value="${escHtml((c.position&&c.position.y)||'65%')}" data-field="position_y" data-idx="${i}"
+                  style="width:52px;"
+                  oninput="syncHotspotPos(${i}, 'y', this.value)"/>
+              </div>
             </div>`).join('')}
         </div>
         <button class="insp-add-btn" onclick="addChoiceInInspector('${nodeId}')">+ 添加选项</button>
@@ -1827,7 +1855,14 @@ function addChoiceInInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData.choices) return;
   const i = nodeData.choices.length;
-  nodeData.choices.push({ label: `选项 ${i+1}`, sublabel: '', hotkey: String(i+1), target_node: '' });
+  const defaultPos = DEFAULT_HOTSPOT_POSITIONS[i] || { x: '50%', y: `${60 + i * 12}%` };
+  nodeData.choices.push({
+    label: `选项 ${i+1}`,
+    sublabel: '',
+    hotkey: String(i+1),
+    target_node: '',
+    position: defaultPos,
+  });
   openInspector(nodeId);
 }
 
@@ -1841,7 +1876,17 @@ function applyInspector(nodeId) {
       const idx = parseInt(row.dataset.idx);
       if (!nodeData.choices[idx]) return;
       row.querySelectorAll('input').forEach(inp => {
-        nodeData.choices[idx][inp.dataset.field] = inp.value;
+        const field = inp.dataset.field;
+        if (!field) return;
+        if (field === 'position_x') {
+          if (!nodeData.choices[idx].position) nodeData.choices[idx].position = {};
+          nodeData.choices[idx].position.x = inp.value || '50%';
+        } else if (field === 'position_y') {
+          if (!nodeData.choices[idx].position) nodeData.choices[idx].position = {};
+          nodeData.choices[idx].position.y = inp.value || '65%';
+        } else {
+          nodeData.choices[idx][field] = inp.value;
+        }
       });
     });
   }
@@ -1866,22 +1911,150 @@ function applyInspector(nodeId) {
 
 function closeInspector() { document.getElementById('inspector').style.display = 'none'; }
 
-// ── PREVIEW PANEL ──────────────────────────────────────────────
+// ── BIDIRECTIONAL BINDING HELPERS ───────────────────────────────
+
+// Called from Inspector label input oninput: update preview hotspot label in real-time
+function syncHotspotLabel(choiceIdx, newLabel) {
+  // Update in-memory data for the currently inspected node
+  const nodeId = document.getElementById('inspector').dataset.nodeId;
+  if (!nodeId) return;
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData || !nodeData.choices || !nodeData.choices[choiceIdx]) return;
+  nodeData.choices[choiceIdx].label = newLabel;
+  // Update the visible span in the preview hotspot button
+  const lbl = document.getElementById(`choice-label-${choiceIdx}`);
+  if (lbl) lbl.textContent = newLabel;
+}
+
+// Called from Inspector position X/Y inputs oninput: update preview hotspot position in real-time
+function syncHotspotPos(choiceIdx, axis, newVal) {
+  const nodeId = document.getElementById('inspector').dataset.nodeId;
+  if (!nodeId) return;
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData || !nodeData.choices || !nodeData.choices[choiceIdx]) return;
+  if (!nodeData.choices[choiceIdx].position) nodeData.choices[choiceIdx].position = {};
+  // Ensure value has % suffix
+  const val = newVal.trim().endsWith('%') ? newVal.trim() : newVal.trim() + '%';
+  nodeData.choices[choiceIdx].position[axis] = val;
+  // Update the hotspot button position
+  const btn = document.getElementById(`choice-btn-${choiceIdx}`);
+  if (btn) {
+    if (axis === 'x') btn.style.left = val;
+    else              btn.style.top  = val;
+  }
+}
+
+// ── PREVIEW PANEL & HOTSPOT ENGINE ────────────────────────────
+
+// Default positions for up to 8 choices (stacked vertically, centered)
+const DEFAULT_HOTSPOT_POSITIONS = [
+  { x: '50%', y: '62%' },
+  { x: '50%', y: '74%' },
+  { x: '50%', y: '50%' },
+  { x: '50%', y: '38%' },
+  { x: '30%', y: '62%' },
+  { x: '70%', y: '62%' },
+  { x: '30%', y: '74%' },
+  { x: '70%', y: '74%' },
+];
+
 function updatePreviewPanel(nodeData) {
   if (!nodeData) return;
   document.getElementById('screen-node-label').textContent = nodeData.id?.toUpperCase() || '';
   document.getElementById('screen-node-title').textContent = nodeData.title || '';
 
   const choicesEl = document.getElementById('screen-choices');
-  if (nodeData.choices && nodeData.choices.length) {
-    choicesEl.style.display = 'flex';
-    nodeData.choices.forEach((c, i) => {
-      const lbl = document.getElementById(`choice-label-${i}`);
-      if (lbl) lbl.textContent = c.label || `选项 ${i+1}`;
-    });
-  } else {
-    choicesEl.style.display = 'none';
-  }
+  choicesEl.innerHTML = '';
+
+  if (!nodeData.choices || !nodeData.choices.length) return;
+
+  // Ensure every choice has a position (migrate old data)
+  nodeData.choices.forEach((c, i) => {
+    if (!c.position) {
+      c.position = DEFAULT_HOTSPOT_POSITIONS[i] || { x: '50%', y: `${60 + i * 12}%` };
+    }
+  });
+
+  nodeData.choices.forEach((c, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'screen-choice-btn';
+    btn.id = `choice-btn-${i}`;
+    btn.dataset.choiceIdx = i;
+    btn.style.left  = c.position.x;
+    btn.style.top   = c.position.y;
+    btn.innerHTML = `
+      <span class="choice-num">${i + 1}</span>
+      <span id="choice-label-${i}">${escHtml(c.label || `选项 ${i+1}`)}</span>
+      <span class="drag-handle-icon">⠿</span>
+    `;
+    choicesEl.appendChild(btn);
+    initHotspotDrag(btn, nodeData, i);
+  });
+}
+
+// Hotspot drag engine: drag a choice button on the preview screen
+function initHotspotDrag(btn, nodeData, choiceIdx) {
+  let dragging = false;
+  let startMouseX, startMouseY;
+  let startPctX, startPctY;  // starting position in 0-100 range
+  let badge = null;
+
+  btn.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    dragging = true;
+    btn.classList.add('dragging-hotspot');
+
+    const screen = document.getElementById('preview-screen');
+    const rect = screen.getBoundingClientRect();
+    startMouseX = e.clientX;
+    startMouseY = e.clientY;
+
+    // Parse current percentage (strip '%')
+    const pos = nodeData.choices[choiceIdx].position;
+    startPctX = parseFloat(pos.x);
+    startPctY = parseFloat(pos.y);
+
+    // Create position badge
+    badge = document.createElement('div');
+    badge.className = 'hotspot-pos-badge';
+    badge.textContent = `${Math.round(startPctX)}%, ${Math.round(startPctY)}%`;
+    btn.appendChild(badge);
+
+    document.addEventListener('mousemove', onHotspotMove);
+    document.addEventListener('mouseup', onHotspotUp);
+
+    function onHotspotMove(ev) {
+      if (!dragging) return;
+      const screen = document.getElementById('preview-screen');
+      const rect = screen.getBoundingClientRect();
+      const dx = ev.clientX - startMouseX;
+      const dy = ev.clientY - startMouseY;
+      // Convert pixel delta to percentage of screen dimensions
+      const newPctX = Math.max(5, Math.min(95, startPctX + (dx / rect.width)  * 100));
+      const newPctY = Math.max(5, Math.min(95, startPctY + (dy / rect.height) * 100));
+      // Apply to button
+      btn.style.left = newPctX + '%';
+      btn.style.top  = newPctY + '%';
+      // Update badge
+      if (badge) badge.textContent = `${Math.round(newPctX)}%, ${Math.round(newPctY)}%`;
+      // Write back to in-memory JSON
+      nodeData.choices[choiceIdx].position = {
+        x: Math.round(newPctX * 10) / 10 + '%',
+        y: Math.round(newPctY * 10) / 10 + '%',
+      };
+    }
+
+    function onHotspotUp() {
+      dragging = false;
+      btn.classList.remove('dragging-hotspot');
+      if (badge) { badge.remove(); badge = null; }
+      document.removeEventListener('mousemove', onHotspotMove);
+      document.removeEventListener('mouseup', onHotspotUp);
+      const pos = nodeData.choices[choiceIdx].position;
+      showToast(`热点 ${choiceIdx+1} 已定位至 ${pos.x}, ${pos.y}`, 'info');
+    }
+  });
 }
 
 function setOrientation(o) {
