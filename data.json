@@ -48,36 +48,34 @@
       "ending_tag": "ENDING · SILENT VOID",
       "choices": []
     },
-    "node_panorama_demo": {
-      "id": "node_panorama_demo",
+    "node_3d_demo": {
+      "id": "node_3d_demo",
       "title": "全景探索：远古星舰遗迹",
-      "description": "360° 全景节点示例。创作者上传等距柱状全景图后，玩家可自由旋转探索。",
-      "type": "panorama",
-      "panorama_url": "/panoramas/demo.jpg",
-      "panorama_source_image": "",
-      "panorama_generation_status": "pending",
-      "default_pitch": 0,
-      "default_yaw": 0,
-      "default_hfov": 100,
+      "description": "3D 实体漫游节点。创作者上传 2D 图片后，后端调用混元生3D API 生成 .glb 模型，玩家可 360° 自由漫游。",
+      "type": "3d_model",
+      "model_url": "/models/demo.glb",
+      "preview_image": "/models/demo_preview.jpg",
+      "camera_orbit": "0deg 75deg 2.5m",
+      "camera_target": "0m 0m 0m",
       "choices": [
         {
-          "id": "pano_choice_1",
+          "id": "choice_3d_1",
           "label": "[ 进入核心舱 ]",
           "sublabel": "沿走廊深入",
           "target_node": "node_B",
           "hotkey": "1",
-          "pitch": -5,
-          "yaw": 45,
+          "position": "0.5 1.2 -0.3",
+          "normal": "0 1 0",
           "timeWindow": [0, 999]
         },
         {
-          "id": "pano_choice_2",
+          "id": "choice_3d_2",
           "label": "[ 检查导航台 ]",
           "sublabel": "查看星图数据",
           "target_node": "node_C",
           "hotkey": "2",
-          "pitch": 10,
-          "yaw": -120,
+          "position": "-0.8 0.9 0.4",
+          "normal": "0 0 1",
           "timeWindow": [0, 999]
         }
       ]

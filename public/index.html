@@ -4,9 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>STELLAR HEIR · 星之继承者</title>
-  <!-- Pannellum 全景图查看器 -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
-  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+  <!-- model-viewer 3D 模型渲染器 -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
   <style>
     /* ── Reset & Base ─────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -596,14 +595,14 @@
     }
 
     /* ── Panorama Mode ───────────────────────────────────────────────────────────── */
-    /* Pannellum 全屏容器 */
-    #pano-container {
+    /* model-viewer 3D 模型全屏容器 */
+    #model3d-container {
       position: absolute;
       inset: 0;
       z-index: 5;
       display: none;
     }
-    #pano-container.visible {
+    #model3d-container.visible {
       display: block;
     }
     /* 全景模式下隐藏视频层 */
@@ -611,7 +610,7 @@
     body.pano-mode #hotspot-layer   { display: none; }
     body.pano-mode #hud-footer      { z-index: 60; }
 
-    /* 全景热点按鈕（Pannellum 自定义热点） */
+    /* 3D 模型热点按钮（model-viewer slot hotspot） */
     .pano-hs-btn {
       background: rgba(255,255,255,0.12);
       backdrop-filter: blur(14px) saturate(1.6);
@@ -637,7 +636,57 @@
       box-shadow: 0 6px 32px rgba(255,255,255,0.12);
     }
 
-    /* Pannellum 默认控件隐藏 */
+    /* model-viewer 默认控件样式 */
+    /* model-viewer 全屏模式 */
+    body.model3d-mode #phone-shell { background: #000; }
+    body.model3d-mode .vid-active,
+    body.model3d-mode .vid-preload { display: none !important; }
+    body.model3d-mode #hotspot-layer { display: none; }
+    /* 3D 热点按钮 (model-viewer slot) */
+    .hotspot-3d-btn {
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(14px) saturate(1.6);
+      -webkit-backdrop-filter: blur(14px) saturate(1.6);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 20px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 16px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: transform 0.15s ease, background 0.15s ease;
+      letter-spacing: 0.02em;
+    }
+    .hotspot-3d-btn:hover {
+      background: rgba(255,255,255,0.22);
+      transform: scale(1.06);
+      box-shadow: 0 0 16px rgba(255,255,255,0.3);
+    }
+    /* model-viewer 进度条 */
+    .progress-bar {
+      display: block;
+      width: 33%;
+      height: 3px;
+      max-height: 3px;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 25%;
+      box-shadow: 0px 3px 10px 3px rgba(0,0,0,0.5),
+                  0px 0px 5px 1px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.3);
+    }
+    .update-bar {
+      background: rgba(255,255,255,0.9);
+      width: 0%;
+      height: 100%;
+      border-radius: 25%;
+      float: left;
+      transition: width 0.3s;
+    }
     .pnlm-controls-container { display: none !important; }
     .pnlm-load-box { display: none !important; }
   </style>
@@ -692,8 +741,8 @@
     <svg id="hotspot-svg" xmlns="http://www.w3.org/2000/svg"></svg>
   </div>
 
-  <!-- Panorama Container — Pannellum 全景图容器（panorama 节点时显示） -->
-  <div id="pano-container"></div>
+  <!-- 3D Model Container — model-viewer 容器（3d_model 节点时显示） -->
+  <div id="model3d-container"></div>
 
   <!-- Ending Screen -->
   <div id="ending-screen">
@@ -743,7 +792,7 @@ const $tapStart       = document.getElementById('tap-start-overlay');
 const $videoContainer = document.getElementById('video-container');
 const $hotspotLayer   = document.getElementById('hotspot-layer');
 const $hotspotSvg     = document.getElementById('hotspot-svg');
-const $panoContainer  = document.getElementById('pano-container');
+const $model3dContainer = document.getElementById('model3d-container');
 const $endingScreen   = document.getElementById('ending-screen');
 const $endingTag      = document.getElementById('ending-tag-text');
 const $endingTitle    = document.getElementById('ending-title-text');
@@ -937,14 +986,14 @@ async function loadNode(nodeId) {
   $endingScreen.classList.remove('visible');
   $nodeLabel.textContent = `NODE · ${nodeId.replace('_', ' ')}`;
 
-  // ── 分流：panorama 节点走全景引擎 ──────────────────────────────────────
-  if (node.type === 'panorama') {
-    await loadPanoramaNode(node);
+  // ── 分流：3d_model 节点走 model-viewer 引擎 ─────────────────────────────
+  if (node.type === '3d_model') {
+    await load3DModelNode(node);
     return;
   }
 
-  // ── 退出全景模式（如果之前是全景）──────────────────────────────────────
-  exitPanoramaMode();
+  // ── 退出 3D 模式（如果之前是 3D 模型）────────────────────────────────────
+  exit3DModelMode();
 
   // ── 步骤 1：获取或创建目标视频 ──────────────────────────────────────────
   let targetVideo;
@@ -976,8 +1025,8 @@ async function loadNode(nodeId) {
     node.choices.forEach(choice => {
       const targetNode = engine.gameData.nodes[choice.target_node];
       keepIds.add(choice.target_node);
-      if (targetNode && targetNode.type === 'panorama') {
-        preloadPanorama(choice.target_node);
+      if (targetNode && targetNode.type === '3d_model') {
+        preload3DModel(choice.target_node);
       } else {
         preloadNode(choice.target_node);
       }
@@ -1255,168 +1304,106 @@ async function init() {
 init();
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  PANORAMA ENGINE  (Pannellum-based)
-//  支持 panorama 类型节点：全景图预加载、Pannellum 初始化、陀螺仪、pano_hotspot
+//  3D MODEL ENGINE  (model-viewer based)
+//  支持 3d_model 类型节点：.glb 模型预加载、model-viewer 初始化、3D 热点渲染
 // ══════════════════════════════════════════════════════════════════════════════
-
-// 当前 Pannellum 查看器实例
-let panoViewer = null;
-
-// 预加载全景图（Image 对象缓存到浏览器内存）
-const panoCache = new Map(); // nodeId → Image
-
-function preloadPanorama(nodeId) {
-  if (panoCache.has(nodeId)) return;
+// 当前 model-viewer 实例
+let currentModelViewer = null;
+// 预加载 3D 模型（通过 fetch 将 .glb 拉入浏览器缓存）
+const model3dCache = new Set(); // 已预加载的 nodeId
+function preload3DModel(nodeId) {
+  if (model3dCache.has(nodeId)) return;
   const node = engine.gameData.nodes[nodeId];
-  if (!node || node.type !== 'panorama' || !node.panorama_url) return;
-  const img = new Image();
-  img.src = node.panorama_url;
-  panoCache.set(nodeId, img);
-  console.log(`[PanoEngine] Preloading panorama: ${nodeId} → ${node.panorama_url}`);
+  if (!node || node.type !== '3d_model' || !node.model_url) return;
+  // 使用 fetch 将 .glb 文件拉入 HTTP 缓存
+  fetch(node.model_url, { mode: 'no-cors' }).catch(() => {});
+  model3dCache.add(nodeId);
+  console.log(`[3DEngine] Preloading model: ${nodeId} → ${node.model_url}`);
 }
-
-// 进入全景模式
-async function loadPanoramaNode(node) {
+// 进入 3D 模型模式
+async function load3DModelNode(node) {
   // 暂停并隐藏所有视频
   if (engine.activeVideo) {
     engine.activeVideo.pause();
     engine.activeVideo = null;
   }
-  document.body.classList.add('pano-mode');
-  $panoContainer.classList.add('visible');
-
-  // 销毁旧的 Pannellum 实例
-  if (panoViewer) {
-    try { panoViewer.destroy(); } catch(e) {}
-    panoViewer = null;
+  document.body.classList.add('model3d-mode');
+  $model3dContainer.classList.add('visible');
+  // 销毁旧的 model-viewer 实例
+  if (currentModelViewer) {
+    currentModelViewer.remove();
+    currentModelViewer = null;
   }
-  $panoContainer.innerHTML = '';
-
-  const panoUrl = node.panorama_url || '';
-  if (!panoUrl) {
-    console.error('[PanoEngine] No panorama_url for node:', node);
+  $model3dContainer.innerHTML = '';
+  const modelUrl = node.model_url || '';
+  if (!modelUrl) {
+    $model3dContainer.innerHTML = '<div style="color:#fff;padding:40px;text-align:center;">暂无 3D 模型，请在编辑器中上传</div>';
     return;
   }
-
-  // 构建 Pannellum 热点配置
-  const hotspots = [];
+  // 创建 model-viewer 元素
+  const mv = document.createElement('model-viewer');
+  mv.setAttribute('src', modelUrl);
+  mv.setAttribute('camera-controls', '');
+  mv.setAttribute('auto-rotate', '');
+  mv.setAttribute('shadow-intensity', '1');
+  mv.setAttribute('exposure', '1');
+  mv.setAttribute('environment-image', 'neutral');
+  mv.setAttribute('loading', 'eager');
+  mv.setAttribute('reveal', 'auto');
+  if (node.camera_orbit) {
+    mv.setAttribute('camera-orbit', node.camera_orbit);
+  }
+  // 加载进度条
+  mv.innerHTML = `
+    <div class="progress-bar" slot="progress-bar">
+      <div class="update-bar"></div>
+    </div>
+  `;
+  mv.style.cssText = 'width:100%;height:100%;background:#000;';
+  // 渲染 3D 热点
   if (node.choices && node.choices.length > 0) {
     node.choices.forEach((choice, idx) => {
-      const pitch = typeof choice.pitch === 'number' ? choice.pitch : 0;
-      const yaw   = typeof choice.yaw   === 'number' ? choice.yaw   : (idx * 45 - 45);
-      hotspots.push({
-        pitch,
-        yaw,
-        type: 'custom',
-        text: choice.label || '',
-        cssClass: 'pano-hs-btn',
-        createTooltipFunc: (hotSpotDiv, args) => {
-          hotSpotDiv.classList.add('pano-hs-btn');
-          hotSpotDiv.textContent = args.text;
-          hotSpotDiv.addEventListener('click', (e) => {
-            e.stopPropagation();
-            handleChoice(choice);
-          });
-        },
-        createTooltipArgs: { text: choice.label || '', choice }
+      const pos    = choice.position || '0 0 0';
+      const normal = choice.normal   || '0 1 0';
+      // 创建热点 slot
+      const btn = document.createElement('button');
+      btn.slot = `hotspot-${idx}`;
+      btn.setAttribute('data-position', pos);
+      btn.setAttribute('data-normal', normal);
+      btn.className = 'hotspot-3d-btn';
+      btn.textContent = choice.label || `选项 ${idx + 1}`;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleChoice(choice);
       });
+      mv.appendChild(btn);
     });
   }
-
-  // 初始化 Pannellum
-  panoViewer = pannellum.viewer($panoContainer, {
-    type:          'equirectangular',
-    panorama:      panoUrl,
-    autoLoad:      true,
-    showControls:  false,
-    compass:       false,
-    mouseZoom:     true,
-    draggable:     true,
-    hotSpots:      hotspots,
-    hfov:          100,
-    pitch:         node.default_pitch || 0,
-    yaw:           node.default_yaw   || 0,
-  });
-
-  // 陀螺仪支持（移动端 DeviceOrientation）
-  enableGyroscope();
-
+  $model3dContainer.appendChild(mv);
+  currentModelViewer = mv;
   // 预加载分支目标
   if (node.choices) {
     node.choices.forEach(c => {
       const target = engine.gameData.nodes[c.target_node];
-      if (target && target.type === 'panorama') {
-        preloadPanorama(c.target_node);
-      } else if (target && target.type !== 'panorama') {
+      if (target && target.type === '3d_model') {
+        preload3DModel(c.target_node);
+      } else if (target) {
         preloadNode(c.target_node);
       }
     });
   }
-
-  console.log(`[PanoEngine] Panorama loaded: ${node.panorama_url}`);
+  console.log(`[3DEngine] Model loaded: ${node.model_url}`);
 }
-
-// 退出全景模式，恢复视频模式
-function exitPanoramaMode() {
-  if (!document.body.classList.contains('pano-mode')) return;
-  document.body.classList.remove('pano-mode');
-  $panoContainer.classList.remove('visible');
-  if (panoViewer) {
-    try { panoViewer.destroy(); } catch(e) {}
-    panoViewer = null;
+// 退出 3D 模式，恢复视频模式
+function exit3DModelMode() {
+  if (!document.body.classList.contains('model3d-mode')) return;
+  document.body.classList.remove('model3d-mode');
+  $model3dContainer.classList.remove('visible');
+  if (currentModelViewer) {
+    currentModelViewer.remove();
+    currentModelViewer = null;
   }
-  $panoContainer.innerHTML = '';
-  disableGyroscope();
-}
-
-// ── 陀螺仪（DeviceOrientation）──────────────────────────────────────────────
-let _gyroEnabled = false;
-let _lastAlpha = null;
-
-function onDeviceOrientation(e) {
-  if (!panoViewer) return;
-  const alpha = e.alpha || 0; // 方位角 0-360
-  const beta  = e.beta  || 0; // 俯仰 -180~180
-  const gamma = e.gamma || 0; // 横滚 -90~90
-
-  // 将 beta 映射为 pitch（-90~90），将 alpha 映射为 yaw
-  const pitch = Math.max(-85, Math.min(85, beta - 90));
-  let yaw = alpha;
-  if (_lastAlpha !== null) {
-    // 平滑处理
-  }
-  _lastAlpha = alpha;
-
-  try {
-    panoViewer.setPitch(pitch);
-    panoViewer.setYaw(yaw);
-  } catch(e) {}
-}
-
-function enableGyroscope() {
-  if (_gyroEnabled) return;
-  if (typeof DeviceOrientationEvent !== 'undefined') {
-    // iOS 13+ 需要请求权限
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then(state => {
-          if (state === 'granted') {
-            window.addEventListener('deviceorientation', onDeviceOrientation);
-            _gyroEnabled = true;
-          }
-        })
-        .catch(() => {});
-    } else {
-      window.addEventListener('deviceorientation', onDeviceOrientation);
-      _gyroEnabled = true;
-    }
-  }
-}
-
-function disableGyroscope() {
-  window.removeEventListener('deviceorientation', onDeviceOrientation);
-  _gyroEnabled = false;
-  _lastAlpha = null;
+  $model3dContainer.innerHTML = '';
 }
 
 
