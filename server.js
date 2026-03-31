@@ -34,7 +34,10 @@ function loadEnv() {
       const m = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^\r\n#]+)/);
       if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
     });
+    const sid = process.env.TENCENT_SECRET_ID || '';
+    const skey = process.env.TENCENT_SECRET_KEY || '';
     console.log(`[env] 已加载密钥文件: ${envPath}`);
+    console.log(`[env] SecretId: ${sid ? sid.substring(0,8)+'...' : '(空)'}, SecretKey: ${skey ? skey.substring(0,4)+'...' : '(空)'}`);
   }
 }
 loadEnv();
@@ -56,21 +59,20 @@ const upload = multer({
 });
 
 // ── 腾讯云官方 SDK 客户端（替代手写签名）────────────────────────────────────
-let _ai3dClient = null;
 function getAi3dClient() {
-  if (_ai3dClient) return _ai3dClient;
+  // 注意：不使用单例缓存，每次调用都重新读取 process.env 中的密钥
+  // 避免进程启动时密钥尚未加载导致空值被缓存
   const secretId  = process.env.TENCENT_SECRET_ID  || '';
   const secretKey = process.env.TENCENT_SECRET_KEY || '';
   if (!secretId || !secretKey) {
     throw new Error('腾讯云密钥未配置（TENCENT_SECRET_ID / TENCENT_SECRET_KEY）');
   }
   const tencentcloud = require('tencentcloud-sdk-nodejs-ai3d');
-  _ai3dClient = new tencentcloud.ai3d.v20250513.Client({
+  return new tencentcloud.ai3d.v20250513.Client({
     credential: { secretId, secretKey },
     region: 'ap-guangzhou',
     profile: { httpProfile: { endpoint: 'ai3d.tencentcloudapi.com' } }
   });
-  return _ai3dClient;
 }
 
 // ── 下载远程文件到本地 ────────────────────────────────────────────────────────
