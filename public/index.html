@@ -825,6 +825,8 @@ function formatTime(sec) {
 
 function hideLoading() {
   $loadingScreen.classList.add('hidden');
+  // 确保 loading 完全消失，不遮挡 tap-start-overlay 和视频
+  setTimeout(() => { $loadingScreen.style.display = 'none'; }, 700);
 }
 
 function showError() {
@@ -1061,6 +1063,9 @@ function onEnded() {
   } else if (node && node.type === 'branching') {
     // 视频结束但还没触发分支，强制显示热点
     showChoices(node);
+  } else if (node && node.next_node && engine.gameData.nodes[node.next_node]) {
+    // 直连节点：视频播完自动跳转到 next_node
+    loadNode(node.next_node);
   }
 }
 

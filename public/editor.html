@@ -2519,7 +2519,7 @@ function renderConnections() {
       text.setAttribute('x', mx); text.setAttribute('y', my - 6);
       text.setAttribute('text-anchor','middle');
       text.setAttribute('class','conn-label-text');
-      text.setAttribute('fill', isEnding ? '#d97706' : '#888888');
+      text.setAttribute('fill', isBranch ? '#d97706' : '#888888');
       text.setAttribute('font-size','10');
       text.setAttribute('font-family','Inter, sans-serif');
       text.textContent = conn.label.length > 8 ? conn.label.slice(0,8)+'…' : conn.label;
