@@ -2303,6 +2303,7 @@ const state = {
   timelineOffset: 0,
   orientation: 'portrait',
   nodeCounter: 0,
+  nodeIndexMap: {},  // nodeId → 序号（1-based）
 };
 let ctxTargetNode = null;
 
@@ -2375,6 +2376,10 @@ function renderGraph() {
   const data = state.gameData;
   if (!data || !data.nodes) return;
 
+  // 建立 nodeId → 序号 映射（1-based），供卡片和 Inspector 显示
+  state.nodeIndexMap = {};
+  Object.keys(data.nodes).forEach((id, i) => { state.nodeIndexMap[id] = i + 1; });
+
   Object.values(data.nodes).forEach((nodeData, i) => {
     // 优先使用保存的位置，其次 DEFAULT_POSITIONS，最后自动布局
     const pos = nodeData._pos || DEFAULT_POSITIONS[nodeData.id] || { x: 180 + i * 260, y: 200 };
@@ -2444,7 +2449,7 @@ function createNodeCard(nodeData, x, y) {
     ${thumbHtml}
     <div class="node-footer">
       <div class="node-type-dot"></div>
-      <div class="node-title">${escHtml(nodeData.id)}：${escHtml(nodeData.title || '')}</div>
+      <div class="node-title">${escHtml(String(state.nodeIndexMap?.[nodeData.id] ?? nodeData.id))}：${escHtml(nodeData.title || '')}</div>
     </div>
     <div class="port port-in" data-node="${nodeData.id}" onmouseup="endConnect(event, '${nodeData.id}')"></div>
     ${nodeData.choices ? choicePortsHtml : `<div class="port port-out" data-node="${nodeData.id}" onmousedown="startConnect(event, '${nodeData.id}', -1)"></div>`}
@@ -3039,6 +3044,8 @@ function addNode(type) {
     ...(type === 'ending' ? { ending_tag: 'ENDING · NEW', description: '' } : {}),
   };
   state.gameData.nodes[id] = newNode;
+  // 更新序号映射
+  state.nodeIndexMap[id] = Object.keys(state.gameData.nodes).length;
   const wrap = document.getElementById('canvas-wrap');
   const cx = (wrap.clientWidth  / 2 - state.viewport.x) / state.viewport.scale;
   const cy = (wrap.clientHeight / 2 - state.viewport.y) / state.viewport.scale;
@@ -3105,7 +3112,8 @@ function openInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData) return;
   const insp = document.getElementById('inspector');
-  document.getElementById('insp-title').textContent = `编辑 · ${nodeId}：${nodeData.title || ''}`;
+  const nodeSeq = state.nodeIndexMap?.[nodeId] ?? nodeId;
+  document.getElementById('insp-title').textContent = `编辑 · ${nodeSeq}：${nodeData.title || ''}`;
 
   let choicesHtml = '';
   if (nodeData.choices) {
