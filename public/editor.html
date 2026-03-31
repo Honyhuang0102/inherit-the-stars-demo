@@ -18,7 +18,7 @@
   --bg-canvas:       #f5f5f5;
   --bg-panel:        #ffffff;
   --bg-topbar:       #ffffff;
-  --bg-sidebar:      #f5f5f5;
+  --bg-sidebar:      #e8e8e8;
   --bg-card:         #ffffff;
   --bg-card-hover:   #f7f7f7;
   --bg-toolbar:      rgba(255,255,255,0.96);
@@ -211,15 +211,67 @@ html, body {
   height: 100%;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
-  display: flex; flex-direction: column; align-items: center;
-  padding: 8px 0;
-  gap: 2px;
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 0;
+  gap: 0;
   z-index: 100;
-  transition: width var(--transition);
+  transition: width 0.22s cubic-bezier(0.4,0,0.2,1);
   overflow: hidden;
   flex-shrink: 0;
 }
 #sidebar.open { width: var(--sidebar-w-open); }
+/* Collapsed: show icon strip, hide expanded section */
+#sidebar:not(.open) .sb-section { display: none !important; }
+#sidebar:not(.open) .sb-icon-strip { display: flex !important; }
+/* Expanded: hide icon strip, show full section */
+#sidebar.open .sb-icon-strip { display: none !important; }
+#sidebar.open .sb-section { display: flex !important; flex-direction: column; width: 100%; height: 100%; }
+/* Sidebar section styles */
+.sb-section {
+  display: none;
+  flex-direction: column;
+  width: 100%; height: 100%;
+  overflow-y: auto;
+}
+.sb-icon-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%; padding: 8px 0;
+  gap: 2px;
+  height: 100%;
+}
+.sb-section-label {
+  font-size: 11px; font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 6px 16px 4px;
+}
+.sb-section-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px;
+  font-size: 13px; color: var(--text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  margin: 1px 8px;
+  transition: background var(--transition);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sb-section-item:hover { background: rgba(0,0,0,0.06); }
+.sb-section-item.active { background: rgba(0,0,0,0.08); font-weight: 500; }
+.sb-section-item svg { width: 15px; height: 15px; color: var(--text-secondary); flex-shrink: 0; }
+.sb-new-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  font-size: 13px; color: var(--text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  margin: 4px 8px;
+  transition: background var(--transition);
+  white-space: nowrap;
+}
+.sb-new-btn:hover { background: rgba(0,0,0,0.06); }
+.sb-new-btn svg { width: 15px; height: 15px; color: var(--text-secondary); flex-shrink: 0; }
 .sb-item {
   width: 36px; height: 36px;
   border-radius: var(--radius-sm);
@@ -325,8 +377,22 @@ html, body {
   box-shadow: var(--shadow-md);
 }
 .node-card.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(26,26,26,0.12), var(--shadow-md);
+  border-color: transparent;
+  box-shadow: var(--shadow-md);
+  position: relative;
+}
+.node-card.selected::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--radius-md) + 2px);
+  background: linear-gradient(135deg, #4a4a4a 0%, #1a6bff 60%, #5ba3ff 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+  padding: 2px;
 }
 
 /* Type indicator: thin top border */
@@ -471,8 +537,8 @@ html, body {
 #minimap-canvas { display: block; }
 #minimap-viewport {
   position: absolute;
-  border: 1px solid var(--accent);
-  background: rgba(26,26,26,0.06);
+  border: 1.5px solid #888888;
+  background: rgba(0,0,0,0.05);
   pointer-events: none;
 }
 
@@ -527,7 +593,10 @@ html, body {
   z-index: 10;
 }
 #resize-handle:hover,
-#resize-handle.dragging { background: var(--accent-blue); }
+#resize-handle.dragging {
+  background: #888888;
+  box-shadow: 0 0 6px rgba(0,0,0,0.15);
+}
 
 /* ── RIGHT PANEL (Pure Preview) ──────────────────────────────── */
 #right-panel {
@@ -584,7 +653,7 @@ html, body {
 #preview-body {
   flex: 1;
   display: flex; align-items: stretch; justify-content: center;
-  background: #000000;
+  background: #ffffff;
   overflow: hidden;
   position: relative;
 }
@@ -616,18 +685,18 @@ html, body {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 8px;
-  background: #0a0a0a;
+  background: #ffffff;
 }
 .screen-play-icon {
-  font-size: 28px; color: rgba(255,255,255,0.3);
+  font-size: 28px; color: rgba(0,0,0,0.18);
 }
 .screen-node-label {
-  font-size: 10px; color: rgba(255,255,255,0.25);
+  font-size: 10px; color: rgba(0,0,0,0.25);
   letter-spacing: 0.15em;
   font-family: 'Inter', sans-serif;
 }
 .screen-node-title {
-  font-size: 12px; color: rgba(255,255,255,0.5);
+  font-size: 12px; color: rgba(0,0,0,0.4);
   font-family: 'Inter', sans-serif;
   text-align: center; padding: 0 16px;
 }
@@ -661,34 +730,17 @@ html, body {
   margin-left: auto; color: rgba(255,255,255,0.3); font-size: 14px;
 }
 
-/* ── AI CHAT PANEL ───────────────────────────────────────────── */
+//* ── AI CHAT PANEL — lovart style ──────────────────────────── */
 #ai-panel {
-  height: 260px;
+  height: 220px;
   display: flex; flex-direction: column;
   flex-shrink: 0;
   background: #ffffff;
+  border-top: 1px solid var(--border);
 }
-.ai-panel-header {
-  display: none;
-}
-.ai-panel-title {
-  font-size: 11px; font-weight: 500;
-  color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: 0.08em;
-  flex: 1;
-}
-.ai-clear-btn {
-  width: 24px; height: 24px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-tertiary);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  font-size: 12px;
-  transition: var(--transition);
-}
-.ai-clear-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--border); }
+.ai-panel-header { display: none; }
+.ai-panel-title { display: none; }
+.ai-clear-btn { display: none; }
 #ai-messages {
   flex: 1; overflow-y: auto;
   padding: 10px 12px;
@@ -727,32 +779,57 @@ html, body {
 @keyframes typingBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-4px)} }
 
 .ai-input-row {
-  display: flex; align-items: flex-end; gap: 6px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 6px 10px 10px;
   flex-shrink: 0;
 }
+.ai-input-box {
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 8px 12px 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.ai-input-box:focus-within {
+  border-color: #c0c0c0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
 #ai-input {
-  flex: 1;
+  width: 100%;
   resize: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 7px 10px;
+  border: none;
+  outline: none;
+  padding: 0;
   font-size: 12px; font-family: 'Inter', sans-serif;
   color: var(--text-primary);
-  background: var(--bg-canvas);
-  outline: none;
-  line-height: 1.4;
-  min-height: 32px; max-height: 80px;
-  transition: border-color var(--transition);
+  background: transparent;
+  line-height: 1.5;
+  min-height: 28px; max-height: 72px;
 }
-#ai-input:focus { border-color: var(--border-strong); }
-#ai-input::placeholder { color: var(--text-tertiary); }
+#ai-input::placeholder { color: #b0b0b0; font-size: 12px; }
+.ai-input-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 6px;
+}
+.ai-action-left { display: flex; align-items: center; gap: 4px; }
+.ai-action-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.ai-action-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.ai-action-btn svg { width: 13px; height: 13px; }
 .ai-send-btn {
   width: 30px; height: 30px;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   border: none;
-  background: var(--accent);
+  background: #1a1a1a;
   color: #ffffff;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
@@ -931,67 +1008,79 @@ html, body {
 <!-- APP LAYOUT -->
 <div id="app">
 
-  <!-- LEFT SIDEBAR -->
+  <!-- LEFT SIDEBAR: collapsed shows icon strip; expanded shows full panel -->
   <div id="sidebar">
-    <!-- Hamburger menu (moved from topbar) -->
-    <div class="sb-item sb-hamburger" title="菜单" onclick="toggleMenuDropdown()" style="position:relative;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-      <span class="sb-label">菜单</span>
-      <div id="menu-dropdown">
-        <div class="menu-item" onclick="showToast('项目列表（开发中）','info')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          项目列表
-        </div>
-        <div class="menu-item" onclick="showToast('新建项目（开发中）','info')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          新建项目
-        </div>
-        <div class="menu-divider"></div>
-        <div class="menu-item" onclick="window.open('/','_blank')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          玩家端预览
-        </div>
-        <div class="menu-item" onclick="exportJSON()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          导出 JSON
-        </div>
+    <!-- COLLAPSED: icon strip only -->
+    <div class="sb-icon-strip">
+      <div class="sb-item" title="展开" onclick="toggleSidebar()" style="margin-bottom:4px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-item active" title="节点图">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div>
+      <div class="sb-item" title="项目">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      </div>
+      <div class="sb-item" title="媒体库">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/>
+          <line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
+        </svg>
+      </div>
+      <div class="sb-spacer"></div>
+      <div class="sb-divider"></div>
+      <div class="sb-item" title="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
       </div>
     </div>
-    <div class="sb-divider"></div>
-    <div class="sb-item active" title="节点图" onclick="toggleSidebar()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-      </svg>
-      <span class="sb-label">节点图</span>
-    </div>
-    <div class="sb-item" title="项目管理">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-      </svg>
-      <span class="sb-label">项目管理</span>
-    </div>
-    <div class="sb-item" title="媒体库">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/>
-        <line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
-        <line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/>
-        <line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/>
-      </svg>
-      <span class="sb-label">媒体库</span>
-    </div>
-    <div class="sb-spacer"></div>
-    <div class="sb-divider"></div>
-    <div class="sb-item" title="全局设置">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-      <span class="sb-label">全局设置</span>
+
+    <!-- EXPANDED: full panel -->
+    <div class="sb-section">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;">
+        <span style="font-size:13px;font-weight:600;color:var(--text-primary);字体大小:13px">星之继承者</span>
+        <div class="sb-item" style="width:26px;height:26px;" title="收起" onclick="toggleSidebar()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </div>
+      </div>
+      <div class="sb-divider" style="width:calc(100%-16px);margin:0 8px 6px;"></div>
+
+      <!-- 新建任务 -->
+      <div class="sb-new-btn" onclick="showToast('新建项目（开发中）','info')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        新建任务
+      </div>
+
+      <!-- 任务列表 -->
+      <div class="sb-section-label">任务列表</div>
+      <div class="sb-section-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        互动视频游戏平台
+      </div>
+      <div class="sb-section-item" onclick="window.open('/','_blank')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        玩家端预览
+      </div>
+
+      <div class="sb-spacer"></div>
+      <div class="sb-divider" style="width:calc(100%-16px);margin:0 8px;"></div>
+      <div class="sb-section-item" onclick="exportJSON()" style="margin-bottom:8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        导出 JSON
+      </div>
     </div>
   </div>
 
@@ -1071,9 +1160,19 @@ html, body {
           <span class="tool-tip">添加重生点</span>
         </button>
         <div class="tool-divider"></div>
-        <button class="tool-btn">
+        <button class="tool-btn" id="tool-more-btn" onclick="toggleMoreMenu(event)" style="position:relative;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-          <span class="tool-tip">更多工具</span>
+          <span class="tool-tip">更多</span>
+          <div id="more-menu" style="display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);min-width:130px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:500;overflow:hidden;">
+            <div class="menu-item" onclick="saveData();closeMoreMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              保存
+            </div>
+            <div class="menu-item" onclick="showToast('发布功能开发中','info');closeMoreMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              发布
+            </div>
+          </div>
         </button>
       </div>
     </div>
@@ -1121,12 +1220,21 @@ html, body {
         </div>
       </div>
       <div class="ai-input-row">
-        <textarea id="ai-input" placeholder="描述你想要的剧情改动..." rows="1"
-          oninput="autoResize(this)"
-          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMsg();}"></textarea>
-        <button class="ai-send-btn" onclick="sendAiMsg()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+        <div class="ai-input-box">
+          <textarea id="ai-input" placeholder="描述你想要的剧情改动..." rows="1"
+            oninput="autoResize(this)"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMsg();}"></textarea>
+          <div class="ai-input-actions">
+            <div class="ai-action-left">
+              <button class="ai-action-btn" title="附件">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+            </div>
+            <button class="ai-send-btn" onclick="sendAiMsg()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1954,9 +2062,24 @@ function autoResize(el) {
 }
 
 // ── SIDEBAR TOGGLE ─────────────────────────────────────────────
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-}
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+  }
+
+  function toggleMoreMenu(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('more-menu');
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  }
+  function closeMoreMenu() {
+    const menu = document.getElementById('more-menu');
+    if (menu) menu.style.display = 'none';
+  }
+  // Close more menu on outside click
+  document.addEventListener('click', function(e) {
+    const btn = document.getElementById('tool-more-btn');
+    if (btn && !btn.contains(e.target)) closeMoreMenu();
+  });
 
 // ── KEYBOARD SHORTCUTS ─────────────────────────────────────────
 function initKeyboard() {
