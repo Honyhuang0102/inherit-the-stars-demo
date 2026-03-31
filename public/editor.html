@@ -2478,8 +2478,8 @@ function renderConnections() {
     const toNode   = state.nodes[conn.to];
     if (!fromNode || !toNode) return;
 
-    const fw = 180, fh = getNodeHeight(fromNode.el);
-    const tw = 180, th = getNodeHeight(toNode.el);
+    const fw = getNodeWidth(fromNode.el), fh = getNodeHeight(fromNode.el);
+    const tw = getNodeWidth(toNode.el),   th = getNodeHeight(toNode.el);
 
     let fy;
     if (conn.choiceIdx >= 0) {
@@ -2523,6 +2523,9 @@ function renderConnections() {
 
 function getNodeHeight(el) {
   return el ? el.offsetHeight || 130 : 130;
+}
+function getNodeWidth(el) {
+  return el ? el.offsetWidth || 180 : 180;
 }
 
 // ── VIEWPORT / PAN / ZOOM ──────────────────────────────────────
@@ -3645,18 +3648,21 @@ function updateMinimap() {
     ctx.lineWidth = 1;
     const rx = n.x * scaleX, ry = n.y * scaleY;
     ctx.beginPath();
-    ctx.roundRect(rx, ry, 180*scaleX, 130*scaleY, 2);
+    const nw = getNodeWidth(n.el), nh = getNodeHeight(n.el);
+    ctx.roundRect(rx, ry, nw*scaleX, nh*scaleY, 2);
     ctx.fill(); ctx.stroke();
   });
 
   state.connections.forEach(conn => {
     const fn = state.nodes[conn.from], tn = state.nodes[conn.to];
     if (!fn || !tn) return;
+    const fnw = getNodeWidth(fn.el), fnh = getNodeHeight(fn.el);
+    const tnw = getNodeWidth(tn.el), tnh = getNodeHeight(tn.el);
     ctx.strokeStyle = conn.choiceIdx >= 0 ? 'rgba(217,119,6,0.5)' : 'rgba(26,26,26,0.3)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo((fn.x+180)*scaleX, (fn.y+65)*scaleY);
-    ctx.lineTo(tn.x*scaleX, (tn.y+65)*scaleY);
+    ctx.moveTo((fn.x+fnw)*scaleX, (fn.y+fnh/2)*scaleY);
+    ctx.lineTo(tn.x*scaleX, (tn.y+tnh/2)*scaleY);
     ctx.stroke();
   });
 
@@ -3961,6 +3967,35 @@ function loadImmersiveNode(nodeData) {
     screen.classList.remove('model3d-active', 'model3d-picking');
     model3dPickMode = false;
     destroy3DModelViewer();
+
+    // 注入视频到沉浸屏
+    const placeholder = document.getElementById('imm-placeholder');
+    const oldVid = screen.querySelector('.imm-video-el');
+    if (oldVid) oldVid.remove();
+
+    if (nodeData.video_url) {
+      placeholder.style.display = 'none';
+      const vid = document.createElement('video');
+      vid.className = 'imm-video-el';
+      vid.src = nodeData.video_url;
+      vid.controls = true;
+      vid.loop = false;
+      if (nodeData.poster_url) vid.poster = nodeData.poster_url;
+      vid.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:1;border-radius:inherit;';
+      // 插入到 immersive-choices 层之前，确保热点在视频上方
+      const choicesLayer = document.getElementById('immersive-choices');
+      screen.querySelector('.imm-screen-content').insertBefore(vid, choicesLayer);
+    } else {
+      placeholder.style.display = '';
+      if (nodeData.poster_url) {
+        placeholder.style.backgroundImage = `url('${nodeData.poster_url}')`;
+        placeholder.style.backgroundSize = 'cover';
+        placeholder.style.backgroundPosition = 'center';
+      } else {
+        placeholder.style.backgroundImage = '';
+      }
+    }
+
     renderImmersiveChoices(nodeData);
   }
 }
@@ -4433,25 +4468,24 @@ function cancelPolygonDraw() {
 /**
  * 在沉浸屏中渲染多边形热点
  */
-function renderPolygonZone(choice, choiceIdx) {
+function renderPolygonZone(choice, idx) {
   const svg = document.getElementById('polygon-draw-svg');
   const points = choice.points.map(p => `${parseFloat(p.x)},${parseFloat(p.y)}`).join(' ');
 
   const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
   polygon.setAttribute('points', points);
   polygon.classList.add('poly-zone');
-  polygon.dataset.choiceIdx = choiceIdx;
-  polygon.title = choice.label || `隐形触发区 ${choiceIdx + 1}`;
+  polygon.dataset.choiceIdx = idx;
+  polygon.title = choice.label || `隐形触发区 ${idx + 1}`;
   svg.appendChild(polygon);
   polyState.polygons.push(polygon);
 
-  // 点击选中
+  // 点击选中，同步双头滑块到对应 choice 的独立 timeWindow
   polygon.addEventListener('click', (e) => {
     e.stopPropagation();
     svg.querySelectorAll('.poly-zone').forEach(p => p.classList.remove('selected'));
     polygon.classList.add('selected');
-    // 同步选中到双头滑块
-    syncRangeSliderToChoice(choiceIdx);
+    syncRangeSliderToChoice(idx);
   });
 
   // 确保 SVG 层可交互（有多边形时始终保持 pointer-events）
@@ -4502,8 +4536,8 @@ function onRangeSliderInput() {
     else { e = s; endEl.value = e; }
   }
 
-  // 根据滑块总长计算秒数（假设视频总长 = max 属性）
-  const maxSec = parseFloat(startEl.max) || 100;
+  // 根据视频实际时长计算秒数
+  const maxSec = (immersiveNodeData && (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second)) || 100;
   const startSec = (s / 100 * maxSec);
   const endSec   = (e / 100 * maxSec);
 
@@ -4540,7 +4574,8 @@ function syncRangeSliderToChoice(choiceIdx) {
 
   selectedChoiceIdx = choiceIdx;
   const tw = choice.timeWindow || [0, 30];
-  const maxSec = 100; // 默认视频总长 100s
+  // 优先读取视频实际时长，fallback 到 branch_at_second，最后 fallback 到 100
+  const maxSec = (immersiveNodeData && (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second)) || 100;
 
   const startPct = Math.round(tw[0] / maxSec * 100);
   const endPct   = Math.round(tw[1] / maxSec * 100);
