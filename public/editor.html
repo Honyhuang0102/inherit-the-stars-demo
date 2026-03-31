@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <!-- Pannellum 全景图查看器 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
-<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
 <style>
 /* ═══════════════════════════════════════════════════════════════
    STELLAR HEIR · Creator Studio  —  Light Minimal Theme
@@ -1068,6 +1068,8 @@ html, body {
   overflow: visible;
 }
 #polygon-draw-svg.active { pointer-events: all; cursor: crosshair; }
+/* 有已完成多边形时，SVG 层始终可交互 */
+#polygon-draw-svg.has-zones { pointer-events: all; }
 /* 已绘制的多边形 */
 .poly-zone {
   fill: rgba(37,99,235,0.12);
@@ -1521,6 +1523,58 @@ body.immersive-mode #right-panel {
 #btn-add-pano-hotspot {
   display: none;
 }
+
+/* ── Canvas Zoom & Pan (沉浸式画布缩放平移) ──────────────────── */
+#immersive-screen-wrapper {
+  position: relative;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  cursor: default;
+}
+#immersive-screen-wrapper.panning { cursor: grab; }
+#immersive-screen-wrapper.panning:active { cursor: grabbing; }
+/* 缩放层：transform 应用在此元素上 */
+#immersive-canvas-transform {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+/* 缩放比例指示器 */
+#zoom-indicator {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.3s;
+  letter-spacing: 0.04em;
+}
+#zoom-indicator.visible { opacity: 1; }
+/* 空格键平移提示 */
+#pan-hint {
+  position: absolute;
+  top: 12px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+  white-space: nowrap;
+}
+#pan-hint.visible { display: block; }
+
 </style>
 </head>
 <body>
@@ -1860,25 +1914,33 @@ body.immersive-mode #right-panel {
     <!-- 放大的预览屏区域 -->
   <div id="immersive-stage">
     <!-- 预览屏：大小由 JS 动态计算 -->
-    <div id="immersive-screen">
-      <div class="imm-screen-content">
-        <!-- 视频占位层 -->
-        <div class="imm-video-placeholder" id="imm-placeholder">
-          <div class="imm-play-icon">▶</div>
-          <div class="imm-node-label" id="imm-node-label-text">NODE</div>
-          <div class="imm-node-title" id="imm-node-title-text">选择一个节点开始编辑</div>
+    <div id="immersive-screen-wrapper">
+      <div id="immersive-canvas-transform">
+        <div id="immersive-screen">
+          <div class="imm-screen-content">
+            <!-- 视频占位层 -->
+            <div class="imm-video-placeholder" id="imm-placeholder">
+              <div class="imm-play-icon">▶</div>
+              <div class="imm-node-label" id="imm-node-label-text">NODE</div>
+              <div class="imm-node-title" id="imm-node-title-text">选择一个节点开始编辑</div>
+            </div>
+            <!-- 热点层：沉浸模式下的拖拽热点 -->
+            <div id="immersive-choices"></div>
+            <!-- SVG 多边形绘制层 -->
+            <svg id="polygon-draw-svg" xmlns="http://www.w3.org/2000/svg">
+              <polyline id="poly-preview-line" points=""/>
+            </svg>
+            <!-- 绘制提示 -->
+            <div id="poly-draw-hint">点击画面添加顶点 · 双击或点击起始点闭合</div>
+            <!-- 全景图容器（panorama 节点时显示） -->
+            <div id="immersive-pano-container"></div>
+          </div>
         </div>
-        <!-- 热点层：沉浸模式下的拖拽热点 -->
-        <div id="immersive-choices"></div>
-        <!-- SVG 多边形绘制层 -->
-        <svg id="polygon-draw-svg" xmlns="http://www.w3.org/2000/svg">
-          <polyline id="poly-preview-line" points=""/>
-        </svg>
-        <!-- 绘制提示 -->
-        <div id="poly-draw-hint">点击画面添加顶点 · 双击或点击起始点闭合</div>
-        <!-- 全景图容器（panorama 节点时显示） -->
-        <div id="immersive-pano-container"></div>
       </div>
+      <!-- 缩放比例指示器 -->
+      <div id="zoom-indicator">100%</div>
+      <!-- 平移提示 -->
+      <div id="pan-hint">按住 Space 拖拽平移 · Ctrl+滚轮缩放</div>
     </div>
   </div>
 
@@ -3043,7 +3105,11 @@ function enterImmersiveMode() {
   // 延迟一帧后计算尺寸（等 overlay 渲染完成）
   requestAnimationFrame(() => {
     resizeImmersiveScreen();
+    // 初始化画布缩放平移引擎（每次进入沉浸模式时重新绑定）
+    initCanvasZoomPan();
   });
+
+  showToast('沉浸编辑模式 · Ctrl+滚轮缩放 · Space+拖拽平移', 'info');
 
   // ESC 退出
   document.addEventListener('keydown', onImmersiveKeyDown);
@@ -3057,6 +3123,9 @@ function exitImmersiveMode() {
   overlay.classList.remove('active');
   document.body.classList.remove('immersive-mode');
   document.removeEventListener('keydown', onImmersiveKeyDown);
+
+  // 退出时重置画布变换
+  resetCanvasTransform();
 
   // 将沉浸屏中的热点位置同步回小预览屏
   if (immersiveNodeData) {
@@ -3074,6 +3143,8 @@ function onImmersiveKeyDown(e) {
 function resizeImmersiveScreen() {
   const screen = document.getElementById('immersive-screen');
   if (!screen) return;
+  // 同步 wrapper 尺寸
+  const wrapper = document.getElementById('immersive-screen-wrapper');
   const { w, h } = calcImmersiveScreenSize();
   screen.style.width  = w + 'px';
   screen.style.height = h + 'px';
@@ -3237,6 +3308,7 @@ function renderImmersiveChoices(nodeData) {
   // 清除 SVG 层中已有多边形（保留 poly-preview-line）
   const svg = document.getElementById('polygon-draw-svg');
   svg.querySelectorAll('.poly-zone, .poly-vertex').forEach(el => el.remove());
+  svg.classList.remove('has-zones');
   polyState.polygons = [];
 
   if (!nodeData.choices || !nodeData.choices.length) {
@@ -3426,10 +3498,14 @@ function onPolygonClick(e) {
   if (!polyState.drawing) return;
   e.stopPropagation();
 
-  const svg = polyState.svgEl;
-  const rect = svg.getBoundingClientRect();
-  const xPct = Math.round((e.clientX - rect.left) / rect.width  * 1000) / 10;
-  const yPct = Math.round((e.clientY - rect.top)  / rect.height * 1000) / 10;
+  // 使用逆变换坐标：相对于 immersive-screen 原始尺寸，不受缩放/平移影响
+  const screen = document.getElementById('immersive-screen');
+  const screenRect = screen.getBoundingClientRect();
+  // 将鼠标坐标从屏幕空间转换回未缩放的画布空间
+  const rawX = (e.clientX - screenRect.left) / canvasTransform.scale;
+  const rawY = (e.clientY - screenRect.top)  / canvasTransform.scale;
+  const xPct = Math.round(rawX / (screenRect.width  / canvasTransform.scale) * 1000) / 10;
+  const yPct = Math.round(rawY / (screenRect.height / canvasTransform.scale) * 1000) / 10;
 
   // 点击起始点闭合（至少 3 个顶点）
   if (polyState.vertices.length >= 3) {
@@ -3454,10 +3530,13 @@ function onPolygonDblClick(e) {
 
 function onPolygonMouseMove(e) {
   if (!polyState.drawing || polyState.vertices.length === 0) return;
-  const svg = polyState.svgEl;
-  const rect = svg.getBoundingClientRect();
-  const xPct = (e.clientX - rect.left) / rect.width  * 100;
-  const yPct = (e.clientY - rect.top)  / rect.height * 100;
+  // 同样使用逆变换坐标
+  const screen = document.getElementById('immersive-screen');
+  const screenRect = screen.getBoundingClientRect();
+  const rawX = (e.clientX - screenRect.left) / canvasTransform.scale;
+  const rawY = (e.clientY - screenRect.top)  / canvasTransform.scale;
+  const xPct = rawX / (screenRect.width  / canvasTransform.scale) * 100;
+  const yPct = rawY / (screenRect.height / canvasTransform.scale) * 100;
 
   // 更新预览线（最后一个顶点到鼠标）
   const last = polyState.vertices[polyState.vertices.length - 1];
@@ -3564,6 +3643,9 @@ function renderPolygonZone(choice, choiceIdx) {
     // 同步选中到双头滑块
     syncRangeSliderToChoice(choiceIdx);
   });
+
+  // 确保 SVG 层可交互（有多边形时始终保持 pointer-events）
+  svg.classList.add('has-zones');
 }
 
 /**
@@ -3727,6 +3809,148 @@ function escHtml(s) {
 const style = document.createElement('style');
 style.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
 document.head.appendChild(style);
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  CANVAS ZOOM & PAN ENGINE  (沉浸式编辑器画布缩放平移)
+//
+//  缩放：Ctrl/Cmd + 滚轮，以鼠标指针为中心
+//  平移：按住 Space + 拖拽，或鼠标中键拖拽
+//  坐标系保护：多边形绘制时使用 canvasTransform 逆变换确保 % 坐标精准
+// ══════════════════════════════════════════════════════════════════════════════
+
+const canvasTransform = {
+  scale:  1,
+  tx:     0,   // translate X (px)
+  ty:     0,   // translate Y (px)
+  minScale: 0.5,
+  maxScale: 5,
+};
+
+let _zoomIndicatorTimer = null;
+let _spaceDown = false;
+let _panActive = false;
+let _panStartX = 0, _panStartY = 0;
+let _panStartTx = 0, _panStartTy = 0;
+
+function applyCanvasTransform() {
+  const el = document.getElementById('immersive-canvas-transform');
+  if (!el) return;
+  el.style.transform = `translate(${canvasTransform.tx}px, ${canvasTransform.ty}px) scale(${canvasTransform.scale})`;
+}
+
+function showZoomIndicator() {
+  const el = document.getElementById('zoom-indicator');
+  if (!el) return;
+  el.textContent = Math.round(canvasTransform.scale * 100) + '%';
+  el.classList.add('visible');
+  clearTimeout(_zoomIndicatorTimer);
+  _zoomIndicatorTimer = setTimeout(() => el.classList.remove('visible'), 1200);
+}
+
+function resetCanvasTransform() {
+  canvasTransform.scale = 1;
+  canvasTransform.tx = 0;
+  canvasTransform.ty = 0;
+  applyCanvasTransform();
+  showZoomIndicator();
+}
+
+function initCanvasZoomPan() {
+  const wrapper = document.getElementById('immersive-screen-wrapper');
+  if (!wrapper) return;
+
+  // ── Ctrl + Wheel → Zoom ──────────────────────────────────────────────────
+  wrapper.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = wrapper.getBoundingClientRect();
+    // 鼠标相对于 wrapper 的位置
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const delta = e.deltaY < 0 ? 1.1 : 0.9;
+    const newScale = Math.max(canvasTransform.minScale,
+                     Math.min(canvasTransform.maxScale,
+                     canvasTransform.scale * delta));
+
+    // 以鼠标为中心缩放：调整 translate 使鼠标指向的内容点不变
+    const scaleRatio = newScale / canvasTransform.scale;
+    canvasTransform.tx = mx - scaleRatio * (mx - canvasTransform.tx);
+    canvasTransform.ty = my - scaleRatio * (my - canvasTransform.ty);
+    canvasTransform.scale = newScale;
+
+    applyCanvasTransform();
+    showZoomIndicator();
+  }, { passive: false });
+
+  // ── Space key → Pan mode ─────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && document.getElementById('immersive-overlay')?.classList.contains('visible')) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      _spaceDown = true;
+      wrapper.classList.add('panning');
+      const hint = document.getElementById('pan-hint');
+      if (hint) hint.classList.add('visible');
+    }
+    // Escape → reset zoom
+    if (e.code === 'Escape' && canvasTransform.scale !== 1) {
+      resetCanvasTransform();
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      _spaceDown = false;
+      if (!_panActive) wrapper.classList.remove('panning');
+      const hint = document.getElementById('pan-hint');
+      if (hint) hint.classList.remove('visible');
+    }
+  });
+
+  // ── Mouse events → Pan drag ──────────────────────────────────────────────
+  wrapper.addEventListener('mousedown', (e) => {
+    // Space + left button OR middle button
+    if ((_spaceDown && e.button === 0) || e.button === 1) {
+      e.preventDefault();
+      _panActive = true;
+      _panStartX = e.clientX;
+      _panStartY = e.clientY;
+      _panStartTx = canvasTransform.tx;
+      _panStartTy = canvasTransform.ty;
+      wrapper.classList.add('panning');
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_panActive) return;
+    const dx = e.clientX - _panStartX;
+    const dy = e.clientY - _panStartY;
+    canvasTransform.tx = _panStartTx + dx;
+    canvasTransform.ty = _panStartTy + dy;
+    applyCanvasTransform();
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (_panActive) {
+      _panActive = false;
+      if (!_spaceDown) wrapper.classList.remove('panning');
+    }
+  });
+
+  // ── Double-click → Reset zoom ────────────────────────────────────────────
+  wrapper.addEventListener('dblclick', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      resetCanvasTransform();
+    }
+  });
+
+  console.log('[ZoomPan] Canvas zoom/pan engine initialized');
+}
+
+// 在 enterImmersiveMode 之后调用 initCanvasZoomPan
+// 在 exitImmersiveMode 之前调用 resetCanvasTransform
+
 </script>
-</body>
-</html>
