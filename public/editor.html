@@ -1051,7 +1051,7 @@ html, body {
     <div class="sb-section">
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;">
-        <span style="font-size:13px;font-weight:600;color:var(--text-primary);字体大小:13px">星之继承者</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text-primary);">linkpark.ai</span>
         <div class="sb-item" style="width:26px;height:26px;" title="收起" onclick="toggleSidebar()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         </div>
@@ -1068,7 +1068,7 @@ html, body {
       <div class="sb-section-label">任务列表</div>
       <div class="sb-section-item active">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        互动视频游戏平台
+        星之继承者
       </div>
       <div class="sb-section-item" onclick="window.open('/','_blank')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -1606,15 +1606,29 @@ function onCanvasMouseUp(e) {
 
 function onCanvasWheel(e) {
   e.preventDefault();
-  const wrap = document.getElementById('canvas-wrap');
-  const rect = wrap.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
-  const delta = e.deltaY > 0 ? 0.9 : 1.1;
-  const newScale = Math.max(0.2, Math.min(3, state.viewport.scale * delta));
-  state.viewport.x = mouseX - (mouseX - state.viewport.x) * (newScale / state.viewport.scale);
-  state.viewport.y = mouseY - (mouseY - state.viewport.y) * (newScale / state.viewport.scale);
-  state.viewport.scale = newScale;
+
+  // Mac trackpad pinch-to-zoom 或 Ctrl/Cmd + 滚轮 才缩放
+  if (e.ctrlKey || e.metaKey) {
+    const wrap = document.getElementById('canvas-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    // ctrlKey 被 trackpad pinch 触发时 deltaY 范围较小，需要更细的系数
+    const zoomFactor = e.ctrlKey && !e.metaKey ? 0.01 : 0.003;
+    const delta = Math.exp(-e.deltaY * zoomFactor);
+    const newScale = Math.max(0.2, Math.min(3, state.viewport.scale * delta));
+    state.viewport.x = mouseX - (mouseX - state.viewport.x) * (newScale / state.viewport.scale);
+    state.viewport.y = mouseY - (mouseY - state.viewport.y) * (newScale / state.viewport.scale);
+    state.viewport.scale = newScale;
+    applyViewport();
+    return;
+  }
+
+  // 普通滚轮 / Mac 双指滑动 → 平移画布
+  // deltaMode 0 = pixel, 1 = line, 2 = page
+  const lineH = e.deltaMode === 1 ? 20 : 1;
+  state.viewport.x -= e.deltaX * lineH;
+  state.viewport.y -= e.deltaY * lineH;
   applyViewport();
 }
 
