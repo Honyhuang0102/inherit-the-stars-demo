@@ -1211,18 +1211,25 @@ function showChoices(node, forceShow = false) {
     }
   });
 
-  // 淡入热点层（如果有热点在窗口内）
+  // 淡入热点层
   $hotspotLayer.classList.add('visible');
 
-  // 如果所有热点都有 timeWindow 且当前时间均不在窗口内，不暂停视频
-  // forceShow=true 时强制暂停（视频已结束，必须展示选择）
+  // 判断是否有任何按鈕当前可见（在 timeWindow 内）
   const anyVisible = forceShow || node.choices.some(c => {
     const tw = c.timeWindow;
     if (!tw || !Array.isArray(tw) || tw.length < 2) return true;
     return currentTime >= tw[0] && currentTime <= tw[1];
   });
+
   if (anyVisible && engine.activeVideo) {
     engine.activeVideo.pause();
+    // 视频暂停后，将所有按鈕强制设为可见（timeWindow 的意义是控制播放中的显隐，暂停后应展示所有选项）
+    $hotspotLayer.querySelectorAll('.hotspot-btn').forEach(btn => {
+      btn.style.display = '';
+    });
+    $hotspotSvg.querySelectorAll('.poly-hotspot').forEach(poly => {
+      poly.style.display = '';
+    });
   }
 }
 
@@ -1310,7 +1317,11 @@ $restartBtn.addEventListener('click', () => {
   videoPool.clear();
   engine.activeVideo = null;
 
-  showTapStart();
+  // 只有用户未交互过时才需要显示 tap-start-overlay
+  // 已交互过的用户重生时直接播放，不需要再次点击解锁
+  if (!engine.userInteracted) {
+    showTapStart();
+  }
   loadNode(engine.gameData.start_node);
 });
 // ── Initt ───────────────────────────────────────────────────────────────────────
