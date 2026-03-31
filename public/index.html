@@ -983,6 +983,7 @@ async function loadNode(nodeId) {
   engine.choiceShown    = false;
   engine.branchHandled  = false;
   engine.transitioning  = false;
+  engine.videoEnded     = false; // 重置视频结束标志，新节点正常控制热点显隐
 
   // 重置 UI
   hideHotspots();
@@ -1057,6 +1058,7 @@ function onSeeked() {
 // ── ended Handler ─────────────────────────────────────────────────────────────
 function onEnded() {
   if (this !== engine.activeVideo) return;
+  engine.videoEnded = true; // 标记视频已结束，阻止 updateHotspotVisibility 继续隐藏热点
   const node = engine.gameData.nodes[engine.currentNodeId];
   if (node && node.type === 'ending') {
     showEnding(node);
@@ -1090,7 +1092,8 @@ function maybeTriggerBranch(currentTime) {
   }
 
   // 已建立热点 DOM：根据 timeWindow 实时控制显隐
-  if (engine.choiceShown) {
+  // 注意：视频已结束时（engine.videoEnded）不再执行显隐控制，保持所有热点强制显示
+  if (engine.choiceShown && !engine.videoEnded) {
     updateHotspotVisibility(node, currentTime);
   }
 }
