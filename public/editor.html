@@ -1784,39 +1784,20 @@ body.immersive-mode #right-panel {
 
   <!-- LEFT SIDEBAR: collapsed shows icon strip; expanded shows full panel -->
   <div id="sidebar">
-    <!-- COLLAPSED: icon strip only -->
+    <!-- COLLAPSED: icon strip only (只保留加号+任务图标) -->
     <div class="sb-icon-strip">
-      <div class="sb-item" title="展开" onclick="toggleSidebar()" style="margin-bottom:4px;">
+      <!-- 新建任务（加号） -->
+      <div class="sb-item" title="新建任务" onclick="toggleSidebar()" style="margin-bottom:4px;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <line x1="3" y1="12" x2="21" y2="12"/>
-          <line x1="3" y1="18" x2="21" y2="18"/>
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
       </div>
       <div class="sb-divider"></div>
-      <div class="sb-item active" title="节点图">
+      <!-- 任务图标（节点图） -->
+      <div class="sb-item active" title="任务列表" onclick="toggleSidebar()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
           <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
           <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-      </div>
-      <div class="sb-item" title="项目">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-        </svg>
-      </div>
-      <div class="sb-item" title="媒体库">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <rect x="2" y="2" width="20" height="20" rx="2.18"/><line x1="7" y1="2" x2="7" y2="22"/>
-          <line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/>
-        </svg>
-      </div>
-      <div class="sb-spacer"></div>
-      <div class="sb-divider"></div>
-      <div class="sb-item" title="设置">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
       </div>
     </div>
@@ -1825,7 +1806,7 @@ body.immersive-mode #right-panel {
     <div class="sb-section">
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;">
-        <span style="font-size:13px;font-weight:600;color:var(--text-primary);">linkpark.ai</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text-primary);">infinplay.ai</span>
         <div class="sb-item" style="width:26px;height:26px;" title="收起" onclick="toggleSidebar()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         </div>
@@ -1844,10 +1825,7 @@ body.immersive-mode #right-panel {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         星之继承者
       </div>
-      <div class="sb-section-item" onclick="window.open('/','_blank')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        玩家端预览
-      </div>
+
 
       <div class="sb-spacer"></div>
       <div class="sb-divider" style="width:calc(100%-16px);margin:0 8px;"></div>
@@ -1937,7 +1915,11 @@ body.immersive-mode #right-panel {
         <button class="tool-btn" id="tool-more-btn" onclick="toggleMoreMenu(event)" style="position:relative;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
           <span class="tool-tip">更多</span>
-          <div id="more-menu" style="display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);min-width:130px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:500;overflow:hidden;">
+          <div id="more-menu" style="display:none;position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);min-width:140px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:500;overflow:hidden;">
+            <div class="menu-item" onclick="window.open('/','_blank');closeMoreMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              玩家端预览
+            </div>
             <div class="menu-item" onclick="saveData();closeMoreMenu()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               保存
@@ -3348,16 +3330,26 @@ function updateMinimap() {
     ctx.stroke();
   });
 
+  // 视口矩形：将画布坐标系中的可见区域映射到小地图坐标系
   const wrap = document.getElementById('canvas-wrap');
-  const vw = wrap.clientWidth / state.viewport.scale;
+  // 小地图坐标系中，画布原点对应的小地图位置
+  // state.viewport.x/y 是 canvas 元素的 translate 偶，除以 scale 得到画布坐标系中的偏移
+  const vw = wrap.clientWidth  / state.viewport.scale;
   const vh = wrap.clientHeight / state.viewport.scale;
+  // 画布左上角在小地图中的位置 = -偶移 / scale
   const vx = -state.viewport.x / state.viewport.scale;
   const vy = -state.viewport.y / state.viewport.scale;
   const mm = document.getElementById('minimap-viewport');
-  mm.style.left   = Math.max(0, vx * scaleX) + 'px';
-  mm.style.top    = Math.max(0, vy * scaleY) + 'px';
-  mm.style.width  = Math.min(w, vw * scaleX) + 'px';
-  mm.style.height = Math.min(h, vh * scaleY) + 'px';
+  // 将画布坐标系映射到小地图坐标系
+  const mmLeft   = vx * scaleX;
+  const mmTop    = vy * scaleY;
+  const mmWidth  = vw * scaleX;
+  const mmHeight = vh * scaleY;
+  // 限制在小地图范围内
+  mm.style.left   = Math.max(0, Math.min(w - 4, mmLeft))   + 'px';
+  mm.style.top    = Math.max(0, Math.min(h - 4, mmTop))    + 'px';
+  mm.style.width  = Math.max(4, Math.min(w, mmWidth))      + 'px';
+  mm.style.height = Math.max(4, Math.min(h, mmHeight))     + 'px';
 }
 
 // ── RESIZE HANDLE ──────────────────────────────────────────────
