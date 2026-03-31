@@ -47,6 +47,40 @@
       "type": "ending",
       "ending_tag": "ENDING · SILENT VOID",
       "choices": []
+    },
+    "node_panorama_demo": {
+      "id": "node_panorama_demo",
+      "title": "全景探索：远古星舰遗迹",
+      "description": "360° 全景节点示例。创作者上传等距柱状全景图后，玩家可自由旋转探索。",
+      "type": "panorama",
+      "panorama_url": "/panoramas/demo.jpg",
+      "panorama_source_image": "",
+      "panorama_generation_status": "pending",
+      "default_pitch": 0,
+      "default_yaw": 0,
+      "default_hfov": 100,
+      "choices": [
+        {
+          "id": "pano_choice_1",
+          "label": "[ 进入核心舱 ]",
+          "sublabel": "沿走廊深入",
+          "target_node": "node_B",
+          "hotkey": "1",
+          "pitch": -5,
+          "yaw": 45,
+          "timeWindow": [0, 999]
+        },
+        {
+          "id": "pano_choice_2",
+          "label": "[ 检查导航台 ]",
+          "sublabel": "查看星图数据",
+          "target_node": "node_C",
+          "hotkey": "2",
+          "pitch": 10,
+          "yaw": -120,
+          "timeWindow": [0, 999]
+        }
+      ]
     }
   }
 }

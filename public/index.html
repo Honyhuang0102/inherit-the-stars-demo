@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>STELLAR HEIR · 星之继承者</title>
+  <!-- Pannellum 全景图查看器 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"><\/script>
   <style>
     /* ── Reset & Base ─────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -582,7 +585,7 @@
       padding: 0 30px;
     }
 
-    /* ── Responsive: full-screen on real mobile ───────────────────────────── */
+    /* ── Responsive: full-screen on real mobile ─────────────────────────────────────── */
     @media (max-width: 430px) {
       #phone-shell {
         width: 100vw;
@@ -591,6 +594,52 @@
         border: none;
       }
     }
+
+    /* ── Panorama Mode ───────────────────────────────────────────────────────────── */
+    /* Pannellum 全屏容器 */
+    #pano-container {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: none;
+    }
+    #pano-container.visible {
+      display: block;
+    }
+    /* 全景模式下隐藏视频层 */
+    body.pano-mode #video-container { display: none; }
+    body.pano-mode #hotspot-layer   { display: none; }
+    body.pano-mode #hud-footer      { z-index: 60; }
+
+    /* 全景热点按鈕（Pannellum 自定义热点） */
+    .pano-hs-btn {
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(14px) saturate(1.6);
+      -webkit-backdrop-filter: blur(14px) saturate(1.6);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 20px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      padding: 7px 16px;
+      white-space: nowrap;
+      cursor: pointer;
+      pointer-events: all;
+      transform: translateX(-50%);
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+      letter-spacing: 0.04em;
+    }
+    .pano-hs-btn:hover {
+      background: rgba(255,255,255,0.22);
+      transform: translateX(-50%) scale(1.06);
+      box-shadow: 0 6px 32px rgba(255,255,255,0.12);
+    }
+
+    /* Pannellum 默认控件隐藏 */
+    .pnlm-controls-container { display: none !important; }
+    .pnlm-load-box { display: none !important; }
   </style>
 </head>
 <body>
@@ -643,6 +692,9 @@
     <svg id="hotspot-svg" xmlns="http://www.w3.org/2000/svg"></svg>
   </div>
 
+  <!-- Panorama Container — Pannellum 全景图容器（panorama 节点时显示） -->
+  <div id="pano-container"></div>
+
   <!-- Ending Screen -->
   <div id="ending-screen">
     <span class="ending-tag" id="ending-tag-text"></span>
@@ -682,15 +734,16 @@
 //    - 初始 muted 绕过自动播放策略
 //    - 若 play() 被拦截，显示 #tap-start-overlay，等待用户交互后重试
 //    - playsInline + webkit-playsinline 保证 iOS Safari 内联播放
-// ══════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 
-// ── DOM Refs ───────────────────────────────────────────────────────────────────
+// ── DOM Refs ──────────────────────────────────────────────────────────────────
 const $loadingScreen  = document.getElementById('loading-screen');
 const $errorScreen    = document.getElementById('error-screen');
 const $tapStart       = document.getElementById('tap-start-overlay');
 const $videoContainer = document.getElementById('video-container');
 const $hotspotLayer   = document.getElementById('hotspot-layer');
 const $hotspotSvg     = document.getElementById('hotspot-svg');
+const $panoContainer  = document.getElementById('pano-container');
 const $endingScreen   = document.getElementById('ending-screen');
 const $endingTag      = document.getElementById('ending-tag-text');
 const $endingTitle    = document.getElementById('ending-title-text');
@@ -699,7 +752,7 @@ const $restartBtn     = document.getElementById('restart-btn');
 const $nodeLabel      = document.getElementById('node-label');
 const $timeDisplay    = document.getElementById('time-display');
 
-// ── Engine State ───────────────────────────────────────────────────────────────
+// ── Engine State ──────────────────────────────────────────────────────────────
 const engine = {
   gameData:      null,   // 完整 JSON 数据
   currentNodeId: null,   // 当前活跃节点 ID
@@ -884,6 +937,15 @@ async function loadNode(nodeId) {
   $endingScreen.classList.remove('visible');
   $nodeLabel.textContent = `NODE · ${nodeId.replace('_', ' ')}`;
 
+  // ── 分流：panorama 节点走全景引擎 ──────────────────────────────────────
+  if (node.type === 'panorama') {
+    await loadPanoramaNode(node);
+    return;
+  }
+
+  // ── 退出全景模式（如果之前是全景）──────────────────────────────────────
+  exitPanoramaMode();
+
   // ── 步骤 1：获取或创建目标视频 ──────────────────────────────────────────
   let targetVideo;
   if (videoPool.has(nodeId)) {
@@ -908,12 +970,17 @@ async function loadNode(nodeId) {
   targetVideo.addEventListener('seeked',     onSeeked);
   targetVideo.addEventListener('ended',      onEnded);
 
-  // ── 步骤 3：立即预加载所有分支目标 ──────────────────────────────────────
+  // ── 步骤 3：立即预加载所有分支目标（含全景节点）──────────────────────────
   const keepIds = new Set([nodeId]);
   if (node.choices && node.choices.length > 0) {
     node.choices.forEach(choice => {
+      const targetNode = engine.gameData.nodes[choice.target_node];
       keepIds.add(choice.target_node);
-      preloadNode(choice.target_node);
+      if (targetNode && targetNode.type === 'panorama') {
+        preloadPanorama(choice.target_node);
+      } else {
+        preloadNode(choice.target_node);
+      }
     });
   }
 
@@ -1186,6 +1253,173 @@ async function init() {
 }
 
 init();
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  PANORAMA ENGINE  (Pannellum-based)
+//  支持 panorama 类型节点：全景图预加载、Pannellum 初始化、陀螺仪、pano_hotspot
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 当前 Pannellum 查看器实例
+let panoViewer = null;
+
+// 预加载全景图（Image 对象缓存到浏览器内存）
+const panoCache = new Map(); // nodeId → Image
+
+function preloadPanorama(nodeId) {
+  if (panoCache.has(nodeId)) return;
+  const node = engine.gameData.nodes[nodeId];
+  if (!node || node.type !== 'panorama' || !node.panorama_url) return;
+  const img = new Image();
+  img.src = node.panorama_url;
+  panoCache.set(nodeId, img);
+  console.log(`[PanoEngine] Preloading panorama: ${nodeId} → ${node.panorama_url}`);
+}
+
+// 进入全景模式
+async function loadPanoramaNode(node) {
+  // 暂停并隐藏所有视频
+  if (engine.activeVideo) {
+    engine.activeVideo.pause();
+    engine.activeVideo = null;
+  }
+  document.body.classList.add('pano-mode');
+  $panoContainer.classList.add('visible');
+
+  // 销毁旧的 Pannellum 实例
+  if (panoViewer) {
+    try { panoViewer.destroy(); } catch(e) {}
+    panoViewer = null;
+  }
+  $panoContainer.innerHTML = '';
+
+  const panoUrl = node.panorama_url || '';
+  if (!panoUrl) {
+    console.error('[PanoEngine] No panorama_url for node:', node);
+    return;
+  }
+
+  // 构建 Pannellum 热点配置
+  const hotspots = [];
+  if (node.choices && node.choices.length > 0) {
+    node.choices.forEach((choice, idx) => {
+      const pitch = typeof choice.pitch === 'number' ? choice.pitch : 0;
+      const yaw   = typeof choice.yaw   === 'number' ? choice.yaw   : (idx * 45 - 45);
+      hotspots.push({
+        pitch,
+        yaw,
+        type: 'custom',
+        text: choice.label || '',
+        cssClass: 'pano-hs-btn',
+        createTooltipFunc: (hotSpotDiv, args) => {
+          hotSpotDiv.classList.add('pano-hs-btn');
+          hotSpotDiv.textContent = args.text;
+          hotSpotDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleChoice(choice);
+          });
+        },
+        createTooltipArgs: { text: choice.label || '', choice }
+      });
+    });
+  }
+
+  // 初始化 Pannellum
+  panoViewer = pannellum.viewer($panoContainer, {
+    type:          'equirectangular',
+    panorama:      panoUrl,
+    autoLoad:      true,
+    showControls:  false,
+    compass:       false,
+    mouseZoom:     true,
+    draggable:     true,
+    hotSpots:      hotspots,
+    hfov:          100,
+    pitch:         node.default_pitch || 0,
+    yaw:           node.default_yaw   || 0,
+  });
+
+  // 陀螺仪支持（移动端 DeviceOrientation）
+  enableGyroscope();
+
+  // 预加载分支目标
+  if (node.choices) {
+    node.choices.forEach(c => {
+      const target = engine.gameData.nodes[c.target_node];
+      if (target && target.type === 'panorama') {
+        preloadPanorama(c.target_node);
+      } else if (target && target.type !== 'panorama') {
+        preloadNode(c.target_node);
+      }
+    });
+  }
+
+  console.log(`[PanoEngine] Panorama loaded: ${node.panorama_url}`);
+}
+
+// 退出全景模式，恢复视频模式
+function exitPanoramaMode() {
+  if (!document.body.classList.contains('pano-mode')) return;
+  document.body.classList.remove('pano-mode');
+  $panoContainer.classList.remove('visible');
+  if (panoViewer) {
+    try { panoViewer.destroy(); } catch(e) {}
+    panoViewer = null;
+  }
+  $panoContainer.innerHTML = '';
+  disableGyroscope();
+}
+
+// ── 陀螺仪（DeviceOrientation）──────────────────────────────────────────────
+let _gyroEnabled = false;
+let _lastAlpha = null;
+
+function onDeviceOrientation(e) {
+  if (!panoViewer) return;
+  const alpha = e.alpha || 0; // 方位角 0-360
+  const beta  = e.beta  || 0; // 俯仰 -180~180
+  const gamma = e.gamma || 0; // 横滚 -90~90
+
+  // 将 beta 映射为 pitch（-90~90），将 alpha 映射为 yaw
+  const pitch = Math.max(-85, Math.min(85, beta - 90));
+  let yaw = alpha;
+  if (_lastAlpha !== null) {
+    // 平滑处理
+  }
+  _lastAlpha = alpha;
+
+  try {
+    panoViewer.setPitch(pitch);
+    panoViewer.setYaw(yaw);
+  } catch(e) {}
+}
+
+function enableGyroscope() {
+  if (_gyroEnabled) return;
+  if (typeof DeviceOrientationEvent !== 'undefined') {
+    // iOS 13+ 需要请求权限
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(state => {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', onDeviceOrientation);
+            _gyroEnabled = true;
+          }
+        })
+        .catch(() => {});
+    } else {
+      window.addEventListener('deviceorientation', onDeviceOrientation);
+      _gyroEnabled = true;
+    }
+  }
+}
+
+function disableGyroscope() {
+  window.removeEventListener('deviceorientation', onDeviceOrientation);
+  _gyroEnabled = false;
+  _lastAlpha = null;
+}
+
+
 </script>
 </body>
 </html>

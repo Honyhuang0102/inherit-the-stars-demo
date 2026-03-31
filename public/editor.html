@@ -6,6 +6,9 @@
 <title>STELLAR HEIR · Creator Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<!-- Pannellum 全景图查看器 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css" />
+<script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"><\/script>
 <style>
 /* ═══════════════════════════════════════════════════════════════
    STELLAR HEIR · Creator Studio  —  Light Minimal Theme
@@ -1431,6 +1434,93 @@ body.immersive-mode #right-panel {
   border: 1px solid var(--border);
   color: var(--text-tertiary);
 }
+
+/* ── PANORAMA MODE ──────────────────────────────────────────── */
+/* Pannellum 容器：充满沉浸屏 */
+#immersive-pano-container {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  display: none; /* 默认隐藏，全景模式时显示 */
+  z-index: 2;
+}
+#immersive-pano-container .pnlm-container {
+  border-radius: inherit;
+}
+
+/* 3D 热点标记（渲染在 Pannellum 热点层） */
+.pano-hotspot-label {
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(12px) saturate(1.6);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  padding: 6px 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  pointer-events: all;
+  transform: translateX(-50%);
+  transition: background 0.2s, transform 0.15s;
+}
+.pano-hotspot-label:hover {
+  background: rgba(255,255,255,0.28);
+  transform: translateX(-50%) scale(1.06);
+}
+
+/* 全景模式下隐藏 2D 层 */
+.panorama-active #immersive-choices,
+.panorama-active #polygon-draw-svg,
+.panorama-active #poly-draw-hint {
+  display: none !important;
+}
+.panorama-active #immersive-pano-container {
+  display: block !important;
+}
+
+/* 全景模式工具栏：隐藏多边形工具，显示打点按鈕 */
+.panorama-active #micro-btn-trigger { display: none; }
+.panorama-active #micro-btn-hotspot { display: none; }
+.panorama-active #btn-add-trigger   { display: none; }
+.panorama-active #btn-add-pano-hotspot { display: flex !important; }
+
+/* 全景上传区域（Inspector 中） */
+.pano-upload-zone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 16px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg-canvas);
+  margin-top: 4px;
+}
+.pano-upload-zone:hover { border-color: var(--accent-blue); background: #eff6ff; }
+.pano-upload-zone.uploading { opacity: 0.6; pointer-events: none; }
+.pano-upload-zone .pano-upload-icon {
+  font-size: 22px; margin-bottom: 6px; display: block;
+}
+.pano-upload-zone .pano-upload-text {
+  font-size: 11px; color: var(--text-secondary); line-height: 1.5;
+}
+.pano-upload-zone .pano-upload-text strong {
+  color: var(--accent-blue); font-weight: 500;
+}
+.pano-url-preview {
+  font-size: 10px; color: var(--accent-blue);
+  margin-top: 6px; word-break: break-all;
+  padding: 4px 8px; background: #eff6ff;
+  border-radius: 4px; display: none;
+}
+
+/* 在此处添加热点按鈕（默认隐藏） */
+#btn-add-pano-hotspot {
+  display: none;
+}
 </style>
 </head>
 <body>
@@ -1742,6 +1832,15 @@ body.immersive-mode #right-panel {
       </svg>
       添加隐形触发区
     </button>
+    <!-- 全景模式专属：在当前视角打点 -->
+    <button class="imm-top-btn" id="btn-add-pano-hotspot" onclick="addPanoHotspot()" title="在当前全景视角中心打下一个热点">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+        <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+      </svg>
+      在此处打热点
+    </button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
     <button class="imm-top-btn" onclick="exitImmersiveMode()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -1777,6 +1876,8 @@ body.immersive-mode #right-panel {
         </svg>
         <!-- 绘制提示 -->
         <div id="poly-draw-hint">点击画面添加顶点 · 双击或点击起始点闭合</div>
+        <!-- 全景图容器（panorama 节点时显示） -->
+        <div id="immersive-pano-container"></div>
       </div>
     </div>
   </div>
@@ -2347,6 +2448,46 @@ function openInspector(nodeId) {
       </div>`;
   }
 
+  // 全景图上传区域 HTML
+  const panoUploadHtml = nodeData.type === 'panorama' ? `
+    <div class="insp-field">
+      <div class="insp-label">全景图 URL</div>
+      <input class="insp-input" id="insp-panorama-url" value="${escHtml(nodeData.panorama_url||'')}" placeholder="/panoramas/pano_xxx.jpg"/>
+    </div>
+    <div class="insp-field">
+      <div class="insp-label">上传全景图 <span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(等距柱状 2:1 比例)</span></div>
+      <div class="pano-upload-zone" id="pano-upload-zone" onclick="document.getElementById('pano-file-input').click()">
+        <span class="pano-upload-icon">🌍</span>
+        <div class="pano-upload-text">
+          <strong>点击上传</strong>或拖放全景图<br/>
+          支持 .jpg / .png 格式，建议 8192×4096
+        </div>
+        <div class="pano-url-preview" id="pano-url-preview">${escHtml(nodeData.panorama_url||'')}</div>
+      </div>
+      <input type="file" id="pano-file-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadPanorama(event, '${nodeId}')"/>
+    </div>
+  ` : '';
+
+  // 全景热点列表 HTML
+  const panoChoicesHtml = (nodeData.type === 'panorama' && nodeData.choices && nodeData.choices.length) ? `
+    <div class="insp-field">
+      <div class="insp-label">全景热点 <span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(在沉浸模式中点击“在此处打热点”添加)</span></div>
+      <div class="insp-choices-list">
+        ${nodeData.choices.map((c, i) => `
+          <div class="insp-choice-row" data-idx="${i}">
+            <input placeholder="热点文字" value="${escHtml(c.label||'')}" data-field="label" data-idx="${i}"/>
+            <input placeholder="目标节点 ID" value="${escHtml(c.target_node||'')}" data-field="target_node" data-idx="${i}"/>
+            <div style="display:flex;gap:4px;align-items:center;margin-top:2px;">
+              <span style="font-size:10px;color:var(--text-tertiary);">Pitch:</span>
+              <input value="${c.pitch !== undefined ? c.pitch : 0}" data-field="pitch" data-idx="${i}" style="width:52px;" type="number" step="0.1"/>
+              <span style="font-size:10px;color:var(--text-tertiary);">Yaw:</span>
+              <input value="${c.yaw !== undefined ? c.yaw : 0}" data-field="yaw" data-idx="${i}" style="width:52px;" type="number" step="0.1"/>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
   document.getElementById('insp-body').innerHTML = `
     <div class="insp-field">
       <div class="insp-label">节点 ID</div>
@@ -2356,13 +2497,22 @@ function openInspector(nodeId) {
       <div class="insp-label">标题</div>
       <input class="insp-input" id="insp-title-val" value="${escHtml(nodeData.title||'')}"/>
     </div>
+    ${nodeData.type !== 'panorama' ? `
     <div class="insp-field">
       <div class="insp-label">视频 URL</div>
       <input class="insp-input" id="insp-video-url" value="${escHtml(nodeData.video_url||'')}"/>
-    </div>
+    </div>` : ''}
+    ${panoUploadHtml}
     ${choicesHtml}
+    ${panoChoicesHtml}
     <button class="insp-save-btn" onclick="applyInspector('${nodeId}')">应用更改</button>
   `;
+
+  // 如果已有全景图 URL，显示预览
+  if (nodeData.panorama_url) {
+    const preview = document.getElementById('pano-url-preview');
+    if (preview) { preview.textContent = nodeData.panorama_url; preview.style.display = 'block'; }
+  }
   insp.style.display = 'block';
   insp.dataset.nodeId = nodeId;
 
@@ -2389,11 +2539,21 @@ function addChoiceInInspector(nodeId) {
 
 function applyInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
-  nodeData.title     = document.getElementById('insp-title-val')?.value || nodeData.title;
-  nodeData.video_url = document.getElementById('insp-video-url')?.value || nodeData.video_url;
+  nodeData.title = document.getElementById('insp-title-val')?.value || nodeData.title;
+
+  // 全景图 URL
+  if (nodeData.type === 'panorama') {
+    const panoUrl = document.getElementById('insp-panorama-url')?.value;
+    if (panoUrl !== undefined) nodeData.panorama_url = panoUrl;
+  } else {
+    nodeData.video_url = document.getElementById('insp-video-url')?.value || nodeData.video_url;
+  }
   if (nodeData.choices) {
-    nodeData.branch_at_second = parseFloat(document.getElementById('insp-branch-sec')?.value) || 5;
-    document.querySelectorAll('#insp-choices .insp-choice-row').forEach(row => {
+    if (nodeData.type !== 'panorama') {
+      nodeData.branch_at_second = parseFloat(document.getElementById('insp-branch-sec')?.value) || 5;
+    }
+    // 处理所有 choice 行（包括 video 的 position 和 panorama 的 pitch/yaw）
+    document.querySelectorAll('.insp-choice-row').forEach(row => {
       const idx = parseInt(row.dataset.idx);
       if (!nodeData.choices[idx]) return;
       row.querySelectorAll('input').forEach(inp => {
@@ -2405,6 +2565,10 @@ function applyInspector(nodeId) {
         } else if (field === 'position_y') {
           if (!nodeData.choices[idx].position) nodeData.choices[idx].position = {};
           nodeData.choices[idx].position.y = inp.value || '65%';
+        } else if (field === 'pitch') {
+          nodeData.choices[idx].pitch = parseFloat(inp.value) || 0;
+        } else if (field === 'yaw') {
+          nodeData.choices[idx].yaw = parseFloat(inp.value) || 0;
         } else {
           nodeData.choices[idx][field] = inp.value;
         }
@@ -2431,6 +2595,57 @@ function applyInspector(nodeId) {
 }
 
 function closeInspector() { document.getElementById('inspector').style.display = 'none'; }
+
+// ── PANORAMA UPLOAD ──────────────────────────────────────────────────
+
+/**
+ * 全景图上传处理函数
+ * 将用户选择的图片 POST 到 /api/upload-panorama，将返回的本地 URL 写回 JSON
+ */
+async function uploadPanorama(event, nodeId) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const zone = document.getElementById('pano-upload-zone');
+  if (zone) zone.classList.add('uploading');
+  showToast('全景图上传中...', 'info');
+
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const resp = await fetch('/api/upload-panorama', {
+      method: 'POST',
+      body:   formData,
+    });
+    const data = await resp.json();
+
+    if (!data.ok) throw new Error(data.error || '上传失败');
+
+    // 写回 JSON
+    const nodeData = state.gameData.nodes[nodeId];
+    if (nodeData) nodeData.panorama_url = data.url;
+
+    // 更新 Inspector 显示
+    const urlInput = document.getElementById('insp-panorama-url');
+    if (urlInput) urlInput.value = data.url;
+    const preview = document.getElementById('pano-url-preview');
+    if (preview) { preview.textContent = data.url; preview.style.display = 'block'; }
+
+    showToast('全景图上传成功！', 'success');
+
+    // 如果沉浸模式当前就是该节点，立即刷新 Pannellum
+    if (immersiveNodeData && immersiveNodeData.id === nodeId) {
+      initPannellum(nodeData);
+    }
+  } catch (err) {
+    showToast('上传失败: ' + err.message, 'error');
+  } finally {
+    if (zone) zone.classList.remove('uploading');
+    // 重置文件输入，允许重复上传同一文件
+    event.target.value = '';
+  }
+}
 
 // ── BIDIRECTIONAL BINDING HELPERS ───────────────────────────────
 
@@ -2872,8 +3087,10 @@ window.addEventListener('resize', () => {
 });
 
 /**
- * 加载节点数据到沉浸屏
+ * 加载节点数据到沉浸屏（双轨分流：video / panorama）
  */
+let pannellumViewer = null; // 全局 Pannellum 实例
+
 function loadImmersiveNode(nodeData) {
   immersiveNodeData = nodeData;
 
@@ -2882,8 +3099,131 @@ function loadImmersiveNode(nodeData) {
   document.getElementById('imm-node-label-text').textContent = (nodeData.id || '').toUpperCase();
   document.getElementById('imm-node-title-text').textContent = nodeData.title || '';
 
-  // 渲染热点
-  renderImmersiveChoices(nodeData);
+  const screen = document.getElementById('immersive-screen');
+
+  if (nodeData.type === 'panorama' && nodeData.panorama_url) {
+    // ── 全景模式 ──
+    screen.classList.add('panorama-active');
+    initPannellum(nodeData);
+  } else {
+    // ── 2D 视频模式 ──
+    screen.classList.remove('panorama-active');
+    destroyPannellum();
+    renderImmersiveChoices(nodeData);
+  }
+}
+
+/**
+ * 初始化 Pannellum 全景查看器
+ */
+function initPannellum(nodeData) {
+  const container = document.getElementById('immersive-pano-container');
+
+  // 销毁旧实例
+  destroyPannellum();
+
+  // 构建 Pannellum 热点配置
+  const hotspots = [];
+  if (nodeData.choices) {
+    nodeData.choices.forEach((c, i) => {
+      if (c.type === 'pano_hotspot' && c.pitch !== undefined && c.yaw !== undefined) {
+        hotspots.push({
+          pitch: c.pitch,
+          yaw:   c.yaw,
+          type:  'info',
+          text:  c.label || `选项 ${i+1}`,
+          cssClass: 'pano-hotspot-label',
+          clickHandlerFunc: () => {
+            showToast(`热点：${c.label || '选项'} → ${c.target_node || '未设置'}`, 'info');
+          }
+        });
+      }
+    });
+  }
+
+  pannellumViewer = pannellum.viewer(container, {
+    type:            'equirectangular',
+    panorama:        nodeData.panorama_url,
+    autoLoad:        true,
+    showControls:    false,
+    compass:         false,
+    hfov:            100,
+    minHfov:         50,
+    maxHfov:         120,
+    mouseZoom:       true,
+    touchZoom:       true,
+    hotSpots:        hotspots,
+  });
+
+  pannellumViewer.on('load', () => {
+    showToast('全景图已加载', 'success');
+  });
+  pannellumViewer.on('error', (err) => {
+    showToast('全景图加载失败: ' + err, 'error');
+  });
+
+  // 更新工具栏提示
+  document.getElementById('imm-node-title-text').textContent = nodeData.title + ' (全景)';
+}
+
+/**
+ * 销毁 Pannellum 实例
+ */
+function destroyPannellum() {
+  if (pannellumViewer) {
+    try { pannellumViewer.destroy(); } catch(e) {}
+    pannellumViewer = null;
+  }
+  const container = document.getElementById('immersive-pano-container');
+  if (container) container.innerHTML = '';
+}
+
+/**
+ * 在当前全景视角中心打下一个热点（读取 pitch/yaw 写回 JSON）
+ */
+function addPanoHotspot() {
+  if (!pannellumViewer || !immersiveNodeData) {
+    showToast('请先加载全景图', 'error');
+    return;
+  }
+
+  const pitch = pannellumViewer.getPitch();
+  const yaw   = pannellumViewer.getYaw();
+
+  if (!immersiveNodeData.choices) immersiveNodeData.choices = [];
+  const i = immersiveNodeData.choices.length;
+  const newChoice = {
+    type:        'pano_hotspot',
+    label:       `热点 ${i + 1}`,
+    sublabel:    '',
+    target_node: '',
+    pitch:       parseFloat(pitch.toFixed(3)),
+    yaw:         parseFloat(yaw.toFixed(3)),
+    timeWindow:  [0, 30],
+  };
+  immersiveNodeData.choices.push(newChoice);
+
+  // 将新热点添加到 Pannellum
+  pannellumViewer.addHotSpot({
+    pitch:            newChoice.pitch,
+    yaw:              newChoice.yaw,
+    type:             'info',
+    text:             newChoice.label,
+    cssClass:         'pano-hotspot-label',
+    id:               `pano-hs-${i}`,
+    clickHandlerFunc: () => {
+      showToast(`热点：${newChoice.label}`, 'info');
+    }
+  });
+
+  showToast(`热点已打入 pitch=${pitch.toFixed(1)}° yaw=${yaw.toFixed(1)}°`, 'success');
+  updateHotspotCountBadge(immersiveNodeData.choices.length);
+
+  // 如果 Inspector 当前就是该节点，刷新显示
+  const insp = document.getElementById('inspector');
+  if (insp.dataset.nodeId === immersiveNodeData.id) {
+    openInspector(immersiveNodeData.id);
+  }
 }
 
 /**
