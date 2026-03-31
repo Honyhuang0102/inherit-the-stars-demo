@@ -19,14 +19,23 @@ const COVERS_DIR   = path.join(VIDEOS_DIR, 'covers');
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
-// ── 从 .env 读取密钥（若存在）────────────────────────────────────────────────
+// ── 从 .env 读取密钥（支持多个备选路径）────────────────────────────────────
 function loadEnv() {
-  const envPath = path.join(__dirname, '.env');
-  if (!fs.existsSync(envPath)) return;
-  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
-    const m = line.match(/^([A-Z_]+)\s*=\s*(.+)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
-  });
+  const os = require('os');
+  const candidates = [
+    path.join(__dirname, '.env'),                                    // 项目目录/.env
+    path.join(os.homedir(), 'inherit-the-stars-demo', '.env'),       // ~/inherit-the-stars-demo/.env
+    path.join(os.homedir(), 'workspace', 'inherit-the-stars-demo', '.env'), // ~/workspace/.../.env
+  ];
+  for (const envPath of candidates) {
+    if (!fs.existsSync(envPath)) continue;
+    fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
+      // 兼容 KEY=VALUE 和 export KEY=VALUE 两种格式，忽略注释行
+      const m = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^\r\n#]+)/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
+    });
+    console.log(`[env] 已加载密钥文件: ${envPath}`);
+  }
 }
 loadEnv();
 
