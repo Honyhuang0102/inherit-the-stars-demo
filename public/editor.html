@@ -1920,7 +1920,7 @@ body.immersive-mode #right-panel {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               玩家端预览
             </div>
-            <div class="menu-item" onclick="saveData();closeMoreMenu()">
+            <div id="menu-save-item" class="menu-item" onclick="saveData();closeMoreMenu()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               保存
             </div>
@@ -2260,11 +2260,15 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function loadData() {
   try {
     const r = await fetch('/api/game-data');
-    state.gameData = await r.json();
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data || !data.nodes) throw new Error('数据格式错误');
+    state.gameData = data;
     renderGraph();
     showToast('项目加载成功', 'success');
   } catch(e) {
-    showToast('加载失败，请检查服务', 'error');
+    console.error('[loadData]', e);
+    showToast('加载失败: ' + e.message, 'error');
   }
 }
 
@@ -2286,7 +2290,8 @@ function renderGraph() {
   if (!data || !data.nodes) return;
 
   Object.values(data.nodes).forEach((nodeData, i) => {
-    const pos = DEFAULT_POSITIONS[nodeData.id] || { x: 180 + i * 260, y: 200 };
+    // 优先使用保存的位置，其次 DEFAULT_POSITIONS，最后自动布局
+    const pos = nodeData._pos || DEFAULT_POSITIONS[nodeData.id] || { x: 180 + i * 260, y: 200 };
     createNodeCard(nodeData, pos.x, pos.y);
   });
 
@@ -3392,10 +3397,23 @@ function initResizeHandle() {
 
 // ── SAVE / EXPORT ──────────────────────────────────────────────
 async function saveData() {
-  const btn = document.querySelector('.tb-save-btn');
-  const orig = btn.innerHTML;
-  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 保存中...';
-  btn.disabled = true;
+  // 保存前：将 state.nodes 中的画布位置写回 gameData._pos，确保位置持久化
+  if (state.gameData && state.gameData.nodes) {
+    Object.entries(state.nodes).forEach(([id, node]) => {
+      if (state.gameData.nodes[id]) {
+        state.gameData.nodes[id]._pos = { x: Math.round(node.x), y: Math.round(node.y) };
+      }
+    });
+  }
+
+  // 更新更多菜单中的保存按鈕状态
+  const menuSaveItem = document.getElementById('menu-save-item');
+  const origText = menuSaveItem ? menuSaveItem.innerHTML : null;
+  if (menuSaveItem) {
+    menuSaveItem.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 保存中...';
+    menuSaveItem.style.pointerEvents = 'none';
+  }
+
   try {
     const r = await fetch('/api/save-data', {
       method: 'POST',
@@ -3403,12 +3421,15 @@ async function saveData() {
       body: JSON.stringify(state.gameData),
     });
     const result = await r.json();
-    if (r.ok) showToast('保存成功', 'success');
-    else showToast('保存失败: ' + result.error, 'error');
+    if (r.ok) showToast('✓ 保存成功', 'success');
+    else showToast('保存失败: ' + (result.error || '未知错误'), 'error');
   } catch(e) {
     showToast('网络错误，保存失败', 'error');
   } finally {
-    btn.innerHTML = orig; btn.disabled = false;
+    if (menuSaveItem && origText) {
+      menuSaveItem.innerHTML = origText;
+      menuSaveItem.style.pointerEvents = '';
+    }
   }
 }
 
