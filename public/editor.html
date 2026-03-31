@@ -344,6 +344,7 @@ html, body {
 .conn-path:hover { opacity: 0.8; }
 .conn-path.branch { stroke: var(--accent-amber); opacity: 0.5; }
 .conn-path.ending { stroke: var(--accent-purple); opacity: 0.5; }
+.conn-path.direct { stroke: #888; stroke-dasharray: 6 3; opacity: 0.5; }
 .conn-arrow { fill: #1a1a1a; opacity: 0.5; }
 .conn-arrow.branch { fill: var(--accent-amber); }
 #temp-conn {
@@ -2389,8 +2390,11 @@ function renderGraph() {
         }
       });
     }
+    // 直连（next_node）
+    if (nodeData.next_node && state.nodes[nodeData.next_node]) {
+      addConnection(nodeData.id, nodeData.next_node, -1, '');
+    }
   });
-
   updateMinimap();
   updatePreviewPanel(data.nodes[data.start_node]);
 }
@@ -2399,19 +2403,23 @@ function createNodeCard(nodeData, x, y) {
   const canvas = document.getElementById('canvas');
   const el = document.createElement('div');
 
-  // 方向 class：根据 orientation 字段自适应
-  const orientClass = nodeData.orientation === 'portrait' ? 'orient-portrait'
-                    : nodeData.orientation === 'landscape' ? 'orient-landscape'
-                    : '';
-  el.className = `node-card type-${nodeData.type}${orientClass ? ' ' + orientClass : ''}`;
+  // 方向 class：根据 orientation 字段自适应；默认竖屏（9:16）
+  const orientClass = nodeData.orientation === 'landscape' ? 'orient-landscape'
+                    : 'orient-portrait'; // 默认竖屏
+  el.className = `node-card type-${nodeData.type} ${orientClass}`;
   el.dataset.nodeId = nodeData.id;
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
 
-  // Thumbnail：有封面则显示封面图，否则显示占位符
+  // Thumbnail：有封面则显示封面图，否则显示占位符（9:16 竖屏）
   const thumbHtml = nodeData.poster_url
     ? `<img class="node-thumb" src="${escHtml(nodeData.poster_url)}" alt="封面" draggable="false"/>`
-    : `<div class="node-thumb-placeholder">🎬</div>`;
+    : `<div class="node-thumb-placeholder">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#c0c0c0" stroke-width="1.2" style="width:28px;height:28px;"><rect x="2" y="3" width="20" height="18" rx="2"/><polygon points="10,8 16,12 10,16" fill="#c0c0c0" stroke="none"/></svg>
+          <span style="font-size:9px;color:#c0c0c0;letter-spacing:0.05em;">9:16</span>
+        </div>
+      </div>`;
 
   // Choice ports (one per choice for branching nodes)
   let choicePortsHtml = '';
@@ -2494,14 +2502,15 @@ function renderConnections() {
     const dx = Math.abs(tx - fx) * 0.5;
     const d  = `M${fx},${fy} C${fx+dx},${fy} ${tx-dx},${ty} ${tx},${ty}`;
 
-    const isEnding = conn.choiceIdx >= 0;
+    const isBranch = conn.choiceIdx >= 0;
+    const isDirect = conn.choiceIdx < 0;
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
     g.className.baseVal = 'conn-path-g';
 
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d', d);
-    path.setAttribute('class', `conn-path ${isEnding ? 'branch' : ''}`);
-    path.setAttribute('marker-end', isEnding ? 'url(#arrow-amber)' : 'url(#arrow-dark)');
+    path.setAttribute('class', `conn-path ${isBranch ? 'branch' : ''} ${isDirect ? 'direct' : ''}`);
+    path.setAttribute('marker-end', isBranch ? 'url(#arrow-amber)' : 'url(#arrow-dark)');
     g.appendChild(path);
 
     if (conn.label) {
@@ -2694,6 +2703,9 @@ function endConnect(e, toId) {
   const fromData = state.gameData.nodes[fromId];
   if (fromData && fromData.choices && state.connecting.choiceIdx >= 0) {
     fromData.choices[state.connecting.choiceIdx].target_node = toId;
+  } else if (fromData && state.connecting.choiceIdx < 0) {
+    // 直连（无选项）：写入 next_node 字段
+    fromData.next_node = toId;
   }
   state.connections = [];
   Object.values(state.gameData.nodes).forEach(nd => {
@@ -2701,6 +2713,8 @@ function endConnect(e, toId) {
       if (c.target_node && state.nodes[c.target_node])
         state.connections.push({ from: nd.id, to: c.target_node, choiceIdx: i, label: c.label });
     });
+    if (nd.next_node && state.nodes[nd.next_node])
+      state.connections.push({ from: nd.id, to: nd.next_node, choiceIdx: -1, label: '' });
   });
   renderConnections();
   document.getElementById('temp-conn').setAttribute('d','');
@@ -2924,6 +2938,7 @@ function deleteNode(id) {
   state.connections = state.connections.filter(c => c.from !== id && c.to !== id);
   Object.values(state.gameData.nodes).forEach(nd => {
     if (nd.choices) nd.choices.forEach(c => { if (c.target_node === id) c.target_node = ''; });
+    if (nd.next_node === id) nd.next_node = '';
   });
   renderConnections();
   showToast(`节点 ${id} 已删除`, 'info');
@@ -2985,6 +3000,10 @@ function openInspector(nodeId) {
         <div class="insp-choices-list" id="insp-choices">
           ${nodeData.choices.map((c,i) => `
             <div class="insp-choice-row" data-idx="${i}">
+              <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+                <span style="font-size:10px;color:var(--text-tertiary);flex:1;">选项 ${i+1}</span>
+                <button onclick="removeChoiceInInspector('${nodeId}',${i})" style="padding:1px 6px;font-size:10px;border:1px solid var(--accent-red);border-radius:3px;background:transparent;color:var(--accent-red);cursor:pointer;line-height:1.4;" title="删除此选项">✕</button>
+              </div>
               <input placeholder="选项文字" value="${escHtml(c.label||'')}" data-field="label" data-idx="${i}"
                 oninput="syncHotspotLabel(${i}, this.value)"/>
               <input placeholder="副标题" value="${escHtml(c.sublabel||'')}" data-field="sublabel" data-idx="${i}"/>
@@ -3118,6 +3137,13 @@ function openInspector(nodeId) {
   insp.style.right = (window.innerWidth - rpRect.left + 8) + 'px';
 }
 
+function removeChoiceInInspector(nodeId, idx) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData || !nodeData.choices) return;
+  nodeData.choices.splice(idx, 1);
+  // 如果删除后没有选项，将 type 改为普通视频节点（可选）
+  openInspector(nodeId); // 刷新 Inspector
+}
 function addChoiceInInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData.choices) return;
@@ -3189,6 +3215,8 @@ function applyInspector(nodeId) {
       if (c.target_node && state.nodes[c.target_node])
         state.connections.push({ from: nd.id, to: c.target_node, choiceIdx: i, label: c.label });
     });
+    if (nd.next_node && state.nodes[nd.next_node])
+      state.connections.push({ from: nd.id, to: nd.next_node, choiceIdx: -1, label: '' });
   });
   renderConnections();
   updatePreviewPanel(nodeData);

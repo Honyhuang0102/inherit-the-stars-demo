@@ -953,20 +953,21 @@ function showTapStart() {
   if ($tapStart.classList.contains('visible')) return;
   $tapStart.classList.add('visible');
 }
-
 function hideTapStart() {
   $tapStart.classList.remove('visible');
 }
-
-$tapStart.addEventListener('click', () => {
+function unlockAudio() {
+  if (engine.userInteracted) return;
   engine.userInteracted = true;
   hideTapStart();
-  // 取消当前活跃视频的静音并继续播放
   if (engine.activeVideo) {
     engine.activeVideo.muted = false;
     engine.activeVideo.play().catch(() => {});
   }
-});
+}
+$tapStart.addEventListener('click', unlockAudio);
+// 手机端备用：任意 touch 也解锁音频
+$tapStart.addEventListener('touchstart', unlockAudio, { passive: true });
 
 // ── Load Node (Main Entry) ─────────────────────────────────────────────────────
 async function loadNode(nodeId) {
@@ -1282,10 +1283,10 @@ $restartBtn.addEventListener('click', () => {
   videoPool.clear();
   engine.activeVideo = null;
 
+  showTapStart();
   loadNode(engine.gameData.start_node);
 });
-
-// ── Init ───────────────────────────────────────────────────────────────────────
+// ── Initt ───────────────────────────────────────────────────────────────────────
 async function init() {
   // 短暂 loading 动画
   await new Promise(r => setTimeout(r, 1400));
@@ -1298,6 +1299,8 @@ async function init() {
 
   engine.gameData = data;
   hideLoading();
+  // 手机端：主动显示 tap-to-start，确保用户第一次交互就能解锁音频
+  showTapStart();
   loadNode(data.start_node);
 }
 
