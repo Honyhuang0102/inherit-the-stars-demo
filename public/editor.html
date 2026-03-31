@@ -2809,7 +2809,9 @@ function onAI3DFileSelect(event) {
 }
 
 /**
- * 开始 AI 3D 生成：调用后端 /api/generate-3d
+ * 开始 AI 3D 生成：调用后端 /api/generate-3d（异步两步模式）
+ * 步骤1：POST 提交任务，立即获得 jobId
+ * 步骤2：GET 轮询 /api/generate-3d/status/:jobId 直到完成
  * 生成成功后自动创建 type === '3d_model' 的新节点
  */
 async function startAI3DGeneration() {
@@ -2817,47 +2819,72 @@ async function startAI3DGeneration() {
     showToast('请先上传一张源图片', 'error');
     return;
   }
-
   const generateBtn = document.getElementById('ai3d-generate-btn');
   const progressWrap = document.getElementById('ai3d-progress-wrap');
   const progressFill = document.getElementById('ai3d-progress-fill');
   const statusText = document.getElementById('ai3d-status-text');
-
-  // 禁用按鈕 + 显示进度条
+  // 禁用按钮 + 显示进度条
   generateBtn.disabled = true;
   generateBtn.innerHTML = `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
     生成中…
   `;
   progressWrap.classList.add('visible');
-
-  // 模拟进度条动画
+  // 模拟进度条动画（到85%后停住，等待完成）
   let fakeProgress = 0;
   const progressTimer = setInterval(() => {
-    fakeProgress = Math.min(fakeProgress + Math.random() * 8, 85);
+    fakeProgress = Math.min(fakeProgress + Math.random() * 5, 85);
     progressFill.style.width = fakeProgress + '%';
-  }, 1500);
-
+  }, 2000);
   try {
     const formData = new FormData();
     formData.append('image', _ai3dFile);
-
-    // 可选：将 prompt 作为备注传给后端（目前后端不使用 prompt，但保留扩展口）
     const promptVal = document.getElementById('ai3d-prompt')?.value?.trim();
     if (promptVal) formData.append('prompt', promptVal);
-
-    statusText.textContent = '正在上传图片并调用混元生3D API…';
-
-    const resp = await fetch('/api/generate-3d', { method: 'POST', body: formData });
-    const data = await resp.json();
-
-    if (!data.ok) throw new Error(data.error || '生成失败');
-
-    // 进度条跳到 100%
+    // ── 步骤1：提交任务（立即返回 jobId）──
+    statusText.textContent = '正在提交生成任务…';
+    const submitResp = await fetch('/api/generate-3d', { method: 'POST', body: formData });
+    const submitData = await submitResp.json();
+    if (!submitData.ok) throw new Error(submitData.error || '提交失败');
+    const jobId = submitData.jobId;
+    statusText.textContent = `任务已提交（ID: ${jobId.slice(-8)}），等待生成结果…`;
+    // ── 步骤2：轮询任务状态 ──
+    let elapsed = 0;
+    const pollInterval = 3000; // 每3秒轮询一次
+    const maxWait = 600000;    // 最多等10分钟
+    const modelData = await new Promise((resolve, reject) => {
+      const timer = setInterval(async () => {
+        elapsed += pollInterval;
+        if (elapsed > maxWait) {
+          clearInterval(timer);
+          reject(new Error('等待超时（超过10分钟）'));
+          return;
+        }
+        try {
+          const statusResp = await fetch(`/api/generate-3d/status/${jobId}`);
+          const statusData = await statusResp.json();
+          if (statusData.status === 'done') {
+            clearInterval(timer);
+            resolve(statusData);
+          } else if (statusData.status === 'error') {
+            clearInterval(timer);
+            reject(new Error(statusData.error || '生成失败'));
+          } else {
+            // pending - 继续等待
+            const mins = Math.floor(elapsed / 60000);
+            const secs = Math.floor((elapsed % 60000) / 1000);
+            statusText.textContent = `生成中… 已等待 ${mins > 0 ? mins + '分' : ''}${secs}秒`;
+          }
+        } catch(e) {
+          // 网络错误不中断，继续轮询
+          console.warn('[3D] 轮询请求失败（将重试）:', e.message);
+        }
+      }, pollInterval);
+    });
+    // ── 生成成功 ──
     clearInterval(progressTimer);
     progressFill.style.width = '100%';
     statusText.textContent = '生成成功！正在创建 3D 节点…';
-
     // 自动创建 type === '3d_model' 的新节点
     const newId = `node_3d_${Date.now()}`;
     const newNode = {
@@ -2865,28 +2892,24 @@ async function startAI3DGeneration() {
       type: '3d_model',
       title: '新 3D 场景',
       description: promptVal || '',
-      model_url: data.modelUrl,
-      preview_image: data.previewUrl || '',
+      model_url: modelData.modelUrl,
+      preview_image: modelData.previewUrl || '',
       camera_orbit: '0deg 75deg 2.5m',
       camera_target: '0m 0m 0m',
       choices: [],
     };
     state.gameData.nodes[newId] = newNode;
-
     // 在画布中心创建节点卡片
     const wrap = document.getElementById('canvas-wrap');
     const cx = (wrap.clientWidth  / 2 - state.viewport.x) / state.viewport.scale;
     const cy = (wrap.clientHeight / 2 - state.viewport.y) / state.viewport.scale;
     createNodeCard(newNode, cx - 90, cy - 65);
-
-    showToast(`3D 节点「${newId}」已创建，模型: ${data.modelUrl}`, 'success');
-
+    showToast(`3D 节点「${newId}」已创建，模型: ${modelData.modelUrl}`, 'success');
     // 延迟关闭 Modal
     setTimeout(() => {
       closeAI3DModal();
       openInspector(newId);
     }, 800);
-
   } catch (err) {
     clearInterval(progressTimer);
     progressFill.style.width = '0%';
@@ -2898,6 +2921,7 @@ async function startAI3DGeneration() {
       重试生成
     `;
   }
+}
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -3398,45 +3422,52 @@ async function uploadVideoFile(event, nodeId) {
 
 // ── 3D MODEL UPLOAD ──────────────────────────────────────────────────────
 /**
- * 上传 2D 图片，后端调用混刹3D API 生成 .glb 模型
- * POST /api/generate-3d → 返回 { ok, modelUrl, previewUrl }
+ * 上传 2D 图片，后端调用混元3D API 生成 .glb 模型（异步两步模式）
+ * 步骤1：POST /api/generate-3d → 立即返回 { ok, jobId }
+ * 步骤2：GET /api/generate-3d/status/:jobId → 轮询直到 status=done
  */
 async function upload3DModel(event, nodeId) {
   const file = event.target.files[0];
   if (!file) return;
-
   const zone = document.getElementById('model3d-upload-zone');
   if (zone) zone.classList.add('uploading');
-  showToast('正在生成 3D 模型，请稍候（约 30-120 秒）…', 'info');
-
+  showToast('正在提交 3D 生成任务，请稍候…', 'info');
   try {
     const formData = new FormData();
     formData.append('image', file);
-
-    const resp = await fetch('/api/generate-3d', {
-      method: 'POST',
-      body:   formData,
+    // ── 步骤1：提交任务 ──
+    const submitResp = await fetch('/api/generate-3d', { method: 'POST', body: formData });
+    const submitData = await submitResp.json();
+    if (!submitData.ok) throw new Error(submitData.error || '提交失败');
+    const jobId = submitData.jobId;
+    showToast(`任务已提交（ID: ${jobId.slice(-8)}），生成中约需 1-3 分钟…`, 'info');
+    // ── 步骤2：轮询任务状态 ──
+    let elapsed = 0;
+    const pollInterval = 3000;
+    const maxWait = 600000;
+    const modelData = await new Promise((resolve, reject) => {
+      const timer = setInterval(async () => {
+        elapsed += pollInterval;
+        if (elapsed > maxWait) { clearInterval(timer); reject(new Error('等待超时')); return; }
+        try {
+          const statusResp = await fetch(`/api/generate-3d/status/${jobId}`);
+          const statusData = await statusResp.json();
+          if (statusData.status === 'done') { clearInterval(timer); resolve(statusData); }
+          else if (statusData.status === 'error') { clearInterval(timer); reject(new Error(statusData.error || '生成失败')); }
+        } catch(e) { console.warn('[3D] 轮询失败（将重试）:', e.message); }
+      }, pollInterval);
     });
-    const data = await resp.json();
-
-    if (!data.ok) throw new Error(data.error || '生成失败');
-
-    // 写回 JSON
+    // ── 生成成功 ──
     const nodeData = state.gameData.nodes[nodeId];
     if (nodeData) {
-      nodeData.model_url     = data.modelUrl;
-      nodeData.preview_image = data.previewUrl || '';
+      nodeData.model_url     = modelData.modelUrl;
+      nodeData.preview_image = modelData.previewUrl || '';
     }
-
-    // 更新 Inspector 显示
     const urlInput = document.getElementById('insp-model-url');
-    if (urlInput) urlInput.value = data.modelUrl;
+    if (urlInput) urlInput.value = modelData.modelUrl;
     const preview = document.getElementById('model3d-url-preview');
-    if (preview) { preview.textContent = data.modelUrl; preview.style.display = 'block'; }
-
+    if (preview) { preview.textContent = modelData.modelUrl; preview.style.display = 'block'; }
     showToast('3D 模型生成成功 ✓', 'success');
-
-    // 如果沉浸模式当前就是该节点，立即刷新 model-viewer
     if (immersiveNodeData && immersiveNodeData.id === nodeId) {
       init3DModelViewer(nodeData);
     }

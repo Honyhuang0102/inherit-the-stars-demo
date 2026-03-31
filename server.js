@@ -94,22 +94,8 @@ function downloadFile(url, destPath) {
   });
 }
 
-// ── 轮询任务状态（最多等待 10 分钟）─────────────────────────────────────────
-async function pollJobStatus(taskId, isRapid) {
-  const client      = getAi3dClient();
-  const queryFn     = isRapid ? 'QueryHunyuanTo3DRapidJob' : 'QueryHunyuanTo3DProJob';
-  const maxAttempts = 60;
-  const interval    = 10000; // 10秒
-
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, interval));
-    const result = await client[queryFn]({ JobId: taskId });
-    console.log(`[3D] 任务 ${taskId} 状态: ${result.Status} (${i + 1}/${maxAttempts})`);
-    if (result.Status === 'DONE') return result;
-    if (result.Status === 'FAIL') throw new Error(`任务失败: ${result.ErrorMessage}`);
-  }
-  throw new Error('任务超时（超过10分钟）');
-}
+// ── 内存任务状态存储（进程重启后丢失，但3D生成通常在同一进程内完成）────────
+const jobStore = new Map(); // jobId -> { status, isRapid, modelUrl, previewUrl, error }
 
 // ── 路由：创作者编辑器页面 /editor ────────────────────────────────────────────
 app.get('/editor', (_req, res) => {
@@ -195,62 +181,79 @@ app.post('/api/upload-panorama', upload.single('image'), (req, res) => {
   }
 });
 
-// ── API：图生3D（调用腾讯混元，轮询，下载 .glb）────────────────────────────
+// ── API：图生3D 步骤1：提交任务（立即返回 jobId）─────────────────────────────
 // POST /api/generate-3d  multipart/form-data  field: image  [rapid=true]
 app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未收到图片文件' });
-
   try {
     const imageBase64 = req.file.buffer.toString('base64');
     const useRapid    = req.body.rapid === 'true';
-
-    // 1. 提交任务（使用官方 SDK）
-    const client   = getAi3dClient();
-    const submitFn = useRapid ? 'SubmitHunyuanTo3DRapidJob' : 'SubmitHunyuanTo3DProJob';
+    const client      = getAi3dClient();
+    const submitFn    = useRapid ? 'SubmitHunyuanTo3DRapidJob' : 'SubmitHunyuanTo3DProJob';
     console.log(`[3D] 提交${useRapid ? '极速' : '专业'}版任务...`);
-    const submitResp = await client[submitFn]({
-      ImageBase64: imageBase64,
-      EnablePBR: true
-    });
-    const taskId = submitResp.JobId;
-    if (!taskId) throw new Error('未获取到 JobId: ' + JSON.stringify(submitResp));
-    console.log(`[3D] 任务已提交，JobId: ${taskId}`);
-
-    // 2. 轮询任务状态
-    const result = await pollJobStatus(taskId, useRapid);
-
-    // 3. 找到 .glb 文件 URL
-    const files   = result.ResultFile3Ds || [];
-    const glbFile = files.find(f => (f.Type || '').toUpperCase() === 'GLB') || files[0];
-    if (!glbFile?.Url) throw new Error('未获取到模型文件 URL');
-
-    // 4. 下载 .glb 到本地
-    const modelFilename = `model_${taskId}.glb`;
-    const modelPath     = path.join(MODELS_DIR, modelFilename);
-    console.log(`[3D] 下载模型: ${glbFile.Url}`);
-    await downloadFile(glbFile.Url, modelPath);
-
-    // 5. 下载预览图（若有）
-    let previewUrl = null;
-    if (glbFile.PreviewImageUrl) {
-      const previewFilename = `preview_${taskId}.png`;
-      const previewPath     = path.join(MODELS_DIR, previewFilename);
+    const submitResp = await client[submitFn]({ ImageBase64: imageBase64, EnablePBR: true });
+    const jobId = submitResp.JobId;
+    if (!jobId) throw new Error('未获取到 JobId: ' + JSON.stringify(submitResp));
+    console.log(`[3D] 任务已提交，JobId: ${jobId}`);
+    // 存入内存，后台异步轮询
+    jobStore.set(jobId, { status: 'pending', isRapid: useRapid, modelUrl: null, previewUrl: null, error: null });
+    // 后台异步处理（不阻塞响应）
+    (async () => {
       try {
-        await downloadFile(glbFile.PreviewImageUrl, previewPath);
-        previewUrl = `/models/${previewFilename}`;
-      } catch (e) {
-        console.warn('[3D] 预览图下载失败（非致命）:', e.message);
+        const queryFn = useRapid ? 'QueryHunyuanTo3DRapidJob' : 'QueryHunyuanTo3DProJob';
+        for (let i = 0; i < 60; i++) {
+          await new Promise(r => setTimeout(r, 10000));
+          const qClient = getAi3dClient();
+          const result  = await qClient[queryFn]({ JobId: jobId });
+          console.log(`[3D] ${jobId} 状态: ${result.Status} (${i+1}/60)`);
+          if (result.Status === 'DONE') {
+            const files   = result.ResultFile3Ds || [];
+            const glbFile = files.find(f => (f.Type||'').toUpperCase()==='GLB') || files[0];
+            if (!glbFile?.Url) {
+              jobStore.set(jobId, { status: 'error', error: '未获取到模型文件URL' });
+              return;
+            }
+            const modelFilename = `model_${jobId}.glb`;
+            await downloadFile(glbFile.Url, path.join(MODELS_DIR, modelFilename));
+            let previewUrl = null;
+            if (glbFile.PreviewImageUrl) {
+              try {
+                const pf = `preview_${jobId}.png`;
+                await downloadFile(glbFile.PreviewImageUrl, path.join(MODELS_DIR, pf));
+                previewUrl = `/models/${pf}`;
+              } catch(e) { console.warn('[3D] 预览图下载失败:', e.message); }
+            }
+            const modelUrl = `/models/${modelFilename}`;
+            console.log(`[3D] 模型已固化: ${modelUrl}`);
+            jobStore.set(jobId, { status: 'done', modelUrl, previewUrl, error: null });
+            return;
+          }
+          if (result.Status === 'FAIL') {
+            jobStore.set(jobId, { status: 'error', error: result.ErrorMessage || '任务失败' });
+            return;
+          }
+        }
+        jobStore.set(jobId, { status: 'error', error: '任务超时（超过10分钟）' });
+      } catch(e) {
+        console.error('[3D] 后台轮询失败:', e.message);
+        jobStore.set(jobId, { status: 'error', error: e.message });
       }
-    }
-
-    const modelUrl = `/models/${modelFilename}`;
-    console.log(`[3D] 模型已本地固化: ${modelUrl}`);
-    res.json({ ok: true, modelUrl, previewUrl, taskId, message: '3D 模型生成成功' });
-
+    })();
+    // 立即返回 jobId，前端自行轮询状态
+    res.json({ ok: true, jobId, message: '任务已提交，请轮询状态' });
   } catch (err) {
-    console.error('[3D] 生成失败:', err.message);
+    console.error('[3D] 提交失败:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── API：图生3D 步骤2：查询任务状态 ──────────────────────────────────────────
+// GET /api/generate-3d/status/:jobId
+app.get('/api/generate-3d/status/:jobId', (req, res) => {
+  const { jobId } = req.params;
+  const job = jobStore.get(jobId);
+  if (!job) return res.status(404).json({ error: '任务不存在或已过期' });
+  res.json({ ok: true, ...job });
 });
 
 // ── API：上传视频 ────────────────────────────────────────────────────────────
