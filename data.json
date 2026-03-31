@@ -1,84 +1,156 @@
 {
   "title": "星之继承者 · 交互演示",
-  "start_node": "node_A",
+  "start_node": "1",
   "nodes": {
-    "node_A": {
-      "id": "node_A",
-      "title": "第一章：碳14的证词",
+    "1": {
+      "id": "1",
+      "title": "第一章：月球惊魂",
       "description": "舰桥审讯室。你手握一份足以颠覆人类史观的碳14检测报告。",
-      "video_url": "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "video_url": "/videos/video_1774968376212.mp4",
       "type": "branching",
-      "branch_at_second": 5,
+      "branch_at_second": 15,
       "choices": [
         {
           "id": "choice_1",
-          "label": "[ 抛出碳14证据 ]",
-          "sublabel": "将报告投影至全舰广播",
-          "target_node": "node_B",
+          "label": "[ 悄悄收下一个神秘设备]",
+          "sublabel": "",
+          "target_node": "2",
           "hotkey": "1",
-          "position": { "x": "50%", "y": "62%" },
-          "timeWindow": [3, 30]
+          "position": {
+            "x": "49.7%",
+            "y": "74.2%"
+          },
+          "timeWindow": [
+            13.56,
+            15.07
+          ]
         },
         {
           "id": "choice_2",
-          "label": "[ 保持沉默 ]",
-          "sublabel": "将数据封存于个人终端",
-          "target_node": "node_C",
+          "label": "[ 呼叫舰艇护卫队]",
+          "sublabel": "",
+          "target_node": "5",
           "hotkey": "2",
-          "position": { "x": "50%", "y": "74%" },
-          "timeWindow": [3, 30]
+          "position": {
+            "x": "50%",
+            "y": "83.3%"
+          },
+          "timeWindow": [
+            14.1,
+            15
+          ]
         }
-      ]
+      ],
+      "_pos": {
+        "x": 170,
+        "y": 182
+      },
+      "poster_url": "/videos/covers/video_1774968376212_cover.jpg",
+      "orientation": "portrait",
+      "video_width": 720,
+      "video_height": 1280,
+      "branch_time": 15,
+      "next_node": "",
+      "_sliderMaxSec": 15.069002
     },
-    "node_B": {
-      "id": "node_B",
-      "title": "结局一：真相的代价",
-      "description": "证据公开，星际议会陷入动荡。你成为了历史的引爆点。",
-      "video_url": "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-      "type": "ending",
-      "ending_tag": "ENDING · TRUTH COSTS",
-      "choices": []
-    },
-    "node_C": {
-      "id": "node_C",
+    "5": {
+      "id": "5",
       "title": "结局二：沉默的星海",
       "description": "秘密随你沉入虚空。文明继续在谎言中运转，而你独自承载那颗恒星的重量。",
-      "video_url": "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "video_url": "/videos/video_1774968891100.mp4",
       "type": "ending",
       "ending_tag": "ENDING · SILENT VOID",
-      "choices": []
+      "choices": [],
+      "_pos": {
+        "x": 447,
+        "y": 402
+      },
+      "poster_url": "/videos/covers/video_1774968891100_cover.jpg",
+      "orientation": "portrait",
+      "video_width": 720,
+      "video_height": 1280,
+      "branch_time": 5,
+      "branch_at_second": 5
     },
-    "node_3d_demo": {
-      "id": "node_3d_demo",
-      "title": "全景探索：远古星舰遗迹",
-      "description": "3D 实体漫游节点。创作者上传 2D 图片后，后端调用混元生3D API 生成 .glb 模型，玩家可 360° 自由漫游。",
-      "type": "3d_model",
-      "model_url": "/models/demo.glb",
-      "preview_image": "/models/demo_preview.jpg",
-      "camera_orbit": "0deg 75deg 2.5m",
-      "camera_target": "0m 0m 0m",
+    "2": {
+      "id": "2",
+      "type": "branching",
+      "title": "新视频节点",
+      "video_url": "/videos/video_1774981642483.mp4",
+      "branch_at_second": 13,
       "choices": [
         {
-          "id": "choice_3d_1",
-          "label": "[ 进入核心舱 ]",
-          "sublabel": "沿走廊深入",
-          "target_node": "node_B",
+          "label": "自己独自研究",
+          "sublabel": "",
           "hotkey": "1",
-          "position": "0.5 1.2 -0.3",
-          "normal": "0 1 0",
-          "timeWindow": [0, 999]
+          "target_node": "3",
+          "position": {
+            "x": "31.2%",
+            "y": "78.7%"
+          },
+          "timeWindow": [
+            10.01,
+            13
+          ]
         },
         {
-          "id": "choice_3d_2",
-          "label": "[ 检查导航台 ]",
-          "sublabel": "查看星图数据",
-          "target_node": "node_C",
+          "label": "给到丹克博士",
+          "sublabel": "",
           "hotkey": "2",
-          "position": "-0.8 0.9 0.4",
-          "normal": "0 0 1",
-          "timeWindow": [0, 999]
+          "target_node": "4",
+          "position": {
+            "x": "77.9%",
+            "y": "78.4%"
+          },
+          "timeWindow": [
+            10.53,
+            13
+          ]
         }
-      ]
+      ],
+      "_pos": {
+        "x": 448.5,
+        "y": 130
+      },
+      "poster_url": "/videos/covers/video_1774981642483_cover.jpg",
+      "orientation": "portrait",
+      "video_width": 720,
+      "video_height": 1280,
+      "branch_time": 13
+    },
+    "3": {
+      "id": "3",
+      "type": "ending",
+      "title": "B2",
+      "video_url": "/videos/video_1774981852345.mp4",
+      "ending_tag": "ENDING · NEW",
+      "description": "线索就此破灭，谜团深埋宇宙",
+      "_pos": {
+        "x": 717.5,
+        "y": -44
+      },
+      "poster_url": "/videos/covers/video_1774981852345_cover.jpg",
+      "orientation": "portrait",
+      "video_width": 720,
+      "video_height": 1280,
+      "branch_time": 11
+    },
+    "4": {
+      "id": "4",
+      "type": "ending",
+      "title": "GOOD",
+      "video_url": "/videos/video_1774982032925.mp4",
+      "ending_tag": "ENDING · NEW",
+      "description": "五万年前在月球死亡的地球人，谜团开启",
+      "_pos": {
+        "x": 754.5,
+        "y": 213
+      },
+      "poster_url": "/videos/covers/video_1774982032925_cover.jpg",
+      "orientation": "portrait",
+      "video_width": 720,
+      "video_height": 1280,
+      "branch_time": 15
     }
   }
 }
