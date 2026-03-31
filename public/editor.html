@@ -1979,6 +1979,18 @@ body.immersive-mode #right-panel {
           </div>
         </button>
       </div>
+      <!-- 自动保存时间标识 -->
+      <div id="autosave-indicator" style="
+        position:absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        color: var(--text-tertiary, #b0b0b0);
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0.7;
+      "></div>
     </div>
   </div>
 
@@ -2303,6 +2315,32 @@ window.addEventListener('DOMContentLoaded', async () => {
   setTimeout(() => {
     document.getElementById('loading').classList.add('hidden');
   }, 1400);
+
+  // ── 30 秒自动保存 ──────────────────────────────────
+  setInterval(async () => {
+    try {
+      // 将当前节点位置写回 gameData
+      Object.entries(state.nodes).forEach(([id, n]) => {
+        if (state.gameData.nodes[id]) {
+          state.gameData.nodes[id]._pos = { x: n.x, y: n.y };
+        }
+      });
+      const r = await fetch('/api/save-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state.gameData)
+      });
+      if (r.ok) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        // 更新自动保存标识（静默，不弹 Toast）
+        const el = document.getElementById('autosave-indicator');
+        if (el) el.textContent = `自动保存 ${timeStr}`;
+      }
+    } catch(e) {
+      console.warn('[autosave]', e.message);
+    }
+  }, 30000);
 });
 
 async function loadData() {
@@ -3402,6 +3440,41 @@ function updatePreviewPanel(nodeData) {
   if (!nodeData) return;
   document.getElementById('screen-node-label').textContent = nodeData.id?.toUpperCase() || '';
   document.getElementById('screen-node-title').textContent = nodeData.title || '';
+
+  // ── 预览屏视频播放 ──────────────────────────────────
+  const placeholder = document.getElementById('screen-placeholder');
+  const screenContent = document.getElementById('screen-content');
+
+  // 移除旧的 video 元素
+  const oldVideo = screenContent.querySelector('.preview-video-el');
+  if (oldVideo) oldVideo.remove();
+
+  if (nodeData.video_url) {
+    // 隐藏占位符，显示视频
+    placeholder.style.display = 'none';
+    const vid = document.createElement('video');
+    vid.className = 'preview-video-el';
+    vid.src = nodeData.video_url;
+    vid.controls = true;
+    vid.loop = false;
+    vid.muted = false;
+    if (nodeData.poster_url) vid.poster = nodeData.poster_url;
+    vid.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:1;';
+    // 插入到 screen-choices 前面（z-index 层次：video < choices）
+    const choicesLayer = document.getElementById('screen-choices');
+    screenContent.insertBefore(vid, choicesLayer);
+  } else {
+    // 无视频：显示占位符
+    placeholder.style.display = '';
+    // 如果有封面，更新占位符背景
+    if (nodeData.poster_url) {
+      placeholder.style.backgroundImage = `url('${nodeData.poster_url}')`;
+      placeholder.style.backgroundSize = 'cover';
+      placeholder.style.backgroundPosition = 'center';
+    } else {
+      placeholder.style.backgroundImage = '';
+    }
+  }
 
   const choicesEl = document.getElementById('screen-choices');
   choicesEl.innerHTML = '';
