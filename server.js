@@ -31,7 +31,9 @@ function loadEnv() {
 loadEnv();
 
 // ── 中间件 ────────────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10mb' }));
+// body-parser limit 要覆盖最大视频文件，否则 Express 在 multer 之前就会返回 413
+app.use(express.json({ limit: '600mb' }));
+app.use(express.urlencoded({ extended: true, limit: '600mb' }));
 app.use(express.static(PUBLIC_DIR));
 
 // ── multer 配置（内存存储，限 20MB）─────────────────────────────────────────
