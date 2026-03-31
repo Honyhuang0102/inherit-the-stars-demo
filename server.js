@@ -55,81 +55,22 @@ const upload = multer({
   }
 });
 
-// ── 腾讯云 TC3-HMAC-SHA256 签名工具 ─────────────────────────────────────────
-function sign(key, msg) {
-  return crypto.createHmac('sha256', key).update(msg).digest();
-}
-function sha256hex(msg) {
-  return crypto.createHash('sha256').update(msg).digest('hex');
-}
-
-async function tencentApiRequest(action, payload) {
+// ── 腾讯云官方 SDK 客户端（替代手写签名）────────────────────────────────────
+let _ai3dClient = null;
+function getAi3dClient() {
+  if (_ai3dClient) return _ai3dClient;
   const secretId  = process.env.TENCENT_SECRET_ID  || '';
   const secretKey = process.env.TENCENT_SECRET_KEY || '';
   if (!secretId || !secretKey) {
     throw new Error('腾讯云密钥未配置（TENCENT_SECRET_ID / TENCENT_SECRET_KEY）');
   }
-
-  const service   = 'ai3d';
-  const host      = 'ai3d.tencentcloudapi.com';
-  const version   = '2025-05-13';
-  const region    = 'ap-guangzhou';
-  const algorithm = 'TC3-HMAC-SHA256';
-  const timestamp = Math.floor(Date.now() / 1000);
-  const date      = new Date(timestamp * 1000).toISOString().slice(0, 10);
-
-  const body          = JSON.stringify(payload);
-  const hashedPayload = sha256hex(body);
-  const canonicalHeaders = `content-type:application/json\nhost:${host}\nx-tc-action:${action.toLowerCase()}\n`;
-  const signedHeaders    = 'content-type;host;x-tc-action';
-  const canonicalRequest = [
-    'POST', '/', '',
-    canonicalHeaders,
-    signedHeaders,
-    hashedPayload
-  ].join('\n');
-
-  const credentialScope = `${date}/${service}/tc3_request`;
-  const stringToSign = [
-    algorithm,
-    timestamp,
-    credentialScope,
-    sha256hex(canonicalRequest)
-  ].join('\n');
-
-  const secretDate    = sign(`TC3${secretKey}`, date);
-  const secretService = sign(secretDate, service);
-  const secretSigning = sign(secretService, 'tc3_request');
-  const signature     = crypto.createHmac('sha256', secretSigning).update(stringToSign).digest('hex');
-
-  const authorization = `${algorithm} Credential=${secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: host,
-      method: 'POST',
-      headers: {
-        'Authorization':  authorization,
-        'Content-Type':   'application/json',
-        'Host':           host,
-        'X-TC-Action':    action,
-        'X-TC-Timestamp': String(timestamp),
-        'X-TC-Version':   version,
-        'X-TC-Region':    region
-      }
-    };
-    const req = https.request(options, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error('API 响应解析失败: ' + data)); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+  const tencentcloud = require('tencentcloud-sdk-nodejs-ai3d');
+  _ai3dClient = new tencentcloud.ai3d.v20250513.Client({
+    credential: { secretId, secretKey },
+    region: 'ap-guangzhou',
+    profile: { httpProfile: { endpoint: 'ai3d.tencentcloudapi.com' } }
   });
+  return _ai3dClient;
 }
 
 // ── 下载远程文件到本地 ────────────────────────────────────────────────────────
@@ -153,19 +94,15 @@ function downloadFile(url, destPath) {
 
 // ── 轮询任务状态（最多等待 10 分钟）─────────────────────────────────────────
 async function pollJobStatus(taskId, isRapid) {
-  const action      = isRapid ? 'QueryHunyuanTo3DRapidJob' : 'QueryHunyuanTo3DProJob';
+  const client      = getAi3dClient();
+  const queryFn     = isRapid ? 'QueryHunyuanTo3DRapidJob' : 'QueryHunyuanTo3DProJob';
   const maxAttempts = 60;
   const interval    = 10000; // 10秒
 
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, interval));
-    const resp   = await tencentApiRequest(action, { TaskId: taskId });
-    const result = resp.Response;
-    if (!result) throw new Error('API 响应异常: ' + JSON.stringify(resp));
-    if (result.Error) throw new Error(`API 错误: ${result.Error.Code} - ${result.Error.Message}`);
-
+    const result = await client[queryFn]({ JobId: taskId });
     console.log(`[3D] 任务 ${taskId} 状态: ${result.Status} (${i + 1}/${maxAttempts})`);
-
     if (result.Status === 'DONE') return result;
     if (result.Status === 'FAIL') throw new Error(`任务失败: ${result.ErrorMessage}`);
   }
@@ -265,20 +202,17 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
     const imageBase64 = req.file.buffer.toString('base64');
     const useRapid    = req.body.rapid === 'true';
 
-    // 1. 提交任务
-    const submitAction = useRapid ? 'SubmitHunyuanTo3DRapidJob' : 'SubmitHunyuanTo3DProJob';
+    // 1. 提交任务（使用官方 SDK）
+    const client   = getAi3dClient();
+    const submitFn = useRapid ? 'SubmitHunyuanTo3DRapidJob' : 'SubmitHunyuanTo3DProJob';
     console.log(`[3D] 提交${useRapid ? '极速' : '专业'}版任务...`);
-    const submitResp = await tencentApiRequest(submitAction, {
+    const submitResp = await client[submitFn]({
       ImageBase64: imageBase64,
       EnablePBR: true
     });
-
-    if (submitResp.Response?.Error) {
-      throw new Error(`提交失败: ${submitResp.Response.Error.Code} - ${submitResp.Response.Error.Message}`);
-    }
-    const taskId = submitResp.Response?.TaskId;
-    if (!taskId) throw new Error('未获取到 TaskId: ' + JSON.stringify(submitResp));
-    console.log(`[3D] 任务已提交，TaskId: ${taskId}`);
+    const taskId = submitResp.JobId;
+    if (!taskId) throw new Error('未获取到 JobId: ' + JSON.stringify(submitResp));
+    console.log(`[3D] 任务已提交，JobId: ${taskId}`);
 
     // 2. 轮询任务状态
     const result = await pollJobStatus(taskId, useRapid);
