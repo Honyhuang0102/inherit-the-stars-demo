@@ -1074,7 +1074,7 @@ function onEnded() {
 // ── Branch Trigger ─────────────────────────────────────────────────────────────────
 /**
  * 每帧 timeupdate 时调用。
- * 1. 到达 branch_at_second 时首次触发 showChoices（初始化热点 DOM）
+ * 1. 到达最早的 timeWindow 开始时间（或 branch_at_second）时首次触发 showChoices
  * 2. 后续每帧根据各 choice.timeWindow 实时控制热点显隐
  */
 function maybeTriggerBranch(currentTime) {
@@ -1084,8 +1084,23 @@ function maybeTriggerBranch(currentTime) {
   const branchAt = Number(node.branch_at_second);
   if (!Number.isFinite(branchAt)) return;
 
+  // 计算实际触发时刻：取所有 timeWindow 开始时间的最小値，与 branch_at_second 取较小值
+  // 这样可以确保在第一个按鈕应出现之前就创建好 DOM
+  let effectiveTrigger = branchAt;
+  if (node.choices && node.choices.length > 0) {
+    node.choices.forEach(c => {
+      const tw = c.timeWindow;
+      if (tw && Array.isArray(tw) && tw.length >= 2) {
+        const twStart = Number(tw[0]);
+        if (Number.isFinite(twStart) && twStart < effectiveTrigger) {
+          effectiveTrigger = twStart;
+        }
+      }
+    });
+  }
+
   // 首次到达分支点：创建热点 DOM
-  if (!engine.branchHandled && currentTime >= branchAt) {
+  if (!engine.branchHandled && currentTime >= effectiveTrigger) {
     engine.branchHandled = true;
     showChoices(node);
     return;
@@ -1127,8 +1142,10 @@ function updateHotspotVisibility(node, currentTime) {
  * - timeWindow 存在时，初始根据当前时间决定是否显示
  */
 function showChoices(node, forceShow = false) {
-  if (engine.choiceShown) return;
-  engine.choiceShown = true;
+  // forceShow=true（视频结束时）：即使已创建过热点，也需要强制让所有热点可见
+  // 普通调用：若已创建过热点 DOM，直接返回（避免重复创建）
+  if (engine.choiceShown && !forceShow) return;
+  if (!engine.choiceShown) engine.choiceShown = true;
 
   // 清空按鈕热点（保留 SVG 容器）
   $hotspotLayer.querySelectorAll('.hotspot-btn').forEach(el => el.remove());
@@ -1198,12 +1215,13 @@ function showChoices(node, forceShow = false) {
   $hotspotLayer.classList.add('visible');
 
   // 如果所有热点都有 timeWindow 且当前时间均不在窗口内，不暂停视频
-  const anyVisible = node.choices.some(c => {
+  // forceShow=true 时强制暂停（视频已结束，必须展示选择）
+  const anyVisible = forceShow || node.choices.some(c => {
     const tw = c.timeWindow;
     if (!tw || !Array.isArray(tw) || tw.length < 2) return true;
     return currentTime >= tw[0] && currentTime <= tw[1];
   });
-  if (anyVisible) {
+  if (anyVisible && engine.activeVideo) {
     engine.activeVideo.pause();
   }
 }
