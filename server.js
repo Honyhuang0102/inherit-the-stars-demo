@@ -313,7 +313,10 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
 // 返回: { ok, videoUrl, coverUrl, width, height, orientation }
 const videoUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+  limits: {
+    fileSize:  500 * 1024 * 1024, // 500MB per file
+    fieldSize:  10 * 1024 * 1024  // 10MB per text field (cover base64)
+  },
   fileFilter: (_req, file, cb) => {
     // 接受常见视频格式
     const allowed = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
@@ -326,7 +329,16 @@ const videoUpload = multer({
   }
 });
 
-app.post('/api/upload-video', videoUpload.single('video'), (req, res) => {
+app.post('/api/upload-video', (req, res, next) => {
+  videoUpload.single('video')(req, res, (err) => {
+    if (err) {
+      // Multer 错误（fieldSize 超限、fileSize 超限等）
+      console.error('[VIDEO] Multer error:', err.message);
+      return res.status(413).json({ error: `上传失败: ${err.message}` });
+    }
+    next();
+  });
+}, (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未收到视频文件' });
 
   try {
