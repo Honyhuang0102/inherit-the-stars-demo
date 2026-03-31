@@ -1064,7 +1064,7 @@ function onEnded() {
     showEnding(node);
   } else if (node && node.type === 'branching') {
     // 视频结束，强制显示所有热点（忽略 timeWindow 限制，用户必须做出选择）
-    showChoices(node, true);
+    showChoices(node);
   } else if (node && node.next_node && engine.gameData.nodes[node.next_node]) {
     // 直连节点：视频播完自动跳转到 next_node
     loadNode(node.next_node);
@@ -1078,39 +1078,9 @@ function onEnded() {
  * 2. 后续每帧根据各 choice.timeWindow 实时控制热点显隐
  */
 function maybeTriggerBranch(currentTime) {
-  const node = engine.gameData.nodes[engine.currentNodeId];
-  if (!node || node.type !== 'branching') return;
-
-  const branchAt = Number(node.branch_at_second);
-  if (!Number.isFinite(branchAt)) return;
-
-  // 计算实际触发时刻：取所有 timeWindow 开始时间的最小値，与 branch_at_second 取较小值
-  // 这样可以确保在第一个按鈕应出现之前就创建好 DOM
-  let effectiveTrigger = branchAt;
-  if (node.choices && node.choices.length > 0) {
-    node.choices.forEach(c => {
-      const tw = c.timeWindow;
-      if (tw && Array.isArray(tw) && tw.length >= 2) {
-        const twStart = Number(tw[0]);
-        if (Number.isFinite(twStart) && twStart < effectiveTrigger) {
-          effectiveTrigger = twStart;
-        }
-      }
-    });
-  }
-
-  // 首次到达分支点：创建热点 DOM
-  if (!engine.branchHandled && currentTime >= effectiveTrigger) {
-    engine.branchHandled = true;
-    showChoices(node);
-    return;
-  }
-
-  // 已建立热点 DOM：根据 timeWindow 实时控制显隐
-  // 注意：视频已结束时（engine.videoEnded）不再执行显隐控制，保持所有热点强制显示
-  if (engine.choiceShown && !engine.videoEnded) {
-    updateHotspotVisibility(node, currentTime);
-  }
+  // 新逻辑：不在播放中途创建/显示按钮，不暂停视频。
+  // 按钮展示完全由 onEnded 负责，此函数仅保留以供将来扩展。
+  void currentTime;
 }
 
 /**
@@ -1141,51 +1111,36 @@ function updateHotspotVisibility(node, currentTime) {
  * - 多边形热点：<polygon> 渲染到 #hotspot-svg，百分比坐标系
  * - timeWindow 存在时，初始根据当前时间决定是否显示
  */
-function showChoices(node, forceShow = false) {
-  // forceShow=true（视频结束时）：即使已创建过热点，也需要强制让所有热点可见
-  // 普通调用：若已创建过热点 DOM，直接返回（避免重复创建）
-  if (engine.choiceShown && !forceShow) return;
-  if (!engine.choiceShown) engine.choiceShown = true;
+function showChoices(node) {
+  // 简化逻辑：始终显示所有按钮，不依赖 timeWindow
+  // 此函数只应在视频结束（onEnded）后调用
+  if (engine.choiceShown) return; // 防重入
+  engine.choiceShown = true;
 
-  // 清空按鈕热点（保留 SVG 容器）
+  // 清空旧按钮 DOM
   $hotspotLayer.querySelectorAll('.hotspot-btn').forEach(el => el.remove());
-  // 清空 SVG 多边形
   $hotspotSvg.innerHTML = '';
 
-  const currentTime = engine.activeVideo ? engine.activeVideo.currentTime : 0;
-
   node.choices.forEach((choice, idx) => {
-    const tw = choice.timeWindow;
-    // forceShow=true 时（视频结束）忽略 timeWindow，强制显示所有热点
-    const inWindow = forceShow || !tw || !Array.isArray(tw) || tw.length < 2
-      || (currentTime >= tw[0] && currentTime <= tw[1]);
-
     if (choice.type === 'polygon' && choice.points && choice.points.length >= 3) {
-      // ── 多边形热点 ───────────────────────────────────────────────────────
-      // 将百分比坐标转为 SVG viewBox 坐标（使用 0-100 坐标系）
+      // ── 多边形热点 ───────────────────────────────────────────────────────────────────
       const pts = choice.points
         .map(p => `${parseFloat(p.x)},${parseFloat(p.y)}`)
         .join(' ');
-
       const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
       polygon.setAttribute('points', pts);
       polygon.setAttribute('vector-effect', 'non-scaling-stroke');
       polygon.classList.add('poly-hotspot');
       polygon.dataset.choiceIdx = idx;
       polygon.dataset.targetNode = choice.target_node || '';
-      polygon.style.display = inWindow ? '' : 'none';
       polygon.title = choice.label || '';
-
-      // 将 SVG viewBox 设为 0 0 100 100，匹配百分比坐标
       $hotspotSvg.setAttribute('viewBox', '0 0 100 100');
       $hotspotSvg.setAttribute('preserveAspectRatio', 'none');
       $hotspotSvg.style.pointerEvents = 'none';
-
       polygon.addEventListener('click', () => handleChoice(choice));
       $hotspotSvg.appendChild(polygon);
-
     } else {
-      // ── 文字热点 ────────────────────────────────────────────────────────────────
+      // ── 文字按钮热点 ────────────────────────────────────────────────────────────────────────
       const btn = document.createElement('button');
       btn.className = 'hotspot-btn';
       btn.dataset.targetNode = choice.target_node || '';
@@ -1196,7 +1151,8 @@ function showChoices(node, forceShow = false) {
       const py  = pos.y || defaultHotspotY(idx, node.choices.length);
       btn.style.left = px;
       btn.style.top  = py;
-      btn.style.display = inWindow ? '' : 'none';
+      // 按钮始终可见，不依赖 timeWindow
+      btn.style.display = '';
 
       btn.innerHTML = `
         <span class="hs-ready-dot"></span>
@@ -1213,24 +1169,8 @@ function showChoices(node, forceShow = false) {
 
   // 淡入热点层
   $hotspotLayer.classList.add('visible');
-
-  // 判断是否有任何按鈕当前可见（在 timeWindow 内）
-  const anyVisible = forceShow || node.choices.some(c => {
-    const tw = c.timeWindow;
-    if (!tw || !Array.isArray(tw) || tw.length < 2) return true;
-    return currentTime >= tw[0] && currentTime <= tw[1];
-  });
-
-  if (anyVisible && engine.activeVideo) {
-    engine.activeVideo.pause();
-    // 视频暂停后，将所有按鈕强制设为可见（timeWindow 的意义是控制播放中的显隐，暂停后应展示所有选项）
-    $hotspotLayer.querySelectorAll('.hotspot-btn').forEach(btn => {
-      btn.style.display = '';
-    });
-    $hotspotSvg.querySelectorAll('.poly-hotspot').forEach(poly => {
-      poly.style.display = '';
-    });
-  }
+  // 视频已结束，暂停确保按钮可点击（防止视频自动循环）
+  if (engine.activeVideo) engine.activeVideo.pause();
 }
 
 // ── Hide Hotspots ─────────────────────────────────────────────────────────────────
