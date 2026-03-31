@@ -3,8 +3,9 @@ const express  = require('express');
 const path     = require('path');
 const fs       = require('fs');
 const https    = require('https');
-const crypto   = require('crypto');
+const http     = require('http');
 const multer   = require('multer');
+const FormData = require('form-data');
 
 const app  = express();
 const PORT = 3000;
@@ -14,6 +15,12 @@ const PANORAMA_DIR = path.join(PUBLIC_DIR, 'panoramas');
 const MODELS_DIR   = path.join(PUBLIC_DIR, 'models');
 const VIDEOS_DIR   = path.join(PUBLIC_DIR, 'videos');
 const COVERS_DIR   = path.join(VIDEOS_DIR, 'covers');
+
+// ── Blockade Labs API 配置 ────────────────────────────────────────────────────
+const BLOCKADE_API_BASE = 'https://backend.blockadelabs.com/api/v1';
+const SKYBOX_STYLE_ID   = 35;   // M3 UHD Render（高清科幻写实风格）
+const INIT_STRENGTH     = 0.35; // 反向比例：0.11=最强影响，0.9=无影响；0.35≈中强影响
+
 // ── 确保目录存在 ──────────────────────────────────────────────────────────────
 [PANORAMA_DIR, MODELS_DIR, VIDEOS_DIR, COVERS_DIR].forEach(d => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
@@ -23,27 +30,24 @@ const COVERS_DIR   = path.join(VIDEOS_DIR, 'covers');
 function loadEnv() {
   const os = require('os');
   const candidates = [
-    path.join(__dirname, '.env'),                                    // 项目目录/.env
-    path.join(os.homedir(), 'inherit-the-stars-demo', '.env'),       // ~/inherit-the-stars-demo/.env
-    path.join(os.homedir(), 'workspace', 'inherit-the-stars-demo', '.env'), // ~/workspace/.../.env
+    path.join(__dirname, '.env'),
+    path.join(os.homedir(), 'inherit-the-stars-demo', '.env'),
+    path.join(os.homedir(), 'workspace', 'inherit-the-stars-demo', '.env'),
   ];
   for (const envPath of candidates) {
     if (!fs.existsSync(envPath)) continue;
     fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
-      // 兼容 KEY=VALUE 和 export KEY=VALUE 两种格式，忽略注释行
       const m = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^\r\n#]+)/);
       if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
     });
-    const sid = process.env.TENCENT_SECRET_ID || '';
-    const skey = process.env.TENCENT_SECRET_KEY || '';
+    const apiKey = process.env.BLOCKADE_LABS_API_KEY || '';
     console.log(`[env] 已加载密钥文件: ${envPath}`);
-    console.log(`[env] SecretId: ${sid ? sid.substring(0,8)+'...' : '(空)'}, SecretKey: ${skey ? skey.substring(0,4)+'...' : '(空)'}`);
+    console.log(`[env] BLOCKADE_LABS_API_KEY: ${apiKey ? apiKey.substring(0, 8) + '...' : '(空)'}`);
   }
 }
 loadEnv();
 
 // ── 中间件 ────────────────────────────────────────────────────────────────────
-// body-parser limit 要覆盖最大视频文件，否则 Express 在 multer 之前就会返回 413
 app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ extended: true, limit: '600mb' }));
 app.use(express.static(PUBLIC_DIR));
@@ -58,28 +62,11 @@ const upload = multer({
   }
 });
 
-// ── 腾讯云官方 SDK 客户端（替代手写签名）────────────────────────────────────
-function getAi3dClient() {
-  // 注意：不使用单例缓存，每次调用都重新读取 process.env 中的密钥
-  // 避免进程启动时密钥尚未加载导致空值被缓存
-  const secretId  = process.env.TENCENT_SECRET_ID  || '';
-  const secretKey = process.env.TENCENT_SECRET_KEY || '';
-  if (!secretId || !secretKey) {
-    throw new Error('腾讯云密钥未配置（TENCENT_SECRET_ID / TENCENT_SECRET_KEY）');
-  }
-  const tencentcloud = require('tencentcloud-sdk-nodejs-ai3d');
-  return new tencentcloud.ai3d.v20250513.Client({
-    credential: { secretId, secretKey },
-    region: 'ap-guangzhou',
-    profile: { httpProfile: { endpoint: 'ai3d.tencentcloudapi.com' } }
-  });
-}
-
 // ── 下载远程文件到本地 ────────────────────────────────────────────────────────
 function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(destPath);
-    const get  = url.startsWith('https') ? https : require('http');
+    const get  = url.startsWith('https') ? https : http;
     get.get(url, res => {
       if (res.statusCode !== 200) {
         reject(new Error(`下载失败，状态码: ${res.statusCode}`));
@@ -94,8 +81,63 @@ function downloadFile(url, destPath) {
   });
 }
 
-// ── 内存任务状态存储（进程重启后丢失，但3D生成通常在同一进程内完成）────────
-const jobStore = new Map(); // jobId -> { status, isRapid, modelUrl, previewUrl, error }
+// ── Blockade Labs HTTP 请求封装 ───────────────────────────────────────────────
+function blockadeRequest(method, endpoint, options = {}) {
+  return new Promise((resolve, reject) => {
+    const apiKey = process.env.BLOCKADE_LABS_API_KEY || '';
+    if (!apiKey) {
+      return reject(new Error('BLOCKADE_LABS_API_KEY 未配置'));
+    }
+
+    const url = new URL(BLOCKADE_API_BASE + endpoint);
+    const isFormData = options.formData instanceof FormData;
+
+    const headers = {
+      'x-api-key': apiKey,
+      ...(isFormData ? options.formData.getHeaders() : { 'Content-Type': 'application/json' }),
+      ...options.headers,
+    };
+
+    const body = isFormData
+      ? options.formData.getBuffer()
+      : (options.body ? JSON.stringify(options.body) : null);
+
+    const reqOptions = {
+      hostname: url.hostname,
+      path: url.pathname + url.search,
+      method: method.toUpperCase(),
+      headers: {
+        ...headers,
+        ...(body ? { 'Content-Length': Buffer.byteLength(body) } : {}),
+      },
+    };
+
+    const req = https.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (res.statusCode >= 400) {
+            reject(new Error(`Blockade Labs API 错误 ${res.statusCode}: ${JSON.stringify(parsed)}`));
+          } else {
+            resolve(parsed);
+          }
+        } catch (e) {
+          reject(new Error(`响应解析失败: ${data.substring(0, 200)}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+// ── 内存任务状态存储 ──────────────────────────────────────────────────────────
+// jobId -> { status, panoramaUrl, thumbUrl, error, blockadeId }
+const jobStore = new Map();
 
 // ── 路由：创作者编辑器页面 /editor ────────────────────────────────────────────
 app.get('/editor', (_req, res) => {
@@ -165,7 +207,6 @@ app.post('/api/save-data', (req, res) => {
 });
 
 // ── API：上传全景图（等距柱状 .jpg/.png）────────────────────────────────────
-// POST /api/upload-panorama  multipart/form-data  field: image
 app.post('/api/upload-panorama', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未收到图片文件' });
   const ext      = req.file.mimetype === 'image/png' ? '.png' : '.jpg';
@@ -181,73 +222,184 @@ app.post('/api/upload-panorama', upload.single('image'), (req, res) => {
   }
 });
 
-// ── API：图生3D 步骤1：提交任务（立即返回 jobId）─────────────────────────────
-// POST /api/generate-3d  multipart/form-data  field: image  [rapid=true]
+// ── API：360全景图生成 步骤1：提交任务（立即返回 jobId）──────────────────────
+// POST /api/generate-3d
+// multipart/form-data 字段：
+//   image  (File)   - 视频尾帧 JPEG 图片
+//   prompt (String) - 场景描述文字
 app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: '未收到图片文件' });
+  if (!req.file) return res.status(400).json({ error: '未收到图片文件（视频尾帧）' });
+
+  const prompt = (req.body.prompt || '').trim();
+  if (!prompt) return res.status(400).json({ error: '缺少 prompt 参数' });
+
+  const apiKey = process.env.BLOCKADE_LABS_API_KEY || '';
+  if (!apiKey) return res.status(500).json({ error: 'BLOCKADE_LABS_API_KEY 未配置，请在 .env 中添加' });
+
   try {
-    const imageBase64 = req.file.buffer.toString('base64');
-    const useRapid    = req.body.rapid === 'true';
-    const client      = getAi3dClient();
-    const submitFn    = useRapid ? 'SubmitHunyuanTo3DRapidJob' : 'SubmitHunyuanTo3DProJob';
-    console.log(`[3D] 提交${useRapid ? '极速' : '专业'}版任务...`);
-    const submitResp = await client[submitFn]({ ImageBase64: imageBase64, EnablePBR: true });
-    const jobId = submitResp.JobId;
-    if (!jobId) throw new Error('未获取到 JobId: ' + JSON.stringify(submitResp));
-    console.log(`[3D] 任务已提交，JobId: ${jobId}`);
+    // 构建 FormData 提交给 Blockade Labs
+    const form = new FormData();
+    form.append('skybox_style_id', String(SKYBOX_STYLE_ID));
+    form.append('prompt', prompt);
+    form.append('init_strength', String(INIT_STRENGTH));
+    form.append('init_image', req.file.buffer, {
+      filename: 'tail_frame.jpg',
+      contentType: req.file.mimetype || 'image/jpeg',
+    });
+
+    console.log(`[SKYBOX] 提交全景图生成任务，prompt: "${prompt.substring(0, 60)}..."`);
+
+    // 调用 Blockade Labs API（带 FormData）
+    const submitResp = await new Promise((resolve, reject) => {
+      const formBuffer = form.getBuffer();
+      const formHeaders = form.getHeaders();
+      const reqOptions = {
+        hostname: 'backend.blockadelabs.com',
+        path: '/api/v1/skybox',
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          ...formHeaders,
+          'Content-Length': formBuffer.length,
+        },
+      };
+      const request = https.request(reqOptions, (response) => {
+        let data = '';
+        response.on('data', chunk => { data += chunk; });
+        response.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (response.statusCode >= 400) {
+              reject(new Error(`Blockade Labs 错误 ${response.statusCode}: ${JSON.stringify(parsed)}`));
+            } else {
+              resolve(parsed);
+            }
+          } catch (e) {
+            reject(new Error(`响应解析失败: ${data.substring(0, 300)}`));
+          }
+        });
+      });
+      request.on('error', reject);
+      request.write(formBuffer);
+      request.end();
+    });
+
+    const blockadeId = submitResp.id;
+    if (!blockadeId) {
+      throw new Error('未获取到任务 ID: ' + JSON.stringify(submitResp));
+    }
+
+    const jobId = `skybox_${blockadeId}_${Date.now()}`;
+    console.log(`[SKYBOX] 任务已提交，blockadeId: ${blockadeId}，内部 jobId: ${jobId}`);
+
     // 存入内存，后台异步轮询
-    jobStore.set(jobId, { status: 'pending', isRapid: useRapid, modelUrl: null, previewUrl: null, error: null });
-    // 后台异步处理（不阻塞响应）
+    jobStore.set(jobId, {
+      status: 'pending',
+      blockadeId,
+      panoramaUrl: null,
+      thumbUrl: null,
+      error: null,
+    });
+
+    // 后台异步轮询（不阻塞响应）
     (async () => {
-      try {
-        const queryFn = useRapid ? 'QueryHunyuanTo3DRapidJob' : 'QueryHunyuanTo3DProJob';
-        for (let i = 0; i < 60; i++) {
-          await new Promise(r => setTimeout(r, 10000));
-          const qClient = getAi3dClient();
-          const result  = await qClient[queryFn]({ JobId: jobId });
-          console.log(`[3D] ${jobId} 状态: ${result.Status} (${i+1}/60)`);
-          if (result.Status === 'DONE') {
-            const files   = result.ResultFile3Ds || [];
-            const glbFile = files.find(f => (f.Type||'').toUpperCase()==='GLB') || files[0];
-            if (!glbFile?.Url) {
-              jobStore.set(jobId, { status: 'error', error: '未获取到模型文件URL' });
+      const maxAttempts = 60; // 最多轮询 60 次 × 5 秒 = 5 分钟
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 5000)); // 每 5 秒轮询一次
+        try {
+          const statusResp = await new Promise((resolve, reject) => {
+            const reqOptions = {
+              hostname: 'backend.blockadelabs.com',
+              path: `/api/v1/skybox/${blockadeId}`,
+              method: 'GET',
+              headers: { 'x-api-key': apiKey },
+            };
+            const request = https.request(reqOptions, (response) => {
+              let data = '';
+              response.on('data', chunk => { data += chunk; });
+              response.on('end', () => {
+                try { resolve(JSON.parse(data)); }
+                catch (e) { reject(new Error(`状态响应解析失败: ${data.substring(0, 200)}`)); }
+              });
+            });
+            request.on('error', reject);
+            request.end();
+          });
+
+          const currentStatus = statusResp.status;
+          console.log(`[SKYBOX] ${jobId} 状态: ${currentStatus} (${i + 1}/${maxAttempts})`);
+
+          if (currentStatus === 'complete') {
+            const fileUrl  = statusResp.file_url  || '';
+            const thumbUrl = statusResp.thumb_url || '';
+
+            if (!fileUrl) {
+              jobStore.set(jobId, { status: 'error', error: '生成完成但未获取到全景图 URL' });
               return;
             }
-            const modelFilename = `model_${jobId}.glb`;
-            await downloadFile(glbFile.Url, path.join(MODELS_DIR, modelFilename));
-            let previewUrl = null;
-            if (glbFile.PreviewImageUrl) {
-              try {
-                const pf = `preview_${jobId}.png`;
-                await downloadFile(glbFile.PreviewImageUrl, path.join(MODELS_DIR, pf));
-                previewUrl = `/models/${pf}`;
-              } catch(e) { console.warn('[3D] 预览图下载失败:', e.message); }
+
+            // 下载全景图到本地，固化为永久 URL
+            const filename    = `skybox_${blockadeId}.jpg`;
+            const localPath   = path.join(PANORAMA_DIR, filename);
+            const localUrl    = `/panoramas/${filename}`;
+            try {
+              await downloadFile(fileUrl, localPath);
+              console.log(`[SKYBOX] 全景图已固化: ${localUrl}`);
+            } catch (dlErr) {
+              console.warn(`[SKYBOX] 本地固化失败，使用远程 URL: ${dlErr.message}`);
+              // 降级：直接使用远程 URL
+              jobStore.set(jobId, {
+                status: 'done',
+                panoramaUrl: fileUrl,
+                thumbUrl,
+                error: null,
+              });
+              return;
             }
-            const modelUrl = `/models/${modelFilename}`;
-            console.log(`[3D] 模型已固化: ${modelUrl}`);
-            jobStore.set(jobId, { status: 'done', modelUrl, previewUrl, error: null });
+
+            jobStore.set(jobId, {
+              status: 'done',
+              panoramaUrl: localUrl,
+              thumbUrl,
+              error: null,
+            });
             return;
           }
-          if (result.Status === 'FAIL') {
-            jobStore.set(jobId, { status: 'error', error: result.ErrorMessage || '任务失败' });
+
+          if (currentStatus === 'error' || currentStatus === 'abort') {
+            const errMsg = statusResp.error_message || `任务${currentStatus}`;
+            console.error(`[SKYBOX] 任务失败: ${errMsg}`);
+            jobStore.set(jobId, { status: 'error', error: errMsg });
             return;
           }
+
+          // 更新为 processing 状态（pending/dispatched/processing 都属于进行中）
+          jobStore.set(jobId, {
+            ...jobStore.get(jobId),
+            status: 'processing',
+            queuePosition: statusResp.queue_position || null,
+          });
+
+        } catch (pollErr) {
+          console.error(`[SKYBOX] 轮询出错 (${i + 1}/${maxAttempts}):`, pollErr.message);
+          // 轮询出错不立即终止，继续重试
         }
-        jobStore.set(jobId, { status: 'error', error: '任务超时（超过10分钟）' });
-      } catch(e) {
-        console.error('[3D] 后台轮询失败:', e.message);
-        jobStore.set(jobId, { status: 'error', error: e.message });
       }
+      // 超时
+      console.error(`[SKYBOX] 任务超时: ${jobId}`);
+      jobStore.set(jobId, { status: 'error', error: '生成超时（超过5分钟），请重试' });
     })();
+
     // 立即返回 jobId，前端自行轮询状态
-    res.json({ ok: true, jobId, message: '任务已提交，请轮询状态' });
+    res.json({ ok: true, jobId, message: '全景图生成任务已提交，请轮询状态' });
+
   } catch (err) {
-    console.error('[3D] 提交失败:', err.message);
+    console.error('[SKYBOX] 提交失败:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── API：图生3D 步骤2：查询任务状态 ──────────────────────────────────────────
+// ── API：360全景图生成 步骤2：查询任务状态 ───────────────────────────────────
 // GET /api/generate-3d/status/:jobId
 app.get('/api/generate-3d/status/:jobId', (req, res) => {
   const { jobId } = req.params;
@@ -257,16 +409,13 @@ app.get('/api/generate-3d/status/:jobId', (req, res) => {
 });
 
 // ── API：上传视频 ────────────────────────────────────────────────────────────
-// POST /api/upload-video  multipart/form-data  fields: video(file) + cover(base64 string)
-// 返回: { ok, videoUrl, coverUrl, width, height, orientation }
 const videoUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize:  500 * 1024 * 1024, // 500MB per file
-    fieldSize:  10 * 1024 * 1024  // 10MB per text field (cover base64)
+    fileSize:  500 * 1024 * 1024,
+    fieldSize:  10 * 1024 * 1024,
   },
   fileFilter: (_req, file, cb) => {
-    // 接受常见视频格式
     const allowed = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
                      'video/x-matroska', 'video/mpeg', 'video/ogg'];
     if (allowed.includes(file.mimetype) || file.mimetype.startsWith('video/')) {
@@ -280,8 +429,6 @@ const videoUpload = multer({
 app.post('/api/upload-video', (req, res, next) => {
   videoUpload.single('video')(req, res, (err) => {
     if (err) {
-      // Multer 错误（fieldSize 超限、fileSize 超限等）
-      console.error('[VIDEO] Multer error:', err.message);
       return res.status(413).json({ error: `上传失败: ${err.message}` });
     }
     next();
@@ -290,7 +437,6 @@ app.post('/api/upload-video', (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: '未收到视频文件' });
 
   try {
-    // 1. 保存视频文件
     const ext         = req.file.originalname.match(/\.[^.]+$/)?.[0]?.toLowerCase() || '.mp4';
     const basename    = `video_${Date.now()}`;
     const videoFile   = basename + ext;
@@ -299,12 +445,10 @@ app.post('/api/upload-video', (req, res, next) => {
     const videoUrl    = `/videos/${videoFile}`;
     console.log(`[VIDEO] 视频已保存: ${videoUrl}`);
 
-    // 2. 保存封面图（前端传来的 base64）
     let coverUrl = null;
     const coverBase64 = req.body && req.body.cover;
     if (coverBase64) {
       try {
-        // 去掉 data:image/...;base64, 前缀
         const base64Data = coverBase64.replace(/^data:image\/[a-z]+;base64,/, '');
         const coverFile  = `${basename}_cover.jpg`;
         const coverPath  = path.join(COVERS_DIR, coverFile);
@@ -316,12 +460,11 @@ app.post('/api/upload-video', (req, res, next) => {
       }
     }
 
-    // 3. 视频尺寸和方向（前端传来）
     const width       = parseInt(req.body && req.body.width)  || 0;
     const height      = parseInt(req.body && req.body.height) || 0;
     const orientation = (width > 0 && height > 0)
       ? (width >= height ? 'landscape' : 'portrait')
-      : 'landscape'; // 默认横版
+      : 'landscape';
 
     res.json({ ok: true, videoUrl, coverUrl, width, height, orientation, message: '视频上传成功' });
   } catch (e) {
@@ -332,20 +475,25 @@ app.post('/api/upload-video', (req, res, next) => {
 
 // ── API：健康检查 ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
-  const hasKey = !!(process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY);
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), hunyuan3d: hasKey });
+  const hasKey = !!(process.env.BLOCKADE_LABS_API_KEY);
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    blockadeLabs: hasKey,
+    skyboxStyleId: SKYBOX_STYLE_ID,
+  });
 });
 
 // ── 启动服务 ──────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  const hasKey = !!(process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY);
+  const hasKey = !!(process.env.BLOCKADE_LABS_API_KEY);
   console.log('');
   console.log('  ╔══════════════════════════════════════════════════════╗');
-  console.log('  ║     STELLAR HEIR · INTERACTIVE VIDEO ENGINE v3      ║');
+  console.log('  ║     STELLAR HEIR · INTERACTIVE VIDEO ENGINE v4      ║');
   console.log('  ╠══════════════════════════════════════════════════════╣');
   console.log(`  ║   Player  →  http://localhost:${PORT}/               ║`);
   console.log(`  ║   Editor  →  http://localhost:${PORT}/editor         ║`);
-  console.log(`  ║   混元3D  →  ${hasKey ? '✓ 密钥已配置' : '✗ 未配置（见 .env.example）'}           ║`);
+  console.log(`  ║   Skybox  →  ${hasKey ? '✓ Blockade Labs 已配置' : '✗ 未配置（见 .env）'}        ║`);
   console.log('  ║   Press Ctrl+C to terminate                          ║');
   console.log('  ╚══════════════════════════════════════════════════════╝');
   console.log('');
