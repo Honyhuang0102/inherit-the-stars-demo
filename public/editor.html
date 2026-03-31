@@ -420,6 +420,21 @@ html, body {
   overflow: hidden;
 }
 
+/* ── 节点卡片方向自适应 ──────────────────────────────── */
+/* 竖版视频：卡片变窯，封面高度增加 */
+.node-card.orient-portrait {
+  width: 140px;
+}
+.node-card.orient-portrait .node-thumb,
+.node-card.orient-portrait .node-thumb-placeholder {
+  height: 180px; /* 9:16 比例近似封面 */
+}
+/* 横版视频：封面高度适当压缩 */
+.node-card.orient-landscape .node-thumb,
+.node-card.orient-landscape .node-thumb-placeholder {
+  height: 80px; /* 16:9 比例 */
+}
+
 /* Node footer: just the title */
 .node-footer {
   padding: 7px 10px 8px;
@@ -1698,6 +1713,39 @@ body.immersive-mode #right-panel {
   border-radius: 4px; display: none;
 }
 
+/* ── 视频上传区域 ─────────────────────────────────────────── */
+.video-upload-zone {
+  display: flex; align-items: center; gap: 10px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg-canvas);
+  margin-top: 4px;
+  min-height: 60px;
+}
+.video-upload-zone:hover { border-color: var(--accent); background: #f5f5f5; }
+.video-upload-zone.uploading { opacity: 0.6; pointer-events: none; }
+.video-upload-zone .upload-icon { font-size: 22px; flex-shrink: 0; }
+.video-upload-zone .upload-text { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+.video-upload-zone .upload-text strong { color: var(--text-primary); font-weight: 500; }
+.video-upload-thumb {
+  width: 64px; height: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f0f0f0;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.video-upload-info { flex: 1; min-width: 0; }
+.video-upload-filename {
+  font-size: 11px; font-weight: 500; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.video-upload-action { font-size: 10px; color: var(--text-tertiary); }
+
 /* 3D 打点模式提示 */
 #model3d-pick-hint {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
@@ -2312,13 +2360,20 @@ function renderGraph() {
 function createNodeCard(nodeData, x, y) {
   const canvas = document.getElementById('canvas');
   const el = document.createElement('div');
-  el.className = `node-card type-${nodeData.type}`;
+
+  // 方向 class：根据 orientation 字段自适应
+  const orientClass = nodeData.orientation === 'portrait' ? 'orient-portrait'
+                    : nodeData.orientation === 'landscape' ? 'orient-landscape'
+                    : '';
+  el.className = `node-card type-${nodeData.type}${orientClass ? ' ' + orientClass : ''}`;
   el.dataset.nodeId = nodeData.id;
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
 
-  // Thumbnail placeholder
-  const thumbHtml = `<div class="node-thumb-placeholder">🎬</div>`;
+  // Thumbnail：有封面则显示封面图，否则显示占位符
+  const thumbHtml = nodeData.poster_url
+    ? `<img class="node-thumb" src="${escHtml(nodeData.poster_url)}" alt="封面" draggable="false"/>`
+    : `<div class="node-thumb-placeholder">🎬</div>`;
 
   // Choice ports (one per choice for branching nodes)
   let choicePortsHtml = '';
@@ -2974,8 +3029,33 @@ function openInspector(nodeId) {
     </div>
     ${nodeData.type !== '3d_model' ? `
     <div class="insp-field">
-      <div class="insp-label">视频 URL</div>
-      <input class="insp-input" id="insp-video-url" value="${escHtml(nodeData.video_url||'')}"/>
+      <div class="insp-label">视频文件</div>
+      <div class="video-upload-zone" id="video-upload-zone" onclick="document.getElementById('video-file-input').click()">
+        ${nodeData.video_url ? `
+          <div class="video-upload-thumb" id="video-upload-thumb">
+            ${nodeData.poster_url
+              ? `<img src="${escHtml(nodeData.poster_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"/>`
+              : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;">&#127916;</div>`
+            }
+          </div>
+          <div class="video-upload-info">
+            <div class="video-upload-filename" id="video-upload-filename">${escHtml(nodeData.video_url.split('/').pop())}</div>
+            <div class="video-upload-action">点击更换视频</div>
+          </div>
+        ` : `
+          <div class="upload-icon">🎥</div>
+          <div class="upload-text"><strong>点击上传视频</strong><br/>支持 .mp4 / .mov / .webm 格式</div>
+        `}
+      </div>
+      <div id="video-upload-progress" style="display:none;margin-top:6px;">
+        <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+          <div id="video-upload-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.3s;"></div>
+        </div>
+        <div id="video-upload-status" style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">上传中...</div>
+      </div>
+      <input type="file" id="video-file-input" accept="video/*" style="display:none" onchange="uploadVideoFile(event, '${nodeId}')"/>
+      <!-- 隐藏的 URL 输入框，用于 applyInspector 读取 -->
+      <input type="hidden" id="insp-video-url" value="${escHtml(nodeData.video_url||'')}"/>
     </div>` : ''}
     ${model3dUploadHtml}
     ${choicesHtml}
@@ -3073,11 +3153,155 @@ function applyInspector(nodeId) {
 }
 
 function closeInspector() { document.getElementById('inspector').style.display = 'none'; }
-
-// ── 3D MODEL UPLOAD ──────────────────────────────────────────────────
+// ── VIDEO UPLOAD ──────────────────────────────────────────────────────────
 
 /**
- * 上传 2D 图片，后端调用混元生3D API 生成 .glb 模型
+ * 从视频文件提取首帧封面（浏览器端）
+ * @param {File} file - 视频文件
+ * @returns {Promise<{dataUrl:string, width:number, height:number}>}
+ */
+function extractVideoFirstFrame(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.crossOrigin = 'anonymous';
+
+    const cleanup = () => URL.revokeObjectURL(url);
+
+    video.addEventListener('loadeddata', () => {
+      // 跳到第 0.1 秒确保有画面
+      video.currentTime = 0.1;
+    });
+
+    video.addEventListener('seeked', () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        cleanup();
+        resolve({ dataUrl, width: video.videoWidth, height: video.videoHeight });
+      } catch(e) {
+        cleanup();
+        reject(e);
+      }
+    });
+
+    video.addEventListener('error', (e) => { cleanup(); reject(new Error('视频加载失败')); });
+    video.src = url;
+    video.load();
+  });
+}
+
+/**
+ * 上传视频文件：提取首帧 → POST /api/upload-video → 更新节点
+ * @param {Event} event - input[type=file] change 事件
+ * @param {string} nodeId - 当前节点 ID
+ */
+async function uploadVideoFile(event, nodeId) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const zone     = document.getElementById('video-upload-zone');
+  const progress = document.getElementById('video-upload-progress');
+  const bar      = document.getElementById('video-upload-bar');
+  const status   = document.getElementById('video-upload-status');
+
+  // 显示进度条
+  if (zone)     zone.classList.add('uploading');
+  if (progress) progress.style.display = 'block';
+  if (bar)      bar.style.width = '10%';
+  if (status)   status.textContent = '提取首帧...';
+  showToast('视频上传中，请稍候...', 'info');
+
+  try {
+    // 1. 浏览器端提取首帧封面
+    let coverDataUrl = null;
+    let videoWidth = 0, videoHeight = 0;
+    try {
+      const frame = await extractVideoFirstFrame(file);
+      coverDataUrl = frame.dataUrl;
+      videoWidth   = frame.width;
+      videoHeight  = frame.height;
+      if (bar) bar.style.width = '30%';
+      if (status) status.textContent = '上传视频文件...';
+    } catch(frameErr) {
+      console.warn('[VIDEO] 首帧提取失败（非致命）:', frameErr.message);
+      if (bar) bar.style.width = '30%';
+    }
+
+    // 2. 构建 FormData
+    const formData = new FormData();
+    formData.append('video', file);
+    if (coverDataUrl) formData.append('cover', coverDataUrl);
+    if (videoWidth)   formData.append('width',  String(videoWidth));
+    if (videoHeight)  formData.append('height', String(videoHeight));
+
+    if (bar) bar.style.width = '50%';
+
+    // 3. 上传到后端
+    const resp = await fetch('/api/upload-video', { method: 'POST', body: formData });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || '上传失败');
+
+    if (bar) bar.style.width = '90%';
+
+    // 4. 更新节点数据
+    const nodeData = state.gameData.nodes[nodeId];
+    if (nodeData) {
+      nodeData.video_url   = data.videoUrl;
+      nodeData.poster_url  = data.coverUrl || null;
+      nodeData.orientation = data.orientation || 'landscape';
+      nodeData.video_width  = data.width  || 0;
+      nodeData.video_height = data.height || 0;
+    }
+
+    // 5. 更新隐藏输入框
+    const urlInput = document.getElementById('insp-video-url');
+    if (urlInput) urlInput.value = data.videoUrl;
+
+    // 6. 重建节点卡片（封面 + 方向样式）
+    const node = state.nodes[nodeId];
+    if (node) {
+      node.el.remove();
+      delete state.nodes[nodeId];
+    }
+    createNodeCard(nodeData, node?.x || 200, node?.y || 200);
+    renderConnections();
+
+    if (bar) bar.style.width = '100%';
+    if (status) status.textContent = '上传成功！';
+    showToast('✓ 视频上传成功', 'success');
+
+    // 7. 刷新 Inspector 显示封面
+    setTimeout(() => openInspector(nodeId), 300);
+
+  } catch(e) {
+    console.error('[VIDEO] 上传失败:', e);
+    if (status) status.textContent = '上传失败: ' + e.message;
+    showToast('视频上传失败: ' + e.message, 'error');
+  } finally {
+    if (zone) zone.classList.remove('uploading');
+    // 2 秒后隐藏进度条
+    setTimeout(() => {
+      if (progress) progress.style.display = 'none';
+      if (bar) bar.style.width = '0%';
+    }, 2000);
+  }
+}
+
+// ── 3D MODEL UPLOAD ──────────────────────────────────────────────────────
+/**
+ * 上传 2D 图片，后端调用混刹3D API 生成 .glb 模型
  * POST /api/generate-3d → 返回 { ok, modelUrl, previewUrl }
  */
 async function upload3DModel(event, nodeId) {

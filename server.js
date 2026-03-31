@@ -12,9 +12,10 @@ const DATA_PATH    = path.join(__dirname, 'data.json');
 const PUBLIC_DIR   = path.join(__dirname, 'public');
 const PANORAMA_DIR = path.join(PUBLIC_DIR, 'panoramas');
 const MODELS_DIR   = path.join(PUBLIC_DIR, 'models');
-
+const VIDEOS_DIR   = path.join(PUBLIC_DIR, 'videos');
+const COVERS_DIR   = path.join(VIDEOS_DIR, 'covers');
 // ── 确保目录存在 ──────────────────────────────────────────────────────────────
-[PANORAMA_DIR, MODELS_DIR].forEach(d => {
+[PANORAMA_DIR, MODELS_DIR, VIDEOS_DIR, COVERS_DIR].forEach(d => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
@@ -302,6 +303,68 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
   } catch (err) {
     console.error('[3D] 生成失败:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── API：上传视频 ────────────────────────────────────────────────────────────
+// POST /api/upload-video  multipart/form-data  fields: video(file) + cover(base64 string)
+// 返回: { ok, videoUrl, coverUrl, width, height, orientation }
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+  fileFilter: (_req, file, cb) => {
+    // 接受常见视频格式
+    const allowed = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
+                     'video/x-matroska', 'video/mpeg', 'video/ogg'];
+    if (allowed.includes(file.mimetype) || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('仅支持视频文件'));
+    }
+  }
+});
+
+app.post('/api/upload-video', videoUpload.single('video'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '未收到视频文件' });
+
+  try {
+    // 1. 保存视频文件
+    const ext         = req.file.originalname.match(/\.[^.]+$/)?.[0]?.toLowerCase() || '.mp4';
+    const basename    = `video_${Date.now()}`;
+    const videoFile   = basename + ext;
+    const videoPath   = path.join(VIDEOS_DIR, videoFile);
+    fs.writeFileSync(videoPath, req.file.buffer);
+    const videoUrl    = `/videos/${videoFile}`;
+    console.log(`[VIDEO] 视频已保存: ${videoUrl}`);
+
+    // 2. 保存封面图（前端传来的 base64）
+    let coverUrl = null;
+    const coverBase64 = req.body && req.body.cover;
+    if (coverBase64) {
+      try {
+        // 去掉 data:image/...;base64, 前缀
+        const base64Data = coverBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+        const coverFile  = `${basename}_cover.jpg`;
+        const coverPath  = path.join(COVERS_DIR, coverFile);
+        fs.writeFileSync(coverPath, Buffer.from(base64Data, 'base64'));
+        coverUrl = `/videos/covers/${coverFile}`;
+        console.log(`[VIDEO] 封面已保存: ${coverUrl}`);
+      } catch (coverErr) {
+        console.warn('[VIDEO] 封面保存失败（非致命）:', coverErr.message);
+      }
+    }
+
+    // 3. 视频尺寸和方向（前端传来）
+    const width       = parseInt(req.body && req.body.width)  || 0;
+    const height      = parseInt(req.body && req.body.height) || 0;
+    const orientation = (width > 0 && height > 0)
+      ? (width >= height ? 'landscape' : 'portrait')
+      : 'landscape'; // 默认横版
+
+    res.json({ ok: true, videoUrl, coverUrl, width, height, orientation, message: '视频上传成功' });
+  } catch (e) {
+    console.error('[VIDEO] 上传失败:', e.message);
+    res.status(500).json({ error: '视频保存失败: ' + e.message });
   }
 });
 
