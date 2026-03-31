@@ -15,10 +15,10 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg-canvas:       #f0f0f0;
+  --bg-canvas:       #f5f5f5;
   --bg-panel:        #ffffff;
   --bg-topbar:       #ffffff;
-  --bg-sidebar:      #fafafa;
+  --bg-sidebar:      #f5f5f5;
   --bg-card:         #ffffff;
   --bg-card-hover:   #f7f7f7;
   --bg-toolbar:      rgba(255,255,255,0.96);
@@ -44,8 +44,8 @@
   --node-ending:     #7c3aed;
 
   --sidebar-w:       48px;
-  --sidebar-w-open:  192px;
-  --topbar-h:        44px;
+  --sidebar-w-open:  240px;
+  --topbar-h:        0px;
   --toolbar-h:       52px;
 
   --radius-sm:  4px;
@@ -102,13 +102,7 @@ html, body {
 
 /* ── TOP BAR ─────────────────────────────────────────────────── */
 #topbar {
-  position: fixed; top: 0; left: 0; right: 0;
-  height: var(--topbar-h);
-  background: var(--bg-topbar);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center;
-  z-index: 1000;
-  padding: 0;
+  display: none;
 }
 
 /* Hamburger menu button */
@@ -129,7 +123,7 @@ html, body {
 #menu-dropdown {
   display: none;
   position: absolute;
-  top: calc(var(--topbar-h) + 4px);
+  top: 40px;
   left: 0;
   width: 180px;
   background: var(--bg-panel);
@@ -207,7 +201,7 @@ html, body {
 /* ── LAYOUT ROOT ─────────────────────────────────────────────── */
 #app {
   position: fixed;
-  top: var(--topbar-h); left: 0; right: 0; bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   display: flex;
 }
 
@@ -270,14 +264,7 @@ html, body {
 #canvas-wrap.grabbing { cursor: grabbing; }
 #canvas-wrap.connecting { cursor: crosshair; }
 
-/* Light dot grid */
-#canvas-wrap::before {
-  content: '';
-  position: absolute; inset: 0;
-  background-image: radial-gradient(circle, #c8c8c8 1px, transparent 1px);
-  background-size: 24px 24px;
-  pointer-events: none;
-}
+/* No dot grid — clean canvas */
 
 #canvas {
   position: absolute;
@@ -545,6 +532,7 @@ html, body {
 /* ── RIGHT PANEL (Pure Preview) ──────────────────────────────── */
 #right-panel {
   width: 320px;
+  background: #ffffff;
   min-width: 200px;
   max-width: 600px;
   height: 100%;
@@ -678,13 +666,10 @@ html, body {
   height: 260px;
   display: flex; flex-direction: column;
   flex-shrink: 0;
+  background: #ffffff;
 }
 .ai-panel-header {
-  height: 38px;
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 12px; gap: 8px;
-  flex-shrink: 0;
+  display: none;
 }
 .ai-panel-title {
   font-size: 11px; font-weight: 500;
@@ -941,62 +926,42 @@ html, body {
   <div class="loading-bar"><div class="loading-bar-fill"></div></div>
 </div>
 
-<!-- TOP BAR -->
-<div id="topbar">
-  <!-- Hamburger menu -->
-  <div id="btn-menu" onclick="toggleMenuDropdown()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <line x1="3" y1="6" x2="21" y2="6"/>
-      <line x1="3" y1="12" x2="21" y2="12"/>
-      <line x1="3" y1="18" x2="21" y2="18"/>
-    </svg>
-    <!-- Dropdown -->
-    <div id="menu-dropdown">
-      <div class="menu-item" onclick="showToast('项目列表（开发中）','info')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        项目列表
-      </div>
-      <div class="menu-item" onclick="showToast('新建项目（开发中）','info')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        新建项目
-      </div>
-      <div class="menu-divider"></div>
-      <div class="menu-item" onclick="window.open('/','_blank')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        玩家端预览
-      </div>
-      <div class="menu-item" onclick="exportJSON()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        导出 JSON
-      </div>
-    </div>
-  </div>
-
-  <!-- Project name -->
-  <div class="tb-project">
-    <span>星之继承者</span>
-    <span class="proj-slash">/</span>
-    <span class="proj-branch">main</span>
-  </div>
-
-  <!-- Zoom display -->
-  <span class="tb-zoom-info" id="zoom-display">100%</span>
-
-  <!-- Right actions -->
-  <div class="tb-actions">
-    <div class="tb-divider"></div>
-    <button class="tb-save-btn" onclick="saveData()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-      保存
-    </button>
-  </div>
-</div>
+<!-- TOP BAR REMOVED — hamburger moved to sidebar top item -->
 
 <!-- APP LAYOUT -->
 <div id="app">
 
   <!-- LEFT SIDEBAR -->
   <div id="sidebar">
+    <!-- Hamburger menu (moved from topbar) -->
+    <div class="sb-item sb-hamburger" title="菜单" onclick="toggleMenuDropdown()" style="position:relative;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+      <span class="sb-label">菜单</span>
+      <div id="menu-dropdown">
+        <div class="menu-item" onclick="showToast('项目列表（开发中）','info')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          项目列表
+        </div>
+        <div class="menu-item" onclick="showToast('新建项目（开发中）','info')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          新建项目
+        </div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" onclick="window.open('/','_blank')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          玩家端预览
+        </div>
+        <div class="menu-item" onclick="exportJSON()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          导出 JSON
+        </div>
+      </div>
+    </div>
+    <div class="sb-divider"></div>
     <div class="sb-item active" title="节点图" onclick="toggleSidebar()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
         <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
@@ -1122,20 +1087,6 @@ html, body {
 
     <!-- PURE PREVIEW PANEL -->
     <div id="preview-panel">
-      <div class="panel-header">
-        <span class="panel-header-title">预览</span>
-        <div class="panel-header-actions">
-          <button class="ph-btn active" id="btn-portrait" onclick="setOrientation('portrait')" title="竖屏">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/></svg>
-          </button>
-          <button class="ph-btn" id="btn-landscape" onclick="setOrientation('landscape')" title="横屏">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2"/></svg>
-          </button>
-          <button class="ph-btn" onclick="refreshPreview()" title="刷新">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          </button>
-        </div>
-      </div>
       <div id="preview-body">
         <div id="preview-screen" class="portrait">
           <div class="screen-content" id="screen-content">
@@ -1163,10 +1114,6 @@ html, body {
 
     <!-- AI CHAT PANEL -->
     <div id="ai-panel">
-      <div class="ai-panel-header">
-        <span class="ai-panel-title">AI 对话区</span>
-        <button class="ai-clear-btn" onclick="clearChat()" title="清空对话">✕</button>
-      </div>
       <div id="ai-messages">
         <div class="ai-msg bot">
           <div class="ai-avatar bot">AI</div>
@@ -1819,8 +1766,7 @@ function setOrientation(o) {
   state.orientation = o;
   const screen = document.getElementById('preview-screen');
   screen.className = o;
-  document.getElementById('btn-portrait').classList.toggle('active', o === 'portrait');
-  document.getElementById('btn-landscape').classList.toggle('active', o === 'landscape');
+  /* orientation buttons removed — auto-adapt to video aspect ratio */
 }
 
 function refreshPreview() {
