@@ -19,6 +19,7 @@
       --clr-danger:    #ff3b5c;
       --clr-success:   #00ff9d;
       --font-mono:     'Courier New', Courier, monospace;
+      /* Phone shell dimensions — used on desktop only */
       --phone-w:       390px;
       --phone-h:       844px;
     }
@@ -33,7 +34,7 @@
       overflow: hidden;
     }
 
-    /* ── Phone Shell ──────────────────────────────────────────────────────── */
+    /* ── Phone Shell (desktop preview frame) ─────────────────────────────── */
     #phone-shell {
       position: relative;
       width: var(--phone-w);
@@ -69,8 +70,8 @@
         0deg,
         transparent,
         transparent 2px,
-        rgba(0,0,0,0.07) 2px,
-        rgba(0,0,0,0.07) 4px
+        rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.06) 4px
       );
       pointer-events: none;
       z-index: 90;
@@ -86,7 +87,8 @@
       justify-content: space-between;
       align-items: center;
       z-index: 50;
-      background: linear-gradient(to bottom, rgba(5,8,16,0.95) 60%, transparent);
+      background: linear-gradient(to bottom, rgba(5,8,16,0.9) 60%, transparent);
+      pointer-events: none;
     }
 
     #hud-title {
@@ -136,7 +138,7 @@
       object-fit: cover;
       display: block;
       opacity: 1;
-      transition: opacity 0.25s ease;
+      transition: opacity 0.2s ease;
       z-index: 1;
     }
 
@@ -148,7 +150,6 @@
       opacity: 0;
       pointer-events: none;
       visibility: hidden;
-      /* 仍在 DOM 中，浏览器会继续缓冲 */
     }
 
     /* 切换时的淡出过渡辅助 */
@@ -160,7 +161,7 @@
       object-fit: cover;
       display: block;
       opacity: 0;
-      transition: opacity 0.25s ease;
+      transition: opacity 0.2s ease;
       z-index: 1;
       pointer-events: none;
     }
@@ -176,6 +177,7 @@
       content: '';
       position: absolute;
       background: var(--clr-accent);
+      opacity: 0.5;
     }
     .corner::before { width: 100%; height: 1px; }
     .corner::after  { width: 1px; height: 100%; }
@@ -188,165 +190,142 @@
     .corner-tr::before { top: 0; right: 0; left: auto; }
     .corner-tr::after  { top: 0; right: 0; left: auto; }
 
-    .corner-bl { bottom: 80px; left: 16px; }
+    .corner-bl { bottom: 60px; left: 16px; }
     .corner-bl::before { bottom: 0; top: auto; left: 0; }
     .corner-bl::after  { bottom: 0; top: auto; left: 0; }
 
-    .corner-br { bottom: 80px; right: 16px; }
+    .corner-br { bottom: 60px; right: 16px; }
     .corner-br::before { bottom: 0; top: auto; right: 0; left: auto; }
     .corner-br::after  { bottom: 0; top: auto; right: 0; left: auto; }
 
-    /* ── Choice Overlay ───────────────────────────────────────────────────── */
-    #choice-overlay {
+    /* ── Hotspot Layer ────────────────────────────────────────────────────── */
+    /*
+     * 热点层：绝对覆盖整个视频容器，pointer-events:none 默认不拦截点击，
+     * 各热点按钮自身设置 pointer-events:auto。
+     */
+    #hotspot-layer {
       position: absolute;
       inset: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 14px;
       z-index: 70;
-      background: rgba(5, 8, 16, 0.72);
-      backdrop-filter: blur(2px);
-      opacity: 0;
       pointer-events: none;
+      /* 热点层默认隐藏，showChoices 时淡入 */
+      opacity: 0;
       transition: opacity 0.4s ease;
     }
 
-    #choice-overlay.visible {
+    #hotspot-layer.visible {
       opacity: 1;
-      pointer-events: all;
     }
 
-    .choice-header {
-      text-align: center;
-      margin-bottom: 8px;
-    }
-
-    .choice-header .prompt-label {
-      font-size: 9px;
-      letter-spacing: 0.3em;
-      color: var(--clr-text-dim);
-      text-transform: uppercase;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    .choice-header .prompt-title {
-      font-size: 13px;
-      letter-spacing: 0.1em;
-      color: var(--clr-text);
-    }
-
-    /* Divider line */
-    .choice-divider {
-      width: 200px;
-      height: 1px;
-      background: linear-gradient(to right, transparent, var(--clr-accent), transparent);
-      margin: 4px 0;
-    }
-
-    /* Preload status badge */
-    .preload-badge {
-      font-size: 8px;
-      letter-spacing: 0.2em;
-      color: var(--clr-text-dim);
-      margin-top: -6px;
-    }
-
-    .preload-badge .badge-ready {
-      color: var(--clr-success);
-    }
-
-    /* Choice Buttons */
-    .choice-btn {
-      position: relative;
-      width: 280px;
-      padding: 14px 20px;
-      background: rgba(0, 212, 255, 0.04);
-      border: 1px solid rgba(0, 212, 255, 0.35);
-      color: var(--clr-text);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-align: left;
+    /* ── Hotspot Button (Glassmorphism) ───────────────────────────────────── */
+    .hotspot-btn {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
       cursor: pointer;
-      transition: all 0.2s ease;
-      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-      overflow: hidden;
-    }
 
-    .choice-btn::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(0,212,255,0.08) 0%, transparent 60%);
-      opacity: 0;
-      transition: opacity 0.2s ease;
-    }
+      /* Glassmorphism 核心 */
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(14px) saturate(1.6);
+      -webkit-backdrop-filter: blur(14px) saturate(1.6);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 40px;
 
-    .choice-btn:hover::before { opacity: 1; }
-
-    .choice-btn:hover {
-      border-color: var(--clr-accent);
+      /* 文字 */
       color: #fff;
-      box-shadow: 0 0 20px rgba(0, 212, 255, 0.2), inset 0 0 20px rgba(0, 212, 255, 0.05);
-      transform: translateX(4px);
-    }
-
-    .choice-btn:active {
-      transform: translateX(2px) scale(0.98);
-    }
-
-    .choice-btn .btn-label {
-      display: block;
+      font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: bold;
-      color: var(--clr-accent);
-      margin-bottom: 4px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-align: center;
+      white-space: nowrap;
+
+      /* 内边距 */
+      padding: 9px 18px 9px 14px;
+
+      /* 阴影 */
+      box-shadow:
+        0 4px 24px rgba(0,0,0,0.35),
+        0 1px 0 rgba(255,255,255,0.15) inset;
+
+      /* 动画 */
+      transition:
+        transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+        background 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease;
+
+      /* 入场动画 */
+      animation: hotspot-enter 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
 
-    .choice-btn .btn-sublabel {
-      display: block;
-      font-size: 9px;
-      color: var(--clr-text-dim);
-      letter-spacing: 0.05em;
+    /* 热点按钮入场动画 */
+    @keyframes hotspot-enter {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.7);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
     }
 
-    .choice-btn .btn-hotkey {
-      position: absolute;
-      top: 8px; right: 12px;
-      font-size: 8px;
-      color: var(--clr-text-dim);
-      letter-spacing: 0.1em;
+    /* 各热点按钮延迟入场，营造层次感 */
+    .hotspot-btn:nth-child(1) { animation-delay: 0s; }
+    .hotspot-btn:nth-child(2) { animation-delay: 0.07s; }
+    .hotspot-btn:nth-child(3) { animation-delay: 0.14s; }
+    .hotspot-btn:nth-child(4) { animation-delay: 0.21s; }
+
+    .hotspot-btn:hover {
+      transform: translate(-50%, -50%) scale(1.08);
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.5);
+      box-shadow:
+        0 6px 32px rgba(0,0,0,0.45),
+        0 0 20px rgba(255,255,255,0.12),
+        0 1px 0 rgba(255,255,255,0.2) inset;
     }
 
-    /* Ready indicator on button */
-    .choice-btn .btn-ready-dot {
-      position: absolute;
-      bottom: 8px; right: 12px;
+    .hotspot-btn:active {
+      transform: translate(-50%, -50%) scale(0.96);
+      background: rgba(255, 255, 255, 0.28);
+    }
+
+    /* 就绪指示灯 */
+    .hotspot-btn .hs-ready-dot {
+      display: inline-block;
       width: 5px; height: 5px;
       border-radius: 50%;
-      background: var(--clr-text-dim);
-      transition: background 0.3s ease;
+      background: rgba(255,255,255,0.35);
+      margin-right: 7px;
+      vertical-align: middle;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+      flex-shrink: 0;
     }
 
-    .choice-btn.is-ready .btn-ready-dot {
+    .hotspot-btn.is-ready .hs-ready-dot {
       background: var(--clr-success);
       box-shadow: 0 0 6px var(--clr-success);
+    }
+
+    /* 热点标签文字 */
+    .hotspot-btn .hs-label {
+      vertical-align: middle;
     }
 
     /* ── HUD Footer ───────────────────────────────────────────────────────── */
     #hud-footer {
       position: absolute;
       bottom: 0; left: 0; right: 0;
-      height: 72px;
-      padding: 0 20px 28px;
+      height: 60px;
+      padding: 0 20px 22px;
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
       z-index: 50;
-      background: linear-gradient(to top, rgba(5,8,16,0.95) 60%, transparent);
+      background: linear-gradient(to top, rgba(5,8,16,0.85) 60%, transparent);
+      pointer-events: none;
     }
 
     #node-label {
@@ -382,9 +361,7 @@
       pointer-events: none;
     }
 
-    .loading-logo {
-      text-align: center;
-    }
+    .loading-logo { text-align: center; }
 
     .loading-logo .logo-en {
       font-size: 11px;
@@ -418,9 +395,7 @@
       box-shadow: 0 0 8px var(--clr-accent);
     }
 
-    @keyframes loading-fill {
-      to { width: 100%; }
-    }
+    @keyframes loading-fill { to { width: 100%; } }
 
     .loading-text {
       font-size: 8px;
@@ -434,11 +409,57 @@
       50%       { opacity: 0; }
     }
 
+    /* ── Tap-to-Start Overlay (mobile autoplay gate) ──────────────────────── */
+    #tap-start-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(5, 8, 16, 0.88);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 18px;
+      z-index: 180;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    #tap-start-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .tap-start-icon {
+      font-size: 36px;
+      opacity: 0.7;
+      animation: tap-pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes tap-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50%       { transform: scale(1.12); opacity: 1; }
+    }
+
+    .tap-start-label {
+      font-size: 10px;
+      letter-spacing: 0.35em;
+      color: var(--clr-text);
+      text-transform: uppercase;
+    }
+
+    .tap-start-sublabel {
+      font-size: 8px;
+      letter-spacing: 0.2em;
+      color: var(--clr-text-dim);
+    }
+
     /* ── Ending Screen ────────────────────────────────────────────────────── */
     #ending-screen {
       position: absolute;
       inset: 0;
-      background: rgba(5, 8, 16, 0.9);
+      background: rgba(5, 8, 16, 0.92);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -538,7 +559,7 @@
     @media (max-width: 430px) {
       #phone-shell {
         width: 100vw;
-        height: 100vh;
+        height: 100dvh;
         border-radius: 0;
         border: none;
       }
@@ -567,6 +588,13 @@
     <p class="error-msg">无法连接至游戏数据服务器<br>请确认后端服务已启动</p>
   </div>
 
+  <!-- Tap-to-Start Overlay (mobile autoplay gate) -->
+  <div id="tap-start-overlay">
+    <div class="tap-start-icon">▶</div>
+    <span class="tap-start-label">TAP TO BEGIN · 点击开始</span>
+    <span class="tap-start-sublabel">STELLAR HEIR · 星之继承者</span>
+  </div>
+
   <!-- HUD Header -->
   <div id="hud-header">
     <span id="hud-title">STELLAR HEIR</span>
@@ -582,16 +610,8 @@
   <!-- Video Container — 所有 <video> 实例动态注入此处 -->
   <div id="video-container"></div>
 
-  <!-- Choice Overlay -->
-  <div id="choice-overlay">
-    <div class="choice-header">
-      <span class="prompt-label">DECISION REQUIRED · 决策时刻</span>
-      <span class="prompt-title">你将如何选择？</span>
-    </div>
-    <div class="choice-divider"></div>
-    <div id="choices-container"></div>
-    <div class="preload-badge" id="preload-badge"></div>
-  </div>
+  <!-- Hotspot Layer — 热点按钮绝对定位于此层，覆盖视频画面 -->
+  <div id="hotspot-layer"></div>
 
   <!-- Ending Screen -->
   <div id="ending-screen">
@@ -615,54 +635,48 @@
 'use strict';
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  STELLAR HEIR · Video Pool Engine v2.0
-//  架构：多视频实例池（Video Pool）+ 无缝预加载（Seamless Preloading）
+//  STELLAR HEIR · Video Pool Engine v3.0  (Hotspot Edition)
 //
-//  核心数据结构：
+//  核心架构：
 //    videoPool  Map<nodeId, HTMLVideoElement>
-//      - 每个节点对应一个独立的 <video> 实例
-//      - 当前播放节点的实例：class="vid-active"，unmuted，可见
-//      - 预加载节点的实例：class="vid-preload"，muted，隐藏，后台缓冲
+//      - 活跃视频：class="vid-active"，unmuted，可见，z-index:1
+//      - 预加载视频：class="vid-preload"，muted，隐藏，后台缓冲
 //
-//  生命周期：
-//    1. loadNode(nodeId)
-//       → 从 pool 取出或创建目标 <video>
-//       → 激活（unmute + display + play）
-//       → 立即对该节点的所有 choices 目标发起 preloadNode()
-//    2. preloadNode(nodeId)
-//       → 若 pool 中已存在则跳过（已在缓冲）
-//       → 创建隐藏 <video preload="auto" muted>，注入 DOM，开始后台拉流
-//    3. handleChoice(choice)
-//       → 直接从 pool 取出已预加载的 <video>
-//       → 无需任何网络等待，立即 display + unmute + play → 无缝秒切
-//    4. releaseStaleVideos(keepIds)
-//       → 遍历 pool，pause + removeAttribute('src') + remove() 不在 keepIds 中的实例
-//       → 防止内存泄漏
+//  热点系统：
+//    - #hotspot-layer 绝对覆盖视频容器
+//    - 每个 choice 的 position.x / position.y（百分比）驱动按钮位置
+//    - Glassmorphism 样式，hover 缩放 + 发光反馈
+//    - 视频暂停时热点淡入，选择后热点立即淡出
+//
+//  移动端兼容：
+//    - 初始 muted 绕过自动播放策略
+//    - 若 play() 被拦截，显示 #tap-start-overlay，等待用户交互后重试
+//    - playsInline + webkit-playsinline 保证 iOS Safari 内联播放
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ── DOM Refs ───────────────────────────────────────────────────────────────────
-const $loadingScreen    = document.getElementById('loading-screen');
-const $errorScreen      = document.getElementById('error-screen');
-const $videoContainer   = document.getElementById('video-container');
-const $choiceOverlay    = document.getElementById('choice-overlay');
-const $choicesContainer = document.getElementById('choices-container');
-const $preloadBadge     = document.getElementById('preload-badge');
-const $endingScreen     = document.getElementById('ending-screen');
-const $endingTag        = document.getElementById('ending-tag-text');
-const $endingTitle      = document.getElementById('ending-title-text');
-const $endingDesc       = document.getElementById('ending-desc-text');
-const $restartBtn       = document.getElementById('restart-btn');
-const $nodeLabel        = document.getElementById('node-label');
-const $timeDisplay      = document.getElementById('time-display');
+const $loadingScreen  = document.getElementById('loading-screen');
+const $errorScreen    = document.getElementById('error-screen');
+const $tapStart       = document.getElementById('tap-start-overlay');
+const $videoContainer = document.getElementById('video-container');
+const $hotspotLayer   = document.getElementById('hotspot-layer');
+const $endingScreen   = document.getElementById('ending-screen');
+const $endingTag      = document.getElementById('ending-tag-text');
+const $endingTitle    = document.getElementById('ending-title-text');
+const $endingDesc     = document.getElementById('ending-desc-text');
+const $restartBtn     = document.getElementById('restart-btn');
+const $nodeLabel      = document.getElementById('node-label');
+const $timeDisplay    = document.getElementById('time-display');
 
 // ── Engine State ───────────────────────────────────────────────────────────────
 const engine = {
   gameData:      null,   // 完整 JSON 数据
   currentNodeId: null,   // 当前活跃节点 ID
   activeVideo:   null,   // 当前活跃 <video> 元素引用
-  choiceShown:   false,  // 是否已弹出选项
+  choiceShown:   false,  // 是否已弹出热点选项
   branchHandled: false,  // 是否已触发分支（防重入）
   transitioning: false,  // 是否正在切换节点（防重复点击）
+  userInteracted: false, // 用户是否已交互（解锁音频）
 };
 
 // ── Video Pool ─────────────────────────────────────────────────────────────────
@@ -699,29 +713,26 @@ async function fetchGameData() {
 
 // ── Create a Video Element ─────────────────────────────────────────────────────
 /**
- * 工厂函数：创建一个标准化的 <video> 实例并注入 video-container。
- * @param {string} nodeId   - 对应的节点 ID（用于 data 属性追踪）
- * @param {string} url      - 视频 URL
- * @param {boolean} hidden  - true = 预加载模式（隐藏）；false = 活跃模式（可见）
- * @returns {HTMLVideoElement}
+ * 工厂函数：创建标准化 <video> 实例并注入 video-container。
+ * @param {string}  nodeId - 对应节点 ID
+ * @param {string}  url    - 视频 URL
+ * @param {boolean} hidden - true=预加载（隐藏）；false=活跃（可见）
  */
 function createVideoElement(nodeId, url, hidden) {
   const v = document.createElement('video');
-  v.dataset.nodeId  = nodeId;
-  v.src             = url;
-  v.preload         = 'auto';          // 立即开始缓冲
-  v.playsInline     = true;
+  v.dataset.nodeId = nodeId;
+  v.src            = url;
+  v.preload        = 'auto';
+  v.playsInline    = true;
   v.setAttribute('webkit-playsinline', '');
-  v.muted           = true;            // 初始静音（绕过自动播放策略）
-  v.className       = hidden ? 'vid-preload' : 'vid-active';
+  v.muted          = true;   // 初始静音，绕过自动播放策略
+  v.className      = hidden ? 'vid-preload' : 'vid-active';
 
   v.addEventListener('error', (e) => {
     console.error(`[VideoPool] Video error on node ${nodeId}:`, e);
   });
 
   $videoContainer.appendChild(v);
-
-  // 立即触发加载（某些浏览器需要显式 load()）
   v.load();
 
   console.log(`[VideoPool] Created <video> for node="${nodeId}" hidden=${hidden}`);
@@ -729,15 +740,8 @@ function createVideoElement(nodeId, url, hidden) {
 }
 
 // ── Preload Node ───────────────────────────────────────────────────────────────
-/**
- * 后台预加载目标节点的视频。若 pool 中已存在则跳过。
- * @param {string} nodeId
- */
 function preloadNode(nodeId) {
-  if (videoPool.has(nodeId)) {
-    console.log(`[VideoPool] Preload skip (already in pool): ${nodeId}`);
-    return;
-  }
+  if (videoPool.has(nodeId)) return;
 
   const node = engine.gameData.nodes[nodeId];
   if (!node) {
@@ -745,62 +749,62 @@ function preloadNode(nodeId) {
     return;
   }
 
-  const v = createVideoElement(nodeId, node.video_url, true /* hidden */);
+  const v = createVideoElement(nodeId, node.video_url, true);
   videoPool.set(nodeId, v);
-  console.log(`[VideoPool] Preloading started: ${nodeId} → ${node.video_url}`);
+  console.log(`[VideoPool] Preloading: ${nodeId} → ${node.video_url}`);
 
-  // 当视频缓冲到可以流畅播放时，更新选项按钮的就绪指示灯
   v.addEventListener('canplaythrough', () => {
-    console.log(`[VideoPool] Preload ready: ${nodeId}`);
-    markChoiceReady(nodeId);
-    updatePreloadBadge();
+    console.log(`[VideoPool] Ready: ${nodeId}`);
+    markHotspotReady(nodeId);
   }, { once: true });
 }
 
 // ── Release Stale Videos ───────────────────────────────────────────────────────
-/**
- * 内存管理：从 pool 中移除不再需要的视频实例，释放浏览器内存。
- * @param {Set<string>} keepIds - 需要保留的节点 ID 集合
- */
 function releaseStaleVideos(keepIds) {
   for (const [nodeId, v] of videoPool.entries()) {
     if (!keepIds.has(nodeId)) {
-      console.log(`[VideoPool] Releasing stale video: ${nodeId}`);
+      console.log(`[VideoPool] Releasing: ${nodeId}`);
       v.pause();
-      v.removeAttribute('src');  // 断开资源引用，触发 GC
-      v.load();                  // 强制浏览器释放缓冲区
-      v.remove();                // 从 DOM 移除
+      v.removeAttribute('src');
+      v.load();
+      v.remove();
       videoPool.delete(nodeId);
     }
   }
 }
 
 // ── Activate Video ─────────────────────────────────────────────────────────────
-/**
- * 将 pool 中的视频从预加载状态切换为活跃状态（无缝秒切核心）。
- * @param {HTMLVideoElement} v
- */
-function activateVideo(v) {
-  v.className = 'vid-active';
-  v.muted     = false;   // 恢复声音
-  v.currentTime = 0;     // 从头播放
-  return v.play().catch(err => {
-    // 若自动播放仍被拦截（极少数情况），保持 muted 重试
-    console.warn('[VideoPool] Unmuted play blocked, retrying muted:', err.message);
+async function activateVideo(v) {
+  v.className   = 'vid-active';
+  v.currentTime = 0;
+
+  if (engine.userInteracted) {
+    v.muted = false;
+  }
+
+  try {
+    await v.play();
+    // 播放成功后若用户已交互则确保取消静音
+    if (engine.userInteracted) v.muted = false;
+  } catch (err) {
+    console.warn('[VideoPool] play() blocked:', err.message);
+    // 静音重试
     v.muted = true;
-    return v.play().catch(() => {});
-  });
+    try {
+      await v.play();
+      // 显示 tap-to-start 遮罩，等待用户点击解锁音频
+      showTapStart();
+    } catch (e) {
+      console.error('[VideoPool] Muted play also blocked:', e);
+      showTapStart();
+    }
+  }
 }
 
 // ── Deactivate Video ───────────────────────────────────────────────────────────
-/**
- * 将当前活跃视频切换为淡出状态，然后移除。
- * @param {HTMLVideoElement} v
- */
 function deactivateVideo(v) {
   v.className = 'vid-fadeout';
   v.pause();
-  // 等待 CSS transition 结束后再从 DOM 移除（250ms）
   setTimeout(() => {
     if (v.parentNode) {
       v.pause();
@@ -808,18 +812,30 @@ function deactivateVideo(v) {
       v.load();
       v.remove();
     }
-  }, 260);
+  }, 250);
 }
 
+// ── Tap-to-Start (mobile autoplay gate) ───────────────────────────────────────
+function showTapStart() {
+  if ($tapStart.classList.contains('visible')) return;
+  $tapStart.classList.add('visible');
+}
+
+function hideTapStart() {
+  $tapStart.classList.remove('visible');
+}
+
+$tapStart.addEventListener('click', () => {
+  engine.userInteracted = true;
+  hideTapStart();
+  // 取消当前活跃视频的静音并继续播放
+  if (engine.activeVideo) {
+    engine.activeVideo.muted = false;
+    engine.activeVideo.play().catch(() => {});
+  }
+});
+
 // ── Load Node (Main Entry) ─────────────────────────────────────────────────────
-/**
- * 加载并播放指定节点：
- *   1. 从 pool 取出预加载好的 <video>（或新建）
- *   2. 激活（unmute + play）
- *   3. 立即对所有 choices 目标发起预加载
- *   4. 释放不再需要的旧视频
- * @param {string} nodeId
- */
 async function loadNode(nodeId) {
   const node = engine.gameData.nodes[nodeId];
   if (!node) {
@@ -827,29 +843,25 @@ async function loadNode(nodeId) {
     return;
   }
 
-  engine.currentNodeId = nodeId;
-  engine.choiceShown   = false;
-  engine.branchHandled = false;
-  engine.transitioning = false;
+  engine.currentNodeId  = nodeId;
+  engine.choiceShown    = false;
+  engine.branchHandled  = false;
+  engine.transitioning  = false;
 
   // 重置 UI
-  $choiceOverlay.classList.remove('visible');
+  hideHotspots();
   $endingScreen.classList.remove('visible');
-  $choicesContainer.innerHTML = '';
-  $preloadBadge.innerHTML     = '';
   $nodeLabel.textContent = `NODE · ${nodeId.replace('_', ' ')}`;
 
   // ── 步骤 1：获取或创建目标视频 ──────────────────────────────────────────
   let targetVideo;
   if (videoPool.has(nodeId)) {
-    // 命中预加载缓存 → 无缝秒切！
     targetVideo = videoPool.get(nodeId);
-    console.log(`[VideoPool] Cache HIT for ${nodeId} — seamless switch!`);
+    console.log(`[VideoPool] Cache HIT: ${nodeId} — seamless switch!`);
   } else {
-    // 未命中（首次加载或 restart）→ 新建并立即播放
     targetVideo = createVideoElement(nodeId, node.video_url, false);
     videoPool.set(nodeId, targetVideo);
-    console.log(`[VideoPool] Cache MISS for ${nodeId} — cold start`);
+    console.log(`[VideoPool] Cache MISS: ${nodeId} — cold start`);
   }
 
   // ── 步骤 2：淡出旧视频，激活新视频 ─────────────────────────────────────
@@ -860,29 +872,27 @@ async function loadNode(nodeId) {
   engine.activeVideo = targetVideo;
   await activateVideo(targetVideo);
 
-  // 绑定 timeupdate（每次激活后重新绑定，避免多实例事件冲突）
+  // 绑定事件（每次激活后重新绑定，避免多实例事件冲突）
   targetVideo.addEventListener('timeupdate', onTimeUpdate);
   targetVideo.addEventListener('seeked',     onSeeked);
   targetVideo.addEventListener('ended',      onEnded);
 
   // ── 步骤 3：立即预加载所有分支目标 ──────────────────────────────────────
-  const targetIds = new Set([nodeId]);
+  const keepIds = new Set([nodeId]);
   if (node.choices && node.choices.length > 0) {
     node.choices.forEach(choice => {
-      targetIds.add(choice.target_node);
+      keepIds.add(choice.target_node);
       preloadNode(choice.target_node);
     });
   }
 
-  // ── 步骤 4：释放不在保留集合中的旧视频（内存管理）────────────────────
-  releaseStaleVideos(targetIds);
+  // ── 步骤 4：释放不在保留集合中的旧视频 ──────────────────────────────────
+  releaseStaleVideos(keepIds);
 }
 
 // ── timeupdate Handler ─────────────────────────────────────────────────────────
 function onTimeUpdate() {
-  // 只响应当前活跃视频的事件
   if (this !== engine.activeVideo) return;
-
   const t = this.currentTime;
   $timeDisplay.textContent = formatTime(t);
   maybeTriggerBranch(t);
@@ -900,6 +910,9 @@ function onEnded() {
   const node = engine.gameData.nodes[engine.currentNodeId];
   if (node && node.type === 'ending') {
     showEnding(node);
+  } else if (node && node.type === 'branching') {
+    // 视频结束但还没触发分支，强制显示热点
+    showChoices(node);
   }
 }
 
@@ -919,60 +932,86 @@ function maybeTriggerBranch(currentTime) {
   }
 }
 
-// ── Show Choices ───────────────────────────────────────────────────────────────
+// ── Show Choices (Hotspot Rendering) ──────────────────────────────────────────
+/**
+ * 在 #hotspot-layer 中动态创建绝对定位热点按钮。
+ * 每个按钮的位置由 choice.position.x / choice.position.y（百分比）驱动。
+ */
 function showChoices(node) {
   if (engine.choiceShown) return;
   engine.choiceShown = true;
 
+  // 暂停视频，等待玩家决策
   engine.activeVideo.pause();
-  $choicesContainer.innerHTML = '';
 
-  node.choices.forEach(choice => {
+  // 清空热点层
+  $hotspotLayer.innerHTML = '';
+
+  node.choices.forEach((choice, idx) => {
     const btn = document.createElement('button');
-    btn.className = 'choice-btn';
+    btn.className = 'hotspot-btn';
     btn.dataset.targetNode = choice.target_node;
-    btn.innerHTML = `
-      <span class="btn-hotkey">KEY ${choice.hotkey}</span>
-      <span class="btn-label">${choice.label}</span>
-      <span class="btn-sublabel">${choice.sublabel}</span>
-      <span class="btn-ready-dot"></span>
-    `;
-    btn.addEventListener('click', () => handleChoice(choice));
-    $choicesContainer.appendChild(btn);
 
-    // 若对应视频已在 pool 中且已可播放，立即标记就绪
+    // ── 位置：从 choice.position 读取百分比，回退到默认值 ──────────────
+    const pos = choice.position || {};
+    const px  = pos.x || defaultHotspotX(idx, node.choices.length);
+    const py  = pos.y || defaultHotspotY(idx, node.choices.length);
+    btn.style.left = px;
+    btn.style.top  = py;
+
+    // ── 内容 ──────────────────────────────────────────────────────────
+    btn.innerHTML = `
+      <span class="hs-ready-dot"></span>
+      <span class="hs-label">${choice.label}</span>
+    `;
+
+    // ── 就绪状态（若已预加载完成）────────────────────────────────────
     const preloadedVid = videoPool.get(choice.target_node);
     if (preloadedVid && preloadedVid.readyState >= 4) {
       btn.classList.add('is-ready');
     }
+
+    // ── 点击事件 ──────────────────────────────────────────────────────
+    btn.addEventListener('click', () => handleChoice(choice));
+
+    $hotspotLayer.appendChild(btn);
   });
 
-  $choiceOverlay.classList.add('visible');
-  updatePreloadBadge();
+  // 淡入热点层
+  $hotspotLayer.classList.add('visible');
 }
 
-// ── Mark Choice Ready ──────────────────────────────────────────────────────────
-function markChoiceReady(nodeId) {
-  const btn = $choicesContainer.querySelector(`[data-target-node="${nodeId}"]`);
+// ── Hide Hotspots ──────────────────────────────────────────────────────────────
+function hideHotspots() {
+  $hotspotLayer.classList.remove('visible');
+  // 等动画结束后清空 DOM，避免闪烁
+  setTimeout(() => {
+    if (!$hotspotLayer.classList.contains('visible')) {
+      $hotspotLayer.innerHTML = '';
+    }
+  }, 420);
+}
+
+// ── Default Hotspot Positions (fallback) ──────────────────────────────────────
+/**
+ * 当 choice.position 未定义时，按垂直居中均匀分布作为回退。
+ */
+function defaultHotspotX(idx, total) {
+  return '50%';
+}
+
+function defaultHotspotY(idx, total) {
+  // 在 55%–80% 区间内均匀分布
+  const start = 55, end = 80;
+  if (total === 1) return `${(start + end) / 2}%`;
+  const step = (end - start) / (total - 1);
+  return `${(start + idx * step).toFixed(1)}%`;
+}
+
+// ── Mark Hotspot Ready ─────────────────────────────────────────────────────────
+function markHotspotReady(nodeId) {
+  const btn = $hotspotLayer.querySelector(`[data-target-node="${nodeId}"]`);
   if (btn) btn.classList.add('is-ready');
-}
-
-// ── Preload Badge ──────────────────────────────────────────────────────────────
-function updatePreloadBadge() {
-  const node = engine.gameData.nodes[engine.currentNodeId];
-  if (!node || !node.choices) return;
-
-  const total  = node.choices.length;
-  const ready  = node.choices.filter(c => {
-    const v = videoPool.get(c.target_node);
-    return v && v.readyState >= 4;
-  }).length;
-
-  if (ready === total && total > 0) {
-    $preloadBadge.innerHTML = `<span class="badge-ready">▶ ALL STREAMS CACHED · 无缝切换就绪</span>`;
-  } else {
-    $preloadBadge.textContent = `PRELOADING ${ready}/${total} STREAMS ···`;
-  }
 }
 
 // ── Handle Choice ──────────────────────────────────────────────────────────────
@@ -980,9 +1019,10 @@ function handleChoice(choice) {
   if (engine.transitioning) return;
   engine.transitioning = true;
 
-  $choiceOverlay.classList.remove('visible');
+  // 立即隐藏热点层
+  hideHotspots();
 
-  // 移除旧视频的事件监听（防止事件泄漏到新节点）
+  // 移除旧视频的事件监听（防止事件泄漏）
   if (engine.activeVideo) {
     engine.activeVideo.removeEventListener('timeupdate', onTimeUpdate);
     engine.activeVideo.removeEventListener('seeked',     onSeeked);
@@ -1010,19 +1050,12 @@ document.addEventListener('keydown', (e) => {
   if (choice) handleChoice(choice);
 });
 
-// ── Autoplay Unblock (first user interaction) ──────────────────────────────────
-document.addEventListener('pointerdown', () => {
-  const v = engine.activeVideo;
-  if (v && v.paused && !engine.choiceShown && !$endingScreen.classList.contains('visible')) {
-    v.play().catch(() => {});
-  }
-}, { once: true });
-
 // ── Restart ────────────────────────────────────────────────────────────────────
 $restartBtn.addEventListener('click', () => {
   $endingScreen.classList.remove('visible');
+  hideHotspots();
 
-  // 清空整个 pool，重新冷启动（确保 restart 状态干净）
+  // 清空整个 pool，重新冷启动
   for (const [, v] of videoPool.entries()) {
     v.pause();
     v.removeAttribute('src');
@@ -1037,7 +1070,8 @@ $restartBtn.addEventListener('click', () => {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
-  await new Promise(r => setTimeout(r, 1500));
+  // 短暂 loading 动画
+  await new Promise(r => setTimeout(r, 1400));
 
   const data = await fetchGameData();
   if (!data) {
