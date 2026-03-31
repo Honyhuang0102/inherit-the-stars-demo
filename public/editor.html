@@ -2444,7 +2444,7 @@ function createNodeCard(nodeData, x, y) {
     ${thumbHtml}
     <div class="node-footer">
       <div class="node-type-dot"></div>
-      <div class="node-title">${escHtml(nodeData.title || nodeData.id)}</div>
+      <div class="node-title">${escHtml(nodeData.id)}：${escHtml(nodeData.title || '')}</div>
     </div>
     <div class="port port-in" data-node="${nodeData.id}" onmouseup="endConnect(event, '${nodeData.id}')"></div>
     ${nodeData.choices ? choicePortsHtml : `<div class="port port-out" data-node="${nodeData.id}" onmousedown="startConnect(event, '${nodeData.id}', -1)"></div>`}
@@ -2924,14 +2924,14 @@ async function startAI3DGeneration() {
     // ── 步骤2：轮询任务状态 ──
     let elapsed = 0;
     const pollInterval = 5000; // 每 5 秒轮询一次
-    const maxWait = 1200000;   // 最多等 20 分钟（Blockade Labs 高峰期可能需要较长时间）
+    const maxWait = 1500000;   // 最多等 25 分钟（与后端轮询超时保持一致）
 
     const panoramaData = await new Promise((resolve, reject) => {
       const timer = setInterval(async () => {
         elapsed += pollInterval;
         if (elapsed > maxWait) {
           clearInterval(timer);
-          reject(new Error('等待超时（超过20分钟），请重试或稍后在编辑器中手动刷新'));
+          reject(new Error('等待超时（超过25分钟），请重试或稍后在编辑器中手动刷新'));
           return;
         }
         try {
@@ -2975,7 +2975,7 @@ async function startAI3DGeneration() {
       showToast(`360° 全景图已生成并写入节点「${sourceNodeId}」✓`, 'success');
     } else {
       // 无选中节点时，创建新的全景图节点
-      const newId = `node_pano_${Date.now()}`;
+      const newId = nextNodeId();
       const newNode = {
         id: newId,
         type: 'panorama',
@@ -3013,8 +3013,18 @@ async function startAI3DGeneration() {
 // 节点添加 / 删除
 // ══════════════════════════════════════════════════════════════
 
+// 计算下一个自增节点 ID（扫描现有节点中的最大数字，+1）
+function nextNodeId() {
+  let max = 0;
+  Object.keys(state.gameData.nodes || {}).forEach(k => {
+    const n = parseInt(k, 10);
+    if (!isNaN(n) && n > max) max = n;
+  });
+  return String(max + 1);
+}
+
 function addNode(type) {
-  const id = `node_${Date.now()}`;
+  const id = nextNodeId();
   const newNode = {
     id, type,
     title: type === 'ending' ? '新结局节点' : '新视频节点',
@@ -3095,7 +3105,7 @@ function openInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData) return;
   const insp = document.getElementById('inspector');
-  document.getElementById('insp-title').textContent = `编辑 · ${nodeId}`;
+  document.getElementById('insp-title').textContent = `编辑 · ${nodeId}：${nodeData.title || ''}`;
 
   let choicesHtml = '';
   if (nodeData.choices) {
