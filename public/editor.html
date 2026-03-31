@@ -1244,14 +1244,15 @@ html, body {
 #polygon-draw-svg.active { pointer-events: all; cursor: crosshair; }
 /* 有已完成多边形时，SVG 层始终可交互 */
 #polygon-draw-svg.has-zones { pointer-events: all; }
-/* 已绘制的多边形 */
+/* 已绘制的多边形 - viewBox="0 0 100 100" 坐标系 */
 .poly-zone {
   fill: rgba(37,99,235,0.12);
   stroke: rgba(37,99,235,0.7);
-  stroke-width: 1.5;
-  stroke-dasharray: 5 3;
+  stroke-width: 0.5;  /* viewBox 坐标系下的线宽，视觉上约 1-2px */
+  stroke-dasharray: 2 1;
   cursor: move;
   transition: fill 0.12s;
+  vector-effect: non-scaling-stroke;
 }
 .poly-zone:hover { fill: rgba(37,99,235,0.2); }
 .poly-zone.selected { stroke: rgba(37,99,235,1); fill: rgba(37,99,235,0.18); }
@@ -1262,17 +1263,19 @@ html, body {
   stroke-dasharray: 4 3;
   fill: none;
   pointer-events: none;
+  vector-effect: non-scaling-stroke;
 }
-/* 顶点圆点 */
+/* 顶点圆点 - viewBox="0 0 100 100" 坐标系，r 单位为 1% 屏宽 */
 .poly-vertex {
   fill: #ffffff;
   stroke: rgba(37,99,235,0.9);
-  stroke-width: 1.5;
+  stroke-width: 0.5;  /* viewBox 坐标系下的线宽 */
   cursor: pointer;
-  r: 4;
+  r: 1;  /* = 1% 屏宽 */
+  vector-effect: non-scaling-stroke;
 }
 .poly-vertex.first-vertex {
-  r: 6;
+  r: 1.5;
   fill: rgba(37,99,235,0.2);
   stroke: rgba(37,99,235,1);
 }
@@ -1432,17 +1435,20 @@ html, body {
 }
 .imm-top-btn.primary:hover { background: #333; border-color: #333; }
 
-/* ── Immersive Stage (放大的预览屏容器) ──────────────────── */
+/* ── Immersive Stage (放大的预览屏容器) ─────────────────── */
 #immersive-stage {
   flex: 1;
   width: 100%;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;  /* 放大后支持滚动浏览 */
   position: relative;
-  padding: 20px 24px 20px;
+  padding: 20px 24px;
+  /* 隐藏滚动条，保持美观 */
+  scrollbar-width: none;
 }
+#immersive-stage::-webkit-scrollbar { display: none; }
 
 /* 放大的预览屏：9:16 竖屏，高度撑满可用空间 */
 #immersive-screen {
@@ -1713,19 +1719,18 @@ body.immersive-mode #right-panel {
 #immersive-screen-wrapper {
   position: relative;
   /* 尺寸由 JS 动态设置，与 #immersive-screen 保持一致 */
-  overflow: hidden;
+  overflow: visible;  /* 放大时内容不被裁剪，由 stage 滚动容器处理 */
   cursor: default;
   flex-shrink: 0;
+  margin: auto;  /* 在 stage 中居中 */
 }
 #immersive-screen-wrapper.panning { cursor: grab; }
 #immersive-screen-wrapper.panning:active { cursor: grabbing; }
-/* 缩放层：transform 应用在此元素上 */
+/* 内容层：填满 wrapper，不再需要 transform */
 #immersive-canvas-transform {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  transform-origin: 0 0;
-  will-change: transform;
 }
 /* 缩放比例指示器 */
 #zoom-indicator {
@@ -2180,7 +2185,9 @@ body.immersive-mode #right-panel {
             <!-- 热点层：沉浸模式下的拖拽热点 -->
             <div id="immersive-choices"></div>
             <!-- SVG 多边形绘制层 -->
-            <svg id="polygon-draw-svg" xmlns="http://www.w3.org/2000/svg">
+            <!-- viewBox="0 0 100 100" 使内部坐标系举 0-100，与存储的百分比坐标完全对应 -->
+            <svg id="polygon-draw-svg" xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 100 100" preserveAspectRatio="none">
               <polyline id="poly-preview-line" points=""/>
             </svg>
             <!-- 绘制提示 -->
@@ -3575,15 +3582,13 @@ function onImmersiveKeyDown(e) {
 function resizeImmersiveScreen() {
   const screen = document.getElementById('immersive-screen');
   if (!screen) return;
-  const wrapper = document.getElementById('immersive-screen-wrapper');
   const { w, h } = calcImmersiveScreenSize();
-  screen.style.width  = w + 'px';
-  screen.style.height = h + 'px';
-  // wrapper 尺寸与 screen 保持一致，确保居中对齐
-  if (wrapper) {
-    wrapper.style.width  = w + 'px';
-    wrapper.style.height = h + 'px';
-  }
+  // 更新基础尺寸（重置缩放比为 1）
+  canvasTransform.baseW = w;
+  canvasTransform.baseH = h;
+  canvasTransform.scale = 1;
+  // 通过 applyCanvasTransform 统一设置 screen + wrapper 尺寸
+  applyCanvasTransform();
 }
 
 // 监听窗口大小变化，自动重计算沉浸屏尺寸
@@ -4016,9 +4021,11 @@ function onPolygonMouseMove(e) {
 function addVertexDot(xPct, yPct, isFirst) {
   const svg = polyState.svgEl;
   const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  circle.setAttribute('cx', xPct + '%');
-  circle.setAttribute('cy', yPct + '%');
-  circle.setAttribute('r', isFirst ? '6' : '4');
+  // viewBox="0 0 100 100" 坐标系，直接用数字（不加 %）
+  circle.setAttribute('cx', xPct);
+  circle.setAttribute('cy', yPct);
+  // r 在 viewBox 坐标系下用百分比单位：1 = 1% 屏宽
+  circle.setAttribute('r', isFirst ? '1.5' : '1');
   circle.classList.add('poly-vertex');
   if (isFirst) circle.classList.add('first-vertex');
   svg.appendChild(circle);
@@ -4283,10 +4290,11 @@ document.head.appendChild(style);
 //  坐标系保护：多边形绘制时使用 canvasTransform 逆变换确保 % 坐标精准
 // ══════════════════════════════════════════════════════════════════════════════
 
+// 基础尺寸（由 calcImmersiveScreenSize 计算，每次 resize 更新）
 const canvasTransform = {
-  scale:  1,
-  tx:     0,   // translate X (px)
-  ty:     0,   // translate Y (px)
+  scale:    1,
+  baseW:    0,   // 基础宽度（px）
+  baseH:    0,   // 基础高度（px）
   minScale: 0.5,
   maxScale: 5,
 };
@@ -4297,10 +4305,24 @@ let _panActive = false;
 let _panStartX = 0, _panStartY = 0;
 let _panStartTx = 0, _panStartTy = 0;
 
+/**
+ * 应用缩放：直接设置 wrapper + screen 的物理宽高
+ * 这样 stage 的 flexbox 会自动居中显示放大后的区域
+ * 不再使用 CSS transform scale（会导致 overflow:hidden 裁剪）
+ */
 function applyCanvasTransform() {
-  const el = document.getElementById('immersive-canvas-transform');
-  if (!el) return;
-  el.style.transform = `translate(${canvasTransform.tx}px, ${canvasTransform.ty}px) scale(${canvasTransform.scale})`;
+  if (!canvasTransform.baseW || !canvasTransform.baseH) return;
+  const w = Math.round(canvasTransform.baseW * canvasTransform.scale);
+  const h = Math.round(canvasTransform.baseH * canvasTransform.scale);
+
+  const screen  = document.getElementById('immersive-screen');
+  const wrapper = document.getElementById('immersive-screen-wrapper');
+  if (screen)  { screen.style.width  = w + 'px'; screen.style.height  = h + 'px'; }
+  if (wrapper) { wrapper.style.width = w + 'px'; wrapper.style.height = h + 'px'; }
+
+  // canvas-transform 层不再需要 transform，重置它
+  const ct = document.getElementById('immersive-canvas-transform');
+  if (ct) ct.style.transform = 'none';
 }
 
 function showZoomIndicator() {
@@ -4314,38 +4336,20 @@ function showZoomIndicator() {
 
 function resetCanvasTransform() {
   canvasTransform.scale = 1;
-  canvasTransform.tx = 0;
-  canvasTransform.ty = 0;
   applyCanvasTransform();
   showZoomIndicator();
 }
 
-/** 放大视频画布（以中心为原点） */
+/** 放大视频画布（直接扩大物理尺寸，stage flexbox 自动居中） */
 function immersiveZoomIn() {
-  const wrapper = document.getElementById('immersive-screen-wrapper');
-  const rect = wrapper ? wrapper.getBoundingClientRect() : { width: 400, height: 600 };
-  const mx = rect.width  / 2;
-  const my = rect.height / 2;
-  const newScale = Math.min(canvasTransform.maxScale, canvasTransform.scale * 1.2);
-  const ratio = newScale / canvasTransform.scale;
-  canvasTransform.tx = mx - ratio * (mx - canvasTransform.tx);
-  canvasTransform.ty = my - ratio * (my - canvasTransform.ty);
-  canvasTransform.scale = newScale;
+  canvasTransform.scale = Math.min(canvasTransform.maxScale, canvasTransform.scale * 1.2);
   applyCanvasTransform();
   showZoomIndicator();
 }
 
-/** 缩小视频画布（以中心为原点） */
+/** 缩小视频画布（直接缩小物理尺寸，stage flexbox 自动居中） */
 function immersiveZoomOut() {
-  const wrapper = document.getElementById('immersive-screen-wrapper');
-  const rect = wrapper ? wrapper.getBoundingClientRect() : { width: 400, height: 600 };
-  const mx = rect.width  / 2;
-  const my = rect.height / 2;
-  const newScale = Math.max(canvasTransform.minScale, canvasTransform.scale / 1.2);
-  const ratio = newScale / canvasTransform.scale;
-  canvasTransform.tx = mx - ratio * (mx - canvasTransform.tx);
-  canvasTransform.ty = my - ratio * (my - canvasTransform.ty);
-  canvasTransform.scale = newScale;
+  canvasTransform.scale = Math.max(canvasTransform.minScale, canvasTransform.scale / 1.2);
   applyCanvasTransform();
   showZoomIndicator();
 }
@@ -4362,28 +4366,20 @@ function initCanvasZoomPan() {
     e.stopPropagation();
 
     if (e.ctrlKey || e.metaKey) {
-      // Ctrl/Meta + 滚动 → 缩放
-      const rect = wrapper.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-
+      // Ctrl/Meta + 滚动 → 缩放（直接扩大/缩小物理尺寸）
       const delta = e.deltaY < 0 ? 1.1 : 0.9;
-      const newScale = Math.max(canvasTransform.minScale,
-                       Math.min(canvasTransform.maxScale,
-                       canvasTransform.scale * delta));
-
-      const scaleRatio = newScale / canvasTransform.scale;
-      canvasTransform.tx = mx - scaleRatio * (mx - canvasTransform.tx);
-      canvasTransform.ty = my - scaleRatio * (my - canvasTransform.ty);
-      canvasTransform.scale = newScale;
-
+      canvasTransform.scale = Math.max(canvasTransform.minScale,
+                              Math.min(canvasTransform.maxScale,
+                              canvasTransform.scale * delta));
       applyCanvasTransform();
       showZoomIndicator();
     } else {
-      // 普通滚动 / Mac 双指滑动 → 平移
-      canvasTransform.tx -= e.deltaX;
-      canvasTransform.ty -= e.deltaY;
-      applyCanvasTransform();
+      // 普通滚动 / Mac 双指滑动 → 滚动整个 stage 区域
+      const stage = document.getElementById('immersive-stage');
+      if (stage) {
+        stage.scrollLeft += e.deltaX;
+        stage.scrollTop  += e.deltaY;
+      }
     }
   }, { passive: false });
 
@@ -4412,7 +4408,9 @@ function initCanvasZoomPan() {
     }
   });
 
-  // ── Mouse events → Pan drag ──────────────────────────────────────────────
+    // ── Mouse events → Pan drag (滚动 stage)─────────────────────────────────
+  const stage = document.getElementById('immersive-stage');
+
   wrapper.addEventListener('mousedown', (e) => {
     // Space + left button OR middle button
     if ((_spaceDown && e.button === 0) || e.button === 1) {
@@ -4420,8 +4418,8 @@ function initCanvasZoomPan() {
       _panActive = true;
       _panStartX = e.clientX;
       _panStartY = e.clientY;
-      _panStartTx = canvasTransform.tx;
-      _panStartTy = canvasTransform.ty;
+      _panStartTx = stage ? stage.scrollLeft : 0;
+      _panStartTy = stage ? stage.scrollTop  : 0;
       wrapper.classList.add('panning');
     }
   });
@@ -4430,9 +4428,10 @@ function initCanvasZoomPan() {
     if (!_panActive) return;
     const dx = e.clientX - _panStartX;
     const dy = e.clientY - _panStartY;
-    canvasTransform.tx = _panStartTx + dx;
-    canvasTransform.ty = _panStartTy + dy;
-    applyCanvasTransform();
+    if (stage) {
+      stage.scrollLeft = _panStartTx - dx;
+      stage.scrollTop  = _panStartTy - dy;
+    }
   });
 
   document.addEventListener('mouseup', (e) => {
