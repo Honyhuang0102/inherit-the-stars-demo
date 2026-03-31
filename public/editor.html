@@ -1024,42 +1024,168 @@ html, body {
    IMMERSIVE SCENE EDITOR — 沉浸式场景编辑模式
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Preview Panel Header (补全) ─────────────────────────────── */
-#preview-header {
-  height: 38px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 10px; gap: 6px;
-  flex-shrink: 0;
-  z-index: 2;
-}
-#preview-header-title {
-  font-size: 11px; font-weight: 500;
-  color: var(--text-secondary);
-  text-transform: uppercase; letter-spacing: 0.08em;
-  flex: 1;
-}
-#preview-header-actions { display: flex; gap: 4px; align-items: center; }
+/* ── Preview Panel Header — REMOVED, replaced by floating btn ── */
+#preview-header { display: none; }
 
-/* Expand/Focus toggle button */
+/* Floating expand button — overlays top-right of preview-screen */
 #btn-immersive {
-  width: 26px; height: 26px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-tertiary);
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 20;
+  width: 28px; height: 28px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0,0,0,0.1);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(6px);
+  color: var(--text-secondary);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: var(--transition);
-  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 #btn-immersive:hover {
-  background: var(--bg-card-hover);
+  background: rgba(255,255,255,0.98);
   color: var(--text-primary);
-  border-color: var(--border);
+  border-color: rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
 }
 #btn-immersive svg { width: 13px; height: 13px; }
+
+/* ── SVG Polygon Drawing Tool ────────────────────────────────── */
+/* 绘制模式：预览屏变为十字准星 */
+#immersive-screen.polygon-drawing-mode {
+  cursor: crosshair;
+}
+/* 绘制中的 SVG 层 */
+#polygon-draw-svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 20;
+  overflow: visible;
+}
+#polygon-draw-svg.active { pointer-events: all; cursor: crosshair; }
+/* 已绘制的多边形 */
+.poly-zone {
+  fill: rgba(37,99,235,0.12);
+  stroke: rgba(37,99,235,0.7);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+  cursor: move;
+  transition: fill 0.12s;
+}
+.poly-zone:hover { fill: rgba(37,99,235,0.2); }
+.poly-zone.selected { stroke: rgba(37,99,235,1); fill: rgba(37,99,235,0.18); }
+/* 绘制中的预览线 */
+#poly-preview-line {
+  stroke: rgba(37,99,235,0.5);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  fill: none;
+  pointer-events: none;
+}
+/* 顶点圆点 */
+.poly-vertex {
+  fill: #ffffff;
+  stroke: rgba(37,99,235,0.9);
+  stroke-width: 1.5;
+  cursor: pointer;
+  r: 4;
+}
+.poly-vertex.first-vertex {
+  r: 6;
+  fill: rgba(37,99,235,0.2);
+  stroke: rgba(37,99,235,1);
+}
+/* 绘制提示标签 */
+#poly-draw-hint {
+  position: absolute;
+  bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 30;
+  display: none;
+}
+#immersive-screen.polygon-drawing-mode #poly-draw-hint { display: block; }
+
+/* ── Dual Range Slider (双头区间滑块) ────────────────────────── */
+#micro-timeline {
+  display: flex; align-items: center;
+  padding: 8px 16px; gap: 10px;
+}
+.micro-tl-label {
+  font-size: 10px; font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* 双头滑块容器 */
+.range-slider-wrap {
+  flex: 1;
+  position: relative;
+  height: 20px;
+  display: flex; align-items: center;
+}
+.range-slider-track {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+}
+.range-slider-fill {
+  position: absolute;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.range-slider-wrap input[type=range] {
+  position: absolute;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  height: 2px;
+  outline: none;
+  margin: 0;
+}
+.range-slider-wrap input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+  pointer-events: all;
+  transition: transform 0.1s;
+}
+.range-slider-wrap input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+.range-slider-wrap input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: pointer;
+  pointer-events: all;
+}
+.range-tl-time {
+  font-size: 10px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 68px; text-align: right;
+}
 
 /* ── Immersive Overlay ───────────────────────────────────────── */
 /*
@@ -1279,51 +1405,7 @@ html, body {
   white-space: nowrap;
   flex-shrink: 0;
 }
-#micro-tl-slider {
-  flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 2px;
-  background: var(--border);
-  border-radius: 2px;
-  outline: none;
-  cursor: pointer;
-}
-#micro-tl-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-#micro-tl-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
-#micro-tl-slider::-moz-range-thumb {
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  cursor: pointer;
-}
-.micro-tl-time {
-  font-size: 10px; color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 36px; text-align: right;
-}
-.micro-tl-badge {
-  font-size: 9px; padding: 2px 6px;
-  border-radius: 10px;
-  background: var(--bg-canvas);
-  border: 1px solid var(--border);
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
+/* old single-slider CSS removed — replaced by .range-slider-wrap above */
 
 /* ── Immersive mode: hide canvas/sidebar/resize ──────────────── */
 body.immersive-mode #workspace,
@@ -1543,13 +1625,10 @@ body.immersive-mode #right-panel {
 
     <!-- PURE PREVIEW PANEL -->
     <div id="preview-panel">
-
-      <!-- Preview Header: title + hotspot count + expand button -->
-      <div id="preview-header">
-        <span id="preview-header-title">预览</span>
-        <span id="preview-hotspot-count">0 个热点</span>
-        <div id="preview-header-actions">
-          <!-- 展开沉浸模式按鈕 -->
+      <!-- preview-header removed — expand btn is now floating inside preview-body -->
+      <div id="preview-body">
+        <div id="preview-screen" class="portrait">
+          <!-- 悬浮展开按鈕 -->
           <button id="btn-immersive" title="展开屏幕编辑模式" onclick="enterImmersiveMode()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
@@ -1558,11 +1637,6 @@ body.immersive-mode #right-panel {
               <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
             </svg>
           </button>
-        </div>
-      </div>
-
-      <div id="preview-body">
-        <div id="preview-screen" class="portrait">
           <div class="screen-content" id="screen-content">
             <div class="screen-video-placeholder" id="screen-placeholder">
               <div class="screen-play-icon">▶</div>
@@ -1684,7 +1758,7 @@ body.immersive-mode #right-panel {
     </button>
   </div>
 
-  <!-- 放大的预览屏区域 -->
+    <!-- 放大的预览屏区域 -->
   <div id="immersive-stage">
     <!-- 预览屏：大小由 JS 动态计算 -->
     <div id="immersive-screen">
@@ -1697,6 +1771,12 @@ body.immersive-mode #right-panel {
         </div>
         <!-- 热点层：沉浸模式下的拖拽热点 -->
         <div id="immersive-choices"></div>
+        <!-- SVG 多边形绘制层 -->
+        <svg id="polygon-draw-svg" xmlns="http://www.w3.org/2000/svg">
+          <polyline id="poly-preview-line" points=""/>
+        </svg>
+        <!-- 绘制提示 -->
+        <div id="poly-draw-hint">点击画面添加顶点 · 双击或点击起始点闭合</div>
       </div>
     </div>
   </div>
@@ -1720,14 +1800,18 @@ body.immersive-mode #right-panel {
         清空热点
       </button>
     </div>
-    <!-- 时间滑块行（UI 占位，后续绑定功能） -->
+    <!-- 双头区间滑块行 -->
     <div id="micro-timeline">
       <span class="micro-tl-label">出入点</span>
-      <input type="range" id="micro-tl-slider" min="0" max="100" value="0"
-        oninput="onMicroTimelineInput(this.value)"
-        title="拖动设置热点出现时间（开发中）" />
-      <span class="micro-tl-time" id="micro-tl-display">0.0s</span>
-      <span class="micro-tl-badge">待绑定</span>
+      <div class="range-slider-wrap" id="range-slider-wrap">
+        <div class="range-slider-track"></div>
+        <div class="range-slider-fill" id="range-slider-fill"></div>
+        <input type="range" id="micro-tl-start" min="0" max="100" value="10"
+          oninput="onRangeSliderInput()" title="热点出现时间" />
+        <input type="range" id="micro-tl-end" min="0" max="100" value="90"
+          oninput="onRangeSliderInput()" title="热点消失时间" />
+      </div>
+      <span class="range-tl-time" id="range-tl-display">0.0s – 30.0s</span>
     </div>
   </div>
 
@@ -2803,41 +2887,59 @@ function loadImmersiveNode(nodeData) {
 }
 
 /**
- * 在沉浸屏中渲染所有热点按鈕
+ * 在沉浸屏中渲染所有热点（文字按鈕 + 多边形 SVG）
  * 共享同一份 nodeData 引用，拖拽结果直接写回 JSON
  */
 function renderImmersiveChoices(nodeData) {
   const container = document.getElementById('immersive-choices');
   container.innerHTML = '';
 
-  if (!nodeData.choices || !nodeData.choices.length) return;
+  // 清除 SVG 层中已有多边形（保留 poly-preview-line）
+  const svg = document.getElementById('polygon-draw-svg');
+  svg.querySelectorAll('.poly-zone, .poly-vertex').forEach(el => el.remove());
+  polyState.polygons = [];
 
-  // 确保每个 choice 有 position
+  if (!nodeData.choices || !nodeData.choices.length) {
+    updateHotspotCountBadge(0);
+    return;
+  }
+
   nodeData.choices.forEach((c, i) => {
-    if (!c.position) {
-      c.position = DEFAULT_HOTSPOT_POSITIONS[i] || { x: '50%', y: `${60 + i * 12}%` };
+    if (c.type === 'polygon' && c.points && c.points.length >= 3) {
+      // 多边形热点：渲染到 SVG 层
+      renderPolygonZone(c, i);
+    } else {
+      // 文字热点：确保有 position
+      if (!c.position) {
+        c.position = DEFAULT_HOTSPOT_POSITIONS[i] || { x: '50%', y: `${60 + i * 12}%` };
+      }
+      const btn = document.createElement('div');
+      btn.className = 'screen-choice-btn';
+      btn.id = `imm-choice-btn-${i}`;
+      btn.dataset.choiceIdx = i;
+      btn.style.left = c.position.x;
+      btn.style.top  = c.position.y;
+      btn.innerHTML = `
+        <span class="choice-num">${i + 1}</span>
+        <span id="imm-choice-label-${i}">${escHtml(c.label || `选项 ${i+1}`)}</span>
+        <span class="drag-handle-icon">⠇</span>
+      `;
+      container.appendChild(btn);
+      // 拖拽引擎使用 immersive-screen 作为坐标参考屏
+      initHotspotDragOnScreen(btn, nodeData, i, 'immersive-screen');
+      // 点击按鈕同步双头滑块
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        syncRangeSliderToChoice(i);
+      });
     }
-  });
-
-  nodeData.choices.forEach((c, i) => {
-    const btn = document.createElement('div');
-    btn.className = 'screen-choice-btn';
-    btn.id = `imm-choice-btn-${i}`;
-    btn.dataset.choiceIdx = i;
-    btn.style.left = c.position.x;
-    btn.style.top  = c.position.y;
-    btn.innerHTML = `
-      <span class="choice-num">${i + 1}</span>
-      <span id="imm-choice-label-${i}">${escHtml(c.label || `选项 ${i+1}`)}</span>
-      <span class="drag-handle-icon">⠇</span>
-    `;
-    container.appendChild(btn);
-    // 拖拽引擎使用 immersive-screen 作为坐标参考屏
-    initHotspotDragOnScreen(btn, nodeData, i, 'immersive-screen');
   });
 
   // 同步更新小预览区热点数量展示
   updateHotspotCountBadge(nodeData.choices.length);
+
+  // 默认选中第一个 choice 的 timeWindow
+  if (nodeData.choices.length > 0) syncRangeSliderToChoice(0);
 }
 
 /**
@@ -2934,93 +3036,193 @@ function addImmersiveHotspot() {
   showToast(`已添加文字热点 ${i + 1}`, 'success');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SVG 多边形绘制工具
+// ═══════════════════════════════════════════════════════════════
+let polyState = {
+  drawing: false,
+  vertices: [],       // [{x:pct, y:pct}, ...] 百分比
+  svgEl: null,
+  previewLine: null,
+  vertexEls: [],
+  polygons: [],       // 已完成的多边形元素列表
+};
+
 /**
- * 添加隐形触发区（虚线边框拖拽框）
+ * 启动多边形绘制模式
  */
 function addTriggerZone() {
-  const container = document.getElementById('immersive-choices');
   const screen = document.getElementById('immersive-screen');
-  const { w, h } = calcImmersiveScreenSize();
+  const svg = document.getElementById('polygon-draw-svg');
 
-  // 默认放在画面中心
-  const zoneW = 120, zoneH = 60;
-  const leftPct = Math.round((50 - (zoneW / w) * 50) * 10) / 10;
-  const topPct  = Math.round((50 - (zoneH / h) * 50) * 10) / 10;
+  if (polyState.drawing) {
+    // 已在绘制中，再次点击取消
+    cancelPolygonDraw();
+    return;
+  }
 
-  const zone = document.createElement('div');
-  zone.className = 'imm-trigger-zone';
-  zone.style.left   = leftPct + '%';
-  zone.style.top    = topPct  + '%';
-  zone.style.width  = Math.round((zoneW / w) * 1000) / 10 + '%';
-  zone.style.height = Math.round((zoneH / h) * 1000) / 10 + '%';
-  zone.innerHTML = `
-    <span class="tz-label">隐形触发区</span>
-    <span class="tz-resize-handle" title="拖动缩放">◿</span>
-  `;
-  container.appendChild(zone);
+  polyState.drawing = true;
+  polyState.vertices = [];
+  polyState.vertexEls = [];
+  polyState.svgEl = svg;
+  polyState.previewLine = document.getElementById('poly-preview-line');
 
-  // 拖动移动
-  initTriggerZoneDrag(zone, screen);
-  // 拖动缩放
-  initTriggerZoneResize(zone, screen);
+  screen.classList.add('polygon-drawing-mode');
+  svg.classList.add('active');
 
-  showToast('已添加隐形触发区', 'info');
+  // 监听屏幕点击事件
+  svg.addEventListener('click', onPolygonClick);
+  svg.addEventListener('dblclick', onPolygonDblClick);
+  svg.addEventListener('mousemove', onPolygonMouseMove);
+
+  // 更新顶部按鈕状态
+  const btn = document.getElementById('btn-add-trigger');
+  if (btn) { btn.classList.add('active'); btn.title = '点击取消绘制'; }
+
+  showToast('已进入多边形绘制模式，在画面上点击添加顶点', 'info');
 }
 
-function initTriggerZoneDrag(zone, screen) {
-  let dragging = false, sx, sy, sl, st;
-  zone.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('tz-resize-handle')) return;
-    e.stopPropagation(); e.preventDefault();
-    dragging = true;
-    sx = e.clientX; sy = e.clientY;
-    sl = parseFloat(zone.style.left);  // %
-    st = parseFloat(zone.style.top);   // %
-    zone.style.cursor = 'grabbing';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    function onMove(ev) {
-      if (!dragging) return;
-      const rect = screen.getBoundingClientRect();
-      const dx = (ev.clientX - sx) / rect.width  * 100;
-      const dy = (ev.clientY - sy) / rect.height * 100;
-      zone.style.left = Math.max(0, Math.min(90, sl + dx)) + '%';
-      zone.style.top  = Math.max(0, Math.min(90, st + dy)) + '%';
+function onPolygonClick(e) {
+  if (!polyState.drawing) return;
+  e.stopPropagation();
+
+  const svg = polyState.svgEl;
+  const rect = svg.getBoundingClientRect();
+  const xPct = Math.round((e.clientX - rect.left) / rect.width  * 1000) / 10;
+  const yPct = Math.round((e.clientY - rect.top)  / rect.height * 1000) / 10;
+
+  // 点击起始点闭合（至少 3 个顶点）
+  if (polyState.vertices.length >= 3) {
+    const first = polyState.vertices[0];
+    const dx = xPct - first.x, dy = yPct - first.y;
+    if (Math.sqrt(dx*dx + dy*dy) < 4) {
+      finishPolygon();
+      return;
     }
-    function onUp() {
-      dragging = false;
-      zone.style.cursor = 'move';
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    }
-  });
+  }
+
+  // 添加顶点
+  polyState.vertices.push({ x: xPct, y: yPct });
+  addVertexDot(xPct, yPct, polyState.vertices.length === 1);
+  updatePolyPreviewLine();
 }
 
-function initTriggerZoneResize(zone, screen) {
-  const handle = zone.querySelector('.tz-resize-handle');
-  if (!handle) return;
-  let resizing = false, sx, sy, sw, sh;
-  handle.addEventListener('mousedown', (e) => {
-    e.stopPropagation(); e.preventDefault();
-    resizing = true;
-    sx = e.clientX; sy = e.clientY;
-    sw = parseFloat(zone.style.width);
-    sh = parseFloat(zone.style.height);
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    function onMove(ev) {
-      if (!resizing) return;
-      const rect = screen.getBoundingClientRect();
-      const dw = (ev.clientX - sx) / rect.width  * 100;
-      const dh = (ev.clientY - sy) / rect.height * 100;
-      zone.style.width  = Math.max(5, sw + dw) + '%';
-      zone.style.height = Math.max(3, sh + dh) + '%';
-    }
-    function onUp() {
-      resizing = false;
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    }
+function onPolygonDblClick(e) {
+  e.stopPropagation();
+  if (polyState.vertices.length >= 3) finishPolygon();
+}
+
+function onPolygonMouseMove(e) {
+  if (!polyState.drawing || polyState.vertices.length === 0) return;
+  const svg = polyState.svgEl;
+  const rect = svg.getBoundingClientRect();
+  const xPct = (e.clientX - rect.left) / rect.width  * 100;
+  const yPct = (e.clientY - rect.top)  / rect.height * 100;
+
+  // 更新预览线（最后一个顶点到鼠标）
+  const last = polyState.vertices[polyState.vertices.length - 1];
+  const first = polyState.vertices[0];
+  let pts = `${last.x},${last.y} ${xPct},${yPct}`;
+  if (polyState.vertices.length >= 2) {
+    pts += ` ${first.x},${first.y}`;
+  }
+  polyState.previewLine.setAttribute('points', pts);
+}
+
+function addVertexDot(xPct, yPct, isFirst) {
+  const svg = polyState.svgEl;
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', xPct + '%');
+  circle.setAttribute('cy', yPct + '%');
+  circle.setAttribute('r', isFirst ? '6' : '4');
+  circle.classList.add('poly-vertex');
+  if (isFirst) circle.classList.add('first-vertex');
+  svg.appendChild(circle);
+  polyState.vertexEls.push(circle);
+}
+
+function updatePolyPreviewLine() {
+  if (polyState.vertices.length < 2) return;
+  const pts = polyState.vertices.map(v => `${v.x},${v.y}`).join(' ');
+  polyState.previewLine.setAttribute('points', pts);
+}
+
+/**
+ * 闭合多边形，将其写入 JSON 并渲染
+ */
+function finishPolygon() {
+  if (!polyState.drawing || polyState.vertices.length < 3) return;
+
+  const vertices = [...polyState.vertices];
+  cancelPolygonDraw();
+
+  // 将多边形热点写入 JSON
+  if (!immersiveNodeData) return;
+  const i = immersiveNodeData.choices.length;
+  const newChoice = {
+    id: `choice_poly_${Date.now()}`,
+    label: `隐形触发区 ${i + 1}`,
+    sublabel: '',
+    target_node: '',
+    hotkey: '',
+    type: 'polygon',
+    points: vertices.map(v => ({ x: v.x + '%', y: v.y + '%' })),
+    timeWindow: [0, 30],
+  };
+  immersiveNodeData.choices.push(newChoice);
+
+  // 渲染到沉浸屏
+  renderImmersiveChoices(immersiveNodeData);
+  updatePreviewPanel(immersiveNodeData);
+  showToast(`多边形触发区已添加（${vertices.length} 个顶点）`, 'success');
+}
+
+/**
+ * 取消绘制模式
+ */
+function cancelPolygonDraw() {
+  const screen = document.getElementById('immersive-screen');
+  const svg = document.getElementById('polygon-draw-svg');
+
+  polyState.drawing = false;
+  screen.classList.remove('polygon-drawing-mode');
+  svg.classList.remove('active');
+  svg.removeEventListener('click', onPolygonClick);
+  svg.removeEventListener('dblclick', onPolygonDblClick);
+  svg.removeEventListener('mousemove', onPolygonMouseMove);
+
+  // 清除临时顶点圆和预览线
+  polyState.vertexEls.forEach(el => el.remove());
+  polyState.vertexEls = [];
+  polyState.vertices = [];
+  if (polyState.previewLine) polyState.previewLine.setAttribute('points', '');
+
+  const btn = document.getElementById('btn-add-trigger');
+  if (btn) { btn.classList.remove('active'); btn.title = '添加隐形触发区'; }
+}
+
+/**
+ * 在沉浸屏中渲染多边形热点
+ */
+function renderPolygonZone(choice, choiceIdx) {
+  const svg = document.getElementById('polygon-draw-svg');
+  const points = choice.points.map(p => `${parseFloat(p.x)},${parseFloat(p.y)}`).join(' ');
+
+  const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  polygon.setAttribute('points', points);
+  polygon.classList.add('poly-zone');
+  polygon.dataset.choiceIdx = choiceIdx;
+  polygon.title = choice.label || `隐形触发区 ${choiceIdx + 1}`;
+  svg.appendChild(polygon);
+  polyState.polygons.push(polygon);
+
+  // 点击选中
+  polygon.addEventListener('click', (e) => {
+    e.stopPropagation();
+    svg.querySelectorAll('.poly-zone').forEach(p => p.classList.remove('selected'));
+    polygon.classList.add('selected');
+    // 同步选中到双头滑块
+    syncRangeSliderToChoice(choiceIdx);
   });
 }
 
@@ -3045,12 +3247,77 @@ function setMicroTool(tool) {
   document.getElementById('micro-btn-trigger').classList.toggle('active', tool === 'trigger');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 双头区间滑块
+// ═══════════════════════════════════════════════════════════════
+
+// 当前选中的 choice 索引（用于双头滑块绑定）
+let selectedChoiceIdx = null;
+
 /**
- * 时间滑块事件（UI 占位，展示当前数字）
+ * 双头区间滑块输入事件
+ * 自动保证 start <= end，并将结果写入 choice.timeWindow
  */
-function onMicroTimelineInput(val) {
-  const secs = (parseFloat(val) / 100 * 30).toFixed(1); // 假设视频总长 30s
-  document.getElementById('micro-tl-display').textContent = secs + 's';
+function onRangeSliderInput() {
+  const startEl = document.getElementById('micro-tl-start');
+  const endEl   = document.getElementById('micro-tl-end');
+  let s = parseInt(startEl.value);
+  let e = parseInt(endEl.value);
+
+  // 保证 start <= end
+  if (s > e) {
+    if (document.activeElement === startEl) { s = e; startEl.value = s; }
+    else { e = s; endEl.value = e; }
+  }
+
+  // 根据滑块总长计算秒数（假设视频总长 = max 属性）
+  const maxSec = parseFloat(startEl.max) || 100;
+  const startSec = (s / 100 * maxSec);
+  const endSec   = (e / 100 * maxSec);
+
+  // 更新显示
+  document.getElementById('range-tl-display').textContent =
+    startSec.toFixed(1) + 's – ' + endSec.toFixed(1) + 's';
+
+  // 更新填充条颜色
+  updateRangeSliderFill(s, e);
+
+  // 写入 JSON
+  if (selectedChoiceIdx !== null && immersiveNodeData) {
+    const choice = immersiveNodeData.choices[selectedChoiceIdx];
+    if (choice) {
+      choice.timeWindow = [parseFloat(startSec.toFixed(2)), parseFloat(endSec.toFixed(2))];
+    }
+  }
+}
+
+function updateRangeSliderFill(startVal, endVal) {
+  const fill = document.getElementById('range-slider-fill');
+  if (!fill) return;
+  fill.style.left  = startVal + '%';
+  fill.style.width = (endVal - startVal) + '%';
+}
+
+/**
+ * 将指定 choice 的 timeWindow 同步到双头滑块
+ */
+function syncRangeSliderToChoice(choiceIdx) {
+  if (!immersiveNodeData) return;
+  const choice = immersiveNodeData.choices[choiceIdx];
+  if (!choice) return;
+
+  selectedChoiceIdx = choiceIdx;
+  const tw = choice.timeWindow || [0, 30];
+  const maxSec = 100; // 默认视频总长 100s
+
+  const startPct = Math.round(tw[0] / maxSec * 100);
+  const endPct   = Math.round(tw[1] / maxSec * 100);
+
+  document.getElementById('micro-tl-start').value = startPct;
+  document.getElementById('micro-tl-end').value   = endPct;
+  document.getElementById('range-tl-display').textContent =
+    tw[0].toFixed(1) + 's – ' + tw[1].toFixed(1) + 's';
+  updateRangeSliderFill(startPct, endPct);
 }
 
 /**

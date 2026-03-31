@@ -217,6 +217,33 @@
       opacity: 1;
     }
 
+    /* ── SVG Polygon Hotspot ─────────────────────────────────────────────── */
+    /* SVG 容器覆盖整个热点层 */
+    #hotspot-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    /* 多边形热点区域 */
+    .poly-hotspot {
+      fill: rgba(255,255,255,0.06);
+      stroke: rgba(255,255,255,0.35);
+      stroke-width: 1.5;
+      stroke-dasharray: 5 3;
+      cursor: pointer;
+      pointer-events: all;
+      transition: fill 0.18s ease, stroke 0.18s ease;
+    }
+    .poly-hotspot:hover {
+      fill: rgba(255,255,255,0.16);
+      stroke: rgba(255,255,255,0.7);
+    }
+    .poly-hotspot:active {
+      fill: rgba(255,255,255,0.28);
+    }
+
     /* ── Hotspot Button (Glassmorphism) ───────────────────────────────────── */
     .hotspot-btn {
       position: absolute;
@@ -610,8 +637,11 @@
   <!-- Video Container — 所有 <video> 实例动态注入此处 -->
   <div id="video-container"></div>
 
-  <!-- Hotspot Layer — 热点按钮绝对定位于此层，覆盖视频画面 -->
-  <div id="hotspot-layer"></div>
+  <!-- Hotspot Layer — 热点按鈕绝对定位于此层，覆盖视频画面 -->
+  <div id="hotspot-layer">
+    <!-- SVG 多边形热点层 -->
+    <svg id="hotspot-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
 
   <!-- Ending Screen -->
   <div id="ending-screen">
@@ -660,6 +690,7 @@ const $errorScreen    = document.getElementById('error-screen');
 const $tapStart       = document.getElementById('tap-start-overlay');
 const $videoContainer = document.getElementById('video-container');
 const $hotspotLayer   = document.getElementById('hotspot-layer');
+const $hotspotSvg     = document.getElementById('hotspot-svg');
 const $endingScreen   = document.getElementById('ending-screen');
 const $endingTag      = document.getElementById('ending-tag-text');
 const $endingTitle    = document.getElementById('ending-title-text');
@@ -916,72 +947,142 @@ function onEnded() {
   }
 }
 
-// ── Branch Trigger ─────────────────────────────────────────────────────────────
+// ── Branch Trigger ─────────────────────────────────────────────────────────────────
+/**
+ * 每帧 timeupdate 时调用。
+ * 1. 到达 branch_at_second 时首次触发 showChoices（初始化热点 DOM）
+ * 2. 后续每帧根据各 choice.timeWindow 实时控制热点显隐
+ */
 function maybeTriggerBranch(currentTime) {
-  if (engine.branchHandled || engine.choiceShown) return;
-
   const node = engine.gameData.nodes[engine.currentNodeId];
   if (!node || node.type !== 'branching') return;
 
   const branchAt = Number(node.branch_at_second);
   if (!Number.isFinite(branchAt)) return;
 
-  if (currentTime >= branchAt) {
+  // 首次到达分支点：创建热点 DOM
+  if (!engine.branchHandled && currentTime >= branchAt) {
     engine.branchHandled = true;
     showChoices(node);
+    return;
+  }
+
+  // 已建立热点 DOM：根据 timeWindow 实时控制显隐
+  if (engine.choiceShown) {
+    updateHotspotVisibility(node, currentTime);
   }
 }
 
-// ── Show Choices (Hotspot Rendering) ──────────────────────────────────────────
 /**
- * 在 #hotspot-layer 中动态创建绝对定位热点按钮。
- * 每个按钮的位置由 choice.position.x / choice.position.y（百分比）驱动。
+ * 根据 当前播放时间 和 各 choice.timeWindow 实时控制热点显隐
+ */
+function updateHotspotVisibility(node, currentTime) {
+  node.choices.forEach((choice, idx) => {
+    const tw = choice.timeWindow;
+    if (!tw || !Array.isArray(tw) || tw.length < 2) return; // 无 timeWindow 则始终显示
+    const visible = currentTime >= tw[0] && currentTime <= tw[1];
+
+    if (choice.type === 'polygon') {
+      // SVG 多边形热点
+      const poly = $hotspotSvg.querySelector(`[data-choice-idx="${idx}"]`);
+      if (poly) poly.style.display = visible ? '' : 'none';
+    } else {
+      // 文字按鈕热点
+      const btn = $hotspotLayer.querySelector(`[data-choice-idx="${idx}"]`);
+      if (btn) btn.style.display = visible ? '' : 'none';
+    }
+  });
+}
+
+// ── Show Choices (Hotspot Rendering) ──────────────────────────────────────────────
+/**
+ * 在 #hotspot-layer 中动态创建热点。
+ * - 文字热点：<button class="hotspot-btn"> 绝对定位
+ * - 多边形热点：<polygon> 渲染到 #hotspot-svg，百分比坐标系
+ * - timeWindow 存在时，初始根据当前时间决定是否显示
  */
 function showChoices(node) {
   if (engine.choiceShown) return;
   engine.choiceShown = true;
 
-  // 暂停视频，等待玩家决策
-  engine.activeVideo.pause();
+  // 清空按鈕热点（保留 SVG 容器）
+  $hotspotLayer.querySelectorAll('.hotspot-btn').forEach(el => el.remove());
+  // 清空 SVG 多边形
+  $hotspotSvg.innerHTML = '';
 
-  // 清空热点层
-  $hotspotLayer.innerHTML = '';
+  const currentTime = engine.activeVideo ? engine.activeVideo.currentTime : 0;
 
   node.choices.forEach((choice, idx) => {
-    const btn = document.createElement('button');
-    btn.className = 'hotspot-btn';
-    btn.dataset.targetNode = choice.target_node;
+    const tw = choice.timeWindow;
+    const inWindow = !tw || !Array.isArray(tw) || tw.length < 2
+      || (currentTime >= tw[0] && currentTime <= tw[1]);
 
-    // ── 位置：从 choice.position 读取百分比，回退到默认值 ──────────────
-    const pos = choice.position || {};
-    const px  = pos.x || defaultHotspotX(idx, node.choices.length);
-    const py  = pos.y || defaultHotspotY(idx, node.choices.length);
-    btn.style.left = px;
-    btn.style.top  = py;
+    if (choice.type === 'polygon' && choice.points && choice.points.length >= 3) {
+      // ── 多边形热点 ───────────────────────────────────────────────────────
+      // 将百分比坐标转为 SVG viewBox 坐标（使用 0-100 坐标系）
+      const pts = choice.points
+        .map(p => `${parseFloat(p.x)},${parseFloat(p.y)}`)
+        .join(' ');
 
-    // ── 内容 ──────────────────────────────────────────────────────────
-    btn.innerHTML = `
-      <span class="hs-ready-dot"></span>
-      <span class="hs-label">${choice.label}</span>
-    `;
+      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      polygon.setAttribute('points', pts);
+      polygon.setAttribute('vector-effect', 'non-scaling-stroke');
+      polygon.classList.add('poly-hotspot');
+      polygon.dataset.choiceIdx = idx;
+      polygon.dataset.targetNode = choice.target_node || '';
+      polygon.style.display = inWindow ? '' : 'none';
+      polygon.title = choice.label || '';
 
-    // ── 就绪状态（若已预加载完成）────────────────────────────────────
-    const preloadedVid = videoPool.get(choice.target_node);
-    if (preloadedVid && preloadedVid.readyState >= 4) {
-      btn.classList.add('is-ready');
+      // 将 SVG viewBox 设为 0 0 100 100，匹配百分比坐标
+      $hotspotSvg.setAttribute('viewBox', '0 0 100 100');
+      $hotspotSvg.setAttribute('preserveAspectRatio', 'none');
+      $hotspotSvg.style.pointerEvents = 'none';
+
+      polygon.addEventListener('click', () => handleChoice(choice));
+      $hotspotSvg.appendChild(polygon);
+
+    } else {
+      // ── 文字热点 ────────────────────────────────────────────────────────────────
+      const btn = document.createElement('button');
+      btn.className = 'hotspot-btn';
+      btn.dataset.targetNode = choice.target_node || '';
+      btn.dataset.choiceIdx = idx;
+
+      const pos = choice.position || {};
+      const px  = pos.x || defaultHotspotX(idx, node.choices.length);
+      const py  = pos.y || defaultHotspotY(idx, node.choices.length);
+      btn.style.left = px;
+      btn.style.top  = py;
+      btn.style.display = inWindow ? '' : 'none';
+
+      btn.innerHTML = `
+        <span class="hs-ready-dot"></span>
+        <span class="hs-label">${choice.label || ''}</span>
+      `;
+
+      const preloadedVid = videoPool.get(choice.target_node);
+      if (preloadedVid && preloadedVid.readyState >= 4) btn.classList.add('is-ready');
+
+      btn.addEventListener('click', () => handleChoice(choice));
+      $hotspotLayer.appendChild(btn);
     }
-
-    // ── 点击事件 ──────────────────────────────────────────────────────
-    btn.addEventListener('click', () => handleChoice(choice));
-
-    $hotspotLayer.appendChild(btn);
   });
 
-  // 淡入热点层
+  // 淡入热点层（如果有热点在窗口内）
   $hotspotLayer.classList.add('visible');
+
+  // 如果所有热点都有 timeWindow 且当前时间均不在窗口内，不暂停视频
+  const anyVisible = node.choices.some(c => {
+    const tw = c.timeWindow;
+    if (!tw || !Array.isArray(tw) || tw.length < 2) return true;
+    return currentTime >= tw[0] && currentTime <= tw[1];
+  });
+  if (anyVisible) {
+    engine.activeVideo.pause();
+  }
 }
 
-// ── Hide Hotspots ──────────────────────────────────────────────────────────────
+// ── Hide Hotspots ─────────────────────────────────────────────────────────────────
 function hideHotspots() {
   $hotspotLayer.classList.remove('visible');
   // 等动画结束后清空 DOM，避免闪烁
