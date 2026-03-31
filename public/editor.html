@@ -1016,12 +1016,187 @@ html, body {
 .toast.error   { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
 .toast.info    { border-color: var(--border); }
 @keyframes toastIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
-
-/* ── SCROLLBAR ───────────────────────────────────────────────── */
+/* ── SCROLLBAR ─────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 
+/* ═══════════════════════════════════════════════════════════════
+   AI 3D 资产生成向导 Modal
+   ═══════════════════════════════════════════════════════════════ */
+#ai3d-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 9000;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.18s ease;
+}
+#ai3d-modal-overlay.active { display: flex; }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+#ai3d-modal {
+  width: 480px;
+  max-width: calc(100vw - 40px);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08);
+  overflow: hidden;
+  animation: slideUp 0.22s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes slideUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
+
+.ai3d-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.ai3d-modal-title {
+  font-size: 15px; font-weight: 600;
+  color: var(--text-primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.ai3d-modal-title .badge {
+  font-size: 10px; font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+.ai3d-close-btn {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.ai3d-close-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); border-color: var(--border); }
+.ai3d-close-btn svg { width: 14px; height: 14px; }
+
+.ai3d-modal-body {
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+/* 步骤标题 */
+.ai3d-step-label {
+  font-size: 10px; font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+/* 图片上传区 */
+#ai3d-upload-zone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg-canvas);
+  position: relative;
+}
+#ai3d-upload-zone:hover { border-color: var(--accent-blue); background: #eff6ff; }
+#ai3d-upload-zone.has-image { border-color: var(--accent-blue); background: #eff6ff; }
+#ai3d-upload-zone .upload-icon { font-size: 24px; margin-bottom: 6px; display: block; }
+#ai3d-upload-zone .upload-text { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+#ai3d-upload-zone .upload-text strong { color: var(--accent-blue); font-weight: 500; }
+#ai3d-preview-img {
+  width: 100%; max-height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  display: none;
+  margin-top: 8px;
+}
+#ai3d-upload-zone.has-image #ai3d-preview-img { display: block; }
+#ai3d-upload-zone.has-image .upload-icon,
+#ai3d-upload-zone.has-image .upload-text { display: none; }
+
+/* Prompt 输入框 */
+#ai3d-prompt {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 12px; font-family: 'Inter', sans-serif;
+  color: var(--text-primary);
+  resize: none;
+  outline: none;
+  line-height: 1.6;
+  min-height: 72px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#ai3d-prompt:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+}
+#ai3d-prompt::placeholder { color: var(--text-tertiary); }
+
+/* 进度条 */
+#ai3d-progress-wrap {
+  display: none;
+  flex-direction: column; gap: 6px;
+}
+#ai3d-progress-wrap.visible { display: flex; }
+.ai3d-progress-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ai3d-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+.ai3d-status-text {
+  font-size: 11px; color: var(--text-secondary);
+  text-align: center;
+}
+
+/* 底部按鈕行 */
+.ai3d-modal-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-canvas);
+}
+.ai3d-cancel-btn {
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.ai3d-cancel-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.ai3d-generate-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 18px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  letter-spacing: 0.02em;
+}
+.ai3d-generate-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.ai3d-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.ai3d-generate-btn svg { width: 13px; height: 13px; }
+@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
 /* ══════════════════════════════════════════════════════════════
    IMMERSIVE SCENE EDITOR — 沉浸式场景编辑模式
    ══════════════════════════════════════════════════════════════ */
@@ -1257,7 +1432,7 @@ html, body {
 }
 .imm-top-btn.primary:hover { background: #333; border-color: #333; }
 
-/* ── Immersive Stage (放大的预览屏容器) ──────────────────────── */
+/* ── Immersive Stage (放大的预览屏容器) ──────────────────── */
 #immersive-stage {
   flex: 1;
   width: 100%;
@@ -1266,7 +1441,7 @@ html, body {
   justify-content: center;
   overflow: hidden;
   position: relative;
-  padding: 20px 24px 0;
+  padding: 20px 24px 20px;
 }
 
 /* 放大的预览屏：9:16 竖屏，高度撑满可用空间 */
@@ -1491,6 +1666,9 @@ body.immersive-mode #right-panel {
 .model3d-active #btn-add-trigger    { display: none; }
 .model3d-active #btn-add-3d-hotspot { display: flex !important; }
 
+/* video 节点下隐藏底部工具箱中的「层级」标签（冗余 UI 清理） */
+#micro-tool-layer-label { display: none; }
+
 /* 3D 模型上传区（Inspector 中） */
 .model3d-upload-zone {
   border: 1.5px dashed var(--border-strong);
@@ -1531,12 +1709,13 @@ body.immersive-mode #right-panel {
   display: none;
 }
 
-/* ── Canvas Zoom & Pan (沉浸式画布缩放平移) ──────────────────── */
+/* ── Canvas Zoom & Pan (沉浸式画布缩放平移) ───────────────── */
 #immersive-screen-wrapper {
   position: relative;
-  width: 100%; height: 100%;
+  /* 尺寸由 JS 动态设置，与 #immersive-screen 保持一致 */
   overflow: hidden;
   cursor: default;
+  flex-shrink: 0;
 }
 #immersive-screen-wrapper.panning { cursor: grab; }
 #immersive-screen-wrapper.panning:active { cursor: grabbing; }
@@ -1724,9 +1903,9 @@ body.immersive-mode #right-panel {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
           <span class="tool-tip">添加视频 (A)</span>
         </button>
-        <button class="tool-btn" onclick="addNode('image')">
+        <button class="tool-btn" onclick="openAI3DModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          <span class="tool-tip">添加图片</span>
+          <span class="tool-tip">添加 3D 场景（AI 生成）</span>
         </button>
         <button class="tool-btn" onclick="addNode('ending')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -1850,6 +2029,10 @@ body.immersive-mode #right-panel {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     添加视频节点
   </div>
+  <div class="ctx-item" onclick="openAI3DModal(); hideCtxMenu()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    添加 3D 场景（AI）
+  </div>
   <div class="ctx-item" onclick="addNode('ending'); hideCtxMenu()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
     添加结局节点
@@ -1869,6 +2052,58 @@ body.immersive-mode #right-panel {
 
 <!-- TOAST CONTAINER -->
 <div id="toast-container"></div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     AI 3D 资产生成向导 Modal
+     ══════════════════════════════════════════════════════════════ -->
+<div id="ai3d-modal-overlay">
+  <div id="ai3d-modal">
+    <!-- 头部 -->
+    <div class="ai3d-modal-header">
+      <div class="ai3d-modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        添加 3D 场景节点
+        <span class="badge">混元生3D</span>
+      </div>
+      <button class="ai3d-close-btn" onclick="closeAI3DModal()" title="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- 主体 -->
+    <div class="ai3d-modal-body">
+      <!-- 步骤一：上传源图 -->
+      <div>
+        <div class="ai3d-step-label">步骤 1 · 上传源图（作为生成3D的基准）</div>
+        <div id="ai3d-upload-zone" onclick="document.getElementById('ai3d-file-input').click()">
+          <span class="upload-icon">🖼️</span>
+          <div class="upload-text"><strong>点击上传</strong> 2D 图片<br/>支持 .jpg / .png / .webp 格式</div>
+          <img id="ai3d-preview-img" alt="预览" />
+        </div>
+        <input type="file" id="ai3d-file-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="onAI3DFileSelect(event)"/>
+      </div>
+      <!-- 步骤二：定义想象力 -->
+      <div>
+        <div class="ai3d-step-label">步骤 2 · 定义想象力（描述 3D 场景内容）</div>
+        <textarea id="ai3d-prompt" placeholder="例：一个未来感十足的宇宙飞船内部控制室，蓝色荆光流淫，可以 360° 漫游探索..."></textarea>
+      </div>
+      <!-- 生成进度条 -->
+      <div id="ai3d-progress-wrap">
+        <div class="ai3d-progress-bar"><div class="ai3d-progress-fill" id="ai3d-progress-fill"></div></div>
+        <div class="ai3d-status-text" id="ai3d-status-text">正在调用混元生3D API，请耐心等候（约30-120秒）…</div>
+      </div>
+    </div>
+    <!-- 底部 -->
+    <div class="ai3d-modal-footer">
+      <button class="ai3d-cancel-btn" onclick="closeAI3DModal()">取消</button>
+      <button class="ai3d-generate-btn" id="ai3d-generate-btn" onclick="startAI3DGeneration()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        开始生成 3D 模型
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════════════════════════════
      IMMERSIVE OVERLAY — 沉浸式场景编辑模式
@@ -1901,6 +2136,17 @@ body.immersive-mode #right-panel {
         <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
       </svg>
       3D 打点
+    </button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+    <!-- 视频画布缩放按鈕（Mac 触控板友好） -->
+    <button class="imm-top-btn" onclick="immersiveZoomIn()" title="放大视频（或用 Ctrl+滚轮）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <button class="imm-top-btn" onclick="immersiveZoomOut()" title="缩小视频（或用 Ctrl+滚轮）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <button class="imm-top-btn" onclick="resetCanvasTransform()" title="重置视图">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
     </button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
     <button class="imm-top-btn" onclick="exitImmersiveMode()">
@@ -1957,7 +2203,7 @@ body.immersive-mode #right-panel {
   <div id="micro-toolbar">
     <!-- 工具按鈕行 -->
     <div id="micro-toolbar-btns">
-      <span class="micro-tool-label">层级</span>
+      <span class="micro-tool-label" id="micro-tool-layer-label">层级</span>
       <button class="micro-btn active" id="micro-btn-hotspot" onclick="setMicroTool('hotspot')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
         文字热点
@@ -2393,6 +2639,167 @@ function clearSelection() {
 }
 
 // ── ADD / DELETE NODE ──────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// AI 3D 资产生成向导 Modal 控制器
+// ══════════════════════════════════════════════════════════════
+
+let _ai3dFile = null; // 当前选中的文件
+
+/**
+ * 打开 AI 3D 生成向导 Modal
+ */
+function openAI3DModal() {
+  _ai3dFile = null;
+  // 重置表单状态
+  const zone = document.getElementById('ai3d-upload-zone');
+  const previewImg = document.getElementById('ai3d-preview-img');
+  const promptEl = document.getElementById('ai3d-prompt');
+  const progressWrap = document.getElementById('ai3d-progress-wrap');
+  const generateBtn = document.getElementById('ai3d-generate-btn');
+  const fileInput = document.getElementById('ai3d-file-input');
+
+  if (zone) zone.classList.remove('has-image');
+  if (previewImg) { previewImg.src = ''; previewImg.style.display = 'none'; }
+  if (promptEl) promptEl.value = '';
+  if (progressWrap) progressWrap.classList.remove('visible');
+  if (generateBtn) { generateBtn.disabled = false; generateBtn.textContent = ''; }
+  if (fileInput) fileInput.value = '';
+
+  // 重置生成按鈕内容
+  if (generateBtn) {
+    generateBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      开始生成 3D 模型
+    `;
+  }
+
+  document.getElementById('ai3d-modal-overlay').classList.add('active');
+}
+
+/**
+ * 关闭 AI 3D 生成向导 Modal
+ */
+function closeAI3DModal() {
+  document.getElementById('ai3d-modal-overlay').classList.remove('active');
+  _ai3dFile = null;
+}
+
+/**
+ * 选择文件后预览
+ */
+function onAI3DFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  _ai3dFile = file;
+
+  const zone = document.getElementById('ai3d-upload-zone');
+  const previewImg = document.getElementById('ai3d-preview-img');
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    previewImg.src = e.target.result;
+    previewImg.style.display = 'block';
+    zone.classList.add('has-image');
+  };
+  reader.readAsDataURL(file);
+}
+
+/**
+ * 开始 AI 3D 生成：调用后端 /api/generate-3d
+ * 生成成功后自动创建 type === '3d_model' 的新节点
+ */
+async function startAI3DGeneration() {
+  if (!_ai3dFile) {
+    showToast('请先上传一张源图片', 'error');
+    return;
+  }
+
+  const generateBtn = document.getElementById('ai3d-generate-btn');
+  const progressWrap = document.getElementById('ai3d-progress-wrap');
+  const progressFill = document.getElementById('ai3d-progress-fill');
+  const statusText = document.getElementById('ai3d-status-text');
+
+  // 禁用按鈕 + 显示进度条
+  generateBtn.disabled = true;
+  generateBtn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+    生成中…
+  `;
+  progressWrap.classList.add('visible');
+
+  // 模拟进度条动画
+  let fakeProgress = 0;
+  const progressTimer = setInterval(() => {
+    fakeProgress = Math.min(fakeProgress + Math.random() * 8, 85);
+    progressFill.style.width = fakeProgress + '%';
+  }, 1500);
+
+  try {
+    const formData = new FormData();
+    formData.append('image', _ai3dFile);
+
+    // 可选：将 prompt 作为备注传给后端（目前后端不使用 prompt，但保留扩展口）
+    const promptVal = document.getElementById('ai3d-prompt')?.value?.trim();
+    if (promptVal) formData.append('prompt', promptVal);
+
+    statusText.textContent = '正在上传图片并调用混元生3D API…';
+
+    const resp = await fetch('/api/generate-3d', { method: 'POST', body: formData });
+    const data = await resp.json();
+
+    if (!data.ok) throw new Error(data.error || '生成失败');
+
+    // 进度条跳到 100%
+    clearInterval(progressTimer);
+    progressFill.style.width = '100%';
+    statusText.textContent = '生成成功！正在创建 3D 节点…';
+
+    // 自动创建 type === '3d_model' 的新节点
+    const newId = `node_3d_${Date.now()}`;
+    const newNode = {
+      id: newId,
+      type: '3d_model',
+      title: '新 3D 场景',
+      description: promptVal || '',
+      model_url: data.modelUrl,
+      preview_image: data.previewUrl || '',
+      camera_orbit: '0deg 75deg 2.5m',
+      camera_target: '0m 0m 0m',
+      choices: [],
+    };
+    state.gameData.nodes[newId] = newNode;
+
+    // 在画布中心创建节点卡片
+    const wrap = document.getElementById('canvas-wrap');
+    const cx = (wrap.clientWidth  / 2 - state.viewport.x) / state.viewport.scale;
+    const cy = (wrap.clientHeight / 2 - state.viewport.y) / state.viewport.scale;
+    createNodeCard(newNode, cx - 90, cy - 65);
+
+    showToast(`3D 节点「${newId}」已创建，模型: ${data.modelUrl}`, 'success');
+
+    // 延迟关闭 Modal
+    setTimeout(() => {
+      closeAI3DModal();
+      openInspector(newId);
+    }, 800);
+
+  } catch (err) {
+    clearInterval(progressTimer);
+    progressFill.style.width = '0%';
+    statusText.textContent = '生成失败: ' + err.message;
+    showToast('生成失败: ' + err.message, 'error');
+    generateBtn.disabled = false;
+    generateBtn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      重试生成
+    `;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 节点添加 / 删除
+// ══════════════════════════════════════════════════════════════
+
 function addNode(type) {
   const id = `node_${Date.now()}`;
   const newNode = {
@@ -3168,11 +3575,15 @@ function onImmersiveKeyDown(e) {
 function resizeImmersiveScreen() {
   const screen = document.getElementById('immersive-screen');
   if (!screen) return;
-  // 同步 wrapper 尺寸
   const wrapper = document.getElementById('immersive-screen-wrapper');
   const { w, h } = calcImmersiveScreenSize();
   screen.style.width  = w + 'px';
   screen.style.height = h + 'px';
+  // wrapper 尺寸与 screen 保持一致，确保居中对齐
+  if (wrapper) {
+    wrapper.style.width  = w + 'px';
+    wrapper.style.height = h + 'px';
+  }
 }
 
 // 监听窗口大小变化，自动重计算沉浸屏尺寸
@@ -3556,14 +3967,12 @@ function onPolygonClick(e) {
   if (!polyState.drawing) return;
   e.stopPropagation();
 
-  // 使用逆变换坐标：相对于 immersive-screen 原始尺寸，不受缩放/平移影响
+  // 直接用视觉 rect 算百分比：不需要逆变换 canvasTransform.scale
+  // 因为热点按鈕和 SVG 都是相对于同一个屏元素（immersive-screen）定位的
   const screen = document.getElementById('immersive-screen');
   const screenRect = screen.getBoundingClientRect();
-  // 将鼠标坐标从屏幕空间转换回未缩放的画布空间
-  const rawX = (e.clientX - screenRect.left) / canvasTransform.scale;
-  const rawY = (e.clientY - screenRect.top)  / canvasTransform.scale;
-  const xPct = Math.round(rawX / (screenRect.width  / canvasTransform.scale) * 1000) / 10;
-  const yPct = Math.round(rawY / (screenRect.height / canvasTransform.scale) * 1000) / 10;
+  const xPct = Math.round((e.clientX - screenRect.left) / screenRect.width  * 1000) / 10;
+  const yPct = Math.round((e.clientY - screenRect.top)  / screenRect.height * 1000) / 10;
 
   // 点击起始点闭合（至少 3 个顶点）
   if (polyState.vertices.length >= 3) {
@@ -3588,13 +3997,11 @@ function onPolygonDblClick(e) {
 
 function onPolygonMouseMove(e) {
   if (!polyState.drawing || polyState.vertices.length === 0) return;
-  // 同样使用逆变换坐标
+  // 直接用视觉 rect 算百分比（与 onPolygonClick 保持一致）
   const screen = document.getElementById('immersive-screen');
   const screenRect = screen.getBoundingClientRect();
-  const rawX = (e.clientX - screenRect.left) / canvasTransform.scale;
-  const rawY = (e.clientY - screenRect.top)  / canvasTransform.scale;
-  const xPct = rawX / (screenRect.width  / canvasTransform.scale) * 100;
-  const yPct = rawY / (screenRect.height / canvasTransform.scale) * 100;
+  const xPct = (e.clientX - screenRect.left) / screenRect.width  * 100;
+  const yPct = (e.clientY - screenRect.top)  / screenRect.height * 100;
 
   // 更新预览线（最后一个顶点到鼠标）
   const last = polyState.vertices[polyState.vertices.length - 1];
@@ -3913,34 +4320,71 @@ function resetCanvasTransform() {
   showZoomIndicator();
 }
 
+/** 放大视频画布（以中心为原点） */
+function immersiveZoomIn() {
+  const wrapper = document.getElementById('immersive-screen-wrapper');
+  const rect = wrapper ? wrapper.getBoundingClientRect() : { width: 400, height: 600 };
+  const mx = rect.width  / 2;
+  const my = rect.height / 2;
+  const newScale = Math.min(canvasTransform.maxScale, canvasTransform.scale * 1.2);
+  const ratio = newScale / canvasTransform.scale;
+  canvasTransform.tx = mx - ratio * (mx - canvasTransform.tx);
+  canvasTransform.ty = my - ratio * (my - canvasTransform.ty);
+  canvasTransform.scale = newScale;
+  applyCanvasTransform();
+  showZoomIndicator();
+}
+
+/** 缩小视频画布（以中心为原点） */
+function immersiveZoomOut() {
+  const wrapper = document.getElementById('immersive-screen-wrapper');
+  const rect = wrapper ? wrapper.getBoundingClientRect() : { width: 400, height: 600 };
+  const mx = rect.width  / 2;
+  const my = rect.height / 2;
+  const newScale = Math.max(canvasTransform.minScale, canvasTransform.scale / 1.2);
+  const ratio = newScale / canvasTransform.scale;
+  canvasTransform.tx = mx - ratio * (mx - canvasTransform.tx);
+  canvasTransform.ty = my - ratio * (my - canvasTransform.ty);
+  canvasTransform.scale = newScale;
+  applyCanvasTransform();
+  showZoomIndicator();
+}
+
 function initCanvasZoomPan() {
   const wrapper = document.getElementById('immersive-screen-wrapper');
   if (!wrapper) return;
 
-  // ── Ctrl + Wheel → Zoom ──────────────────────────────────────────────────
+  // ── Wheel 事件处理：
+  //   Ctrl/Meta + 滚动 → 缩放（以鼠标为中心）
+  //   普通滚动（包括 Mac 触控板双指滑动）→ 平移（禁用默认缩放）
   wrapper.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     e.stopPropagation();
 
-    const rect = wrapper.getBoundingClientRect();
-    // 鼠标相对于 wrapper 的位置
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl/Meta + 滚动 → 缩放
+      const rect = wrapper.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
 
-    const delta = e.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = Math.max(canvasTransform.minScale,
-                     Math.min(canvasTransform.maxScale,
-                     canvasTransform.scale * delta));
+      const delta = e.deltaY < 0 ? 1.1 : 0.9;
+      const newScale = Math.max(canvasTransform.minScale,
+                       Math.min(canvasTransform.maxScale,
+                       canvasTransform.scale * delta));
 
-    // 以鼠标为中心缩放：调整 translate 使鼠标指向的内容点不变
-    const scaleRatio = newScale / canvasTransform.scale;
-    canvasTransform.tx = mx - scaleRatio * (mx - canvasTransform.tx);
-    canvasTransform.ty = my - scaleRatio * (my - canvasTransform.ty);
-    canvasTransform.scale = newScale;
+      const scaleRatio = newScale / canvasTransform.scale;
+      canvasTransform.tx = mx - scaleRatio * (mx - canvasTransform.tx);
+      canvasTransform.ty = my - scaleRatio * (my - canvasTransform.ty);
+      canvasTransform.scale = newScale;
 
-    applyCanvasTransform();
-    showZoomIndicator();
+      applyCanvasTransform();
+      showZoomIndicator();
+    } else {
+      // 普通滚动 / Mac 双指滑动 → 平移
+      canvasTransform.tx -= e.deltaX;
+      canvasTransform.ty -= e.deltaY;
+      applyCanvasTransform();
+    }
   }, { passive: false });
 
   // ── Space key → Pan mode ─────────────────────────────────────────────────
