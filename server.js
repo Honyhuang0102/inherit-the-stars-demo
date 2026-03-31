@@ -303,7 +303,7 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
 
     // 后台异步轮询（不阻塞响应）
     (async () => {
-      const maxAttempts = 60; // 最多轮询 60 次 × 5 秒 = 5 分钟
+      const maxAttempts = 180; // 最多轮询 180 次 × 5 秒 = 15 分钟
       for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, 5000)); // 每 5 秒轮询一次
         try {
@@ -387,7 +387,7 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
       }
       // 超时
       console.error(`[SKYBOX] 任务超时: ${jobId}`);
-      jobStore.set(jobId, { status: 'error', error: '生成超时（超过5分钟），请重试' });
+      jobStore.set(jobId, { status: 'error', error: '生成超时（超过15分钟），请重试' });
     })();
 
     // 立即返回 jobId，前端自行轮询状态

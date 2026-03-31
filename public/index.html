@@ -1061,8 +1061,8 @@ function onEnded() {
   if (node && node.type === 'ending') {
     showEnding(node);
   } else if (node && node.type === 'branching') {
-    // 视频结束但还没触发分支，强制显示热点
-    showChoices(node);
+    // 视频结束，强制显示所有热点（忽略 timeWindow 限制，用户必须做出选择）
+    showChoices(node, true);
   } else if (node && node.next_node && engine.gameData.nodes[node.next_node]) {
     // 直连节点：视频播完自动跳转到 next_node
     loadNode(node.next_node);
@@ -1123,7 +1123,7 @@ function updateHotspotVisibility(node, currentTime) {
  * - 多边形热点：<polygon> 渲染到 #hotspot-svg，百分比坐标系
  * - timeWindow 存在时，初始根据当前时间决定是否显示
  */
-function showChoices(node) {
+function showChoices(node, forceShow = false) {
   if (engine.choiceShown) return;
   engine.choiceShown = true;
 
@@ -1136,7 +1136,8 @@ function showChoices(node) {
 
   node.choices.forEach((choice, idx) => {
     const tw = choice.timeWindow;
-    const inWindow = !tw || !Array.isArray(tw) || tw.length < 2
+    // forceShow=true 时（视频结束）忽略 timeWindow，强制显示所有热点
+    const inWindow = forceShow || !tw || !Array.isArray(tw) || tw.length < 2
       || (currentTime >= tw[0] && currentTime <= tw[1]);
 
     if (choice.type === 'polygon' && choice.points && choice.points.length >= 3) {

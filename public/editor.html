@@ -2138,7 +2138,7 @@ body.immersive-mode #right-panel {
       <!-- 生成进度条 -->
       <div id="ai3d-progress-wrap">
         <div class="ai3d-progress-bar"><div class="ai3d-progress-fill" id="ai3d-progress-fill"></div></div>
-        <div class="ai3d-status-text" id="ai3d-status-text">正在生成 360° 全景图，请耐心等待（约 1-3 分钟）…</div>
+        <div class="ai3d-status-text" id="ai3d-status-text">正在生成 360° 全景图，请耐心等待（约 3-10 分钟）…</div>
       </div>
     </div>
     <!-- 底部 -->
@@ -4616,7 +4616,11 @@ function onRangeSliderInput() {
   }
 
   // 根据视频实际时长计算秒数
-  const maxSec = (immersiveNodeData && (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second)) || 100;
+  // 优先从沉浸屏 video 元素读取真实时长，避免 maxSec == timeWindow 上限导致滑块叠在一起
+  const immVid2 = document.querySelector('#immersive-screen .imm-video-el');
+  const videoDur2 = (immVid2 && isFinite(immVid2.duration) && immVid2.duration > 0) ? immVid2.duration : null;
+  const branchSec2 = (immersiveNodeData && (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second)) || 30;
+  const maxSec = videoDur2 ? videoDur2 : (immersiveNodeData && immersiveNodeData._sliderMaxSec) || (branchSec2 + 5);
   const startSec = (s / 100 * maxSec);
   const endSec   = (e / 100 * maxSec);
 
@@ -4652,12 +4656,16 @@ function syncRangeSliderToChoice(choiceIdx) {
   if (!choice) return;
 
   selectedChoiceIdx = choiceIdx;
-  const tw = choice.timeWindow || [0, 30];
-  // 优先读取视频实际时长，fallback 到 branch_at_second，最后 fallback 到 100
-  const maxSec = (immersiveNodeData && (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second)) || 100;
-
-  const startPct = Math.round(tw[0] / maxSec * 100);
-  const endPct   = Math.round(tw[1] / maxSec * 100);
+  // 从沉浸屏 video 元素读取真实时长，确保 maxSec 严格大于 timeWindow 上限，滑块才有拖动空间
+  const immVid = document.querySelector('#immersive-screen .imm-video-el');
+  const videoDur = (immVid && isFinite(immVid.duration) && immVid.duration > 0) ? immVid.duration : null;
+  const branchSec = (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second) || 30;
+  // maxSec = 视频时长（若可用），否则 branch_time + 5 秒缓冲，确保滑块末端不会贴到 100%
+  const maxSec = videoDur ? videoDur : (branchSec + 5);
+  immersiveNodeData._sliderMaxSec = maxSec; // 缓存供 onRangeSliderInput 使用
+  const tw = choice.timeWindow || [0, branchSec];
+  const startPct = Math.min(99, Math.round(tw[0] / maxSec * 100));
+  const endPct   = Math.min(100, Math.round(tw[1] / maxSec * 100));
 
   document.getElementById('micro-tl-start').value = startPct;
   document.getElementById('micro-tl-end').value   = endPct;
