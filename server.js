@@ -326,12 +326,13 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
             request.end();
           });
 
-          const currentStatus = statusResp.status;
+          const reqData = statusResp.request || statusResp; // API 返回 {request: {...}} 结构
+          const currentStatus = reqData.status;
           console.log(`[SKYBOX] ${jobId} 状态: ${currentStatus} (${i + 1}/${maxAttempts})`);
 
           if (currentStatus === 'complete') {
-            const fileUrl  = statusResp.file_url  || '';
-            const thumbUrl = statusResp.thumb_url || '';
+            const fileUrl  = reqData.file_url  || '';
+            const thumbUrl = reqData.thumb_url || '';
 
             if (!fileUrl) {
               jobStore.set(jobId, { status: 'error', error: '生成完成但未获取到全景图 URL' });
@@ -367,7 +368,7 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
           }
 
           if (currentStatus === 'error' || currentStatus === 'abort') {
-            const errMsg = statusResp.error_message || `任务${currentStatus}`;
+            const errMsg = reqData.error_message || `任务${currentStatus}`;
             console.error(`[SKYBOX] 任务失败: ${errMsg}`);
             jobStore.set(jobId, { status: 'error', error: errMsg });
             return;
@@ -377,7 +378,7 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
           jobStore.set(jobId, {
             ...jobStore.get(jobId),
             status: 'processing',
-            queuePosition: statusResp.queue_position || null,
+            queuePosition: reqData.queue_position || null,
           });
 
         } catch (pollErr) {
