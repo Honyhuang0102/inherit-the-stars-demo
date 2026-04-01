@@ -310,7 +310,7 @@ app.post('/api/generate-3d', upload.single('image'), async (req, res) => {
           const statusResp = await new Promise((resolve, reject) => {
             const reqOptions = {
               hostname: 'backend.blockadelabs.com',
-              path: `/api/v1/skybox/${blockadeId}`,
+              path: `/api/v1/imagine/requests/${blockadeId}`,
               method: 'GET',
               headers: { 'x-api-key': apiKey },
             };
