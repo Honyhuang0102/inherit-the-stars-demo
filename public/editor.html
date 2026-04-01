@@ -2967,36 +2967,35 @@ async function startAI3DGeneration() {
     progressFill.style.width = '100%';
     statusText.textContent = '全景图生成成功！正在写入节点数据…';
 
-    // 获取当前选中节点
-    const sourceNodeId = state.selectedNode || document.getElementById('inspector')?.dataset?.nodeId;
-    if (sourceNodeId && state.gameData?.nodes?.[sourceNodeId]) {
-      const nodeData = state.gameData.nodes[sourceNodeId];
-      nodeData.panorama_url = panoramaData.panoramaUrl;
-      // 同步更新 Inspector 面板（如果正在显示）
-      const inspPanoInput = document.getElementById('insp-panorama-url');
-      if (inspPanoInput) inspPanoInput.value = panoramaData.panoramaUrl;
-      // 自动保存 data.json
-      await saveData();
-      showToast(`360° 全景图已生成并写入节点「${sourceNodeId}」✓`, 'success');
-    } else {
-      // 无选中节点时，创建新的全景图节点
-      const newId = nextNodeId();
-      const newNode = {
-        id: newId,
-        type: 'panorama',
-        title: '新 360° 全景场景',
-        description: promptVal,
-        panorama_url: panoramaData.panoramaUrl,
-        choices: [],
-      };
-      state.gameData.nodes[newId] = newNode;
-      const wrap = document.getElementById('canvas-wrap');
-      const cx = (wrap.clientWidth  / 2 - state.viewport.x) / state.viewport.scale;
-      const cy = (wrap.clientHeight / 2 - state.viewport.y) / state.viewport.scale;
-      createNodeCard(newNode, cx - 90, cy - 65);
-      await saveData();
-      showToast(`360° 全景图节点「${newId}」已创建 ✓`, 'success');
-    }
+    // 始终创建新的全景图节点（不依赖 selectedNode，避免覆盖现有节点）
+    const newId = nextNodeId();
+    const newNode = {
+      id: newId,
+      type: 'panorama',
+      title: '新 360° 全景场景',
+      description: promptVal,
+      panorama_url: panoramaData.panoramaUrl,
+      poster_url: panoramaData.thumbUrl || '',  // 用缩略图作为节点封面
+      choices: [],
+    };
+    state.gameData.nodes[newId] = newNode;
+
+    // 更新 nodeIndexMap，确保新节点序号正确显示
+    const allIds = Object.keys(state.gameData.nodes);
+    state.nodeIndexMap = {};
+    allIds.forEach((id, idx) => { state.nodeIndexMap[id] = idx + 1; });
+
+    // 在画布中心创建节点卡片
+    const wrap = document.getElementById('canvas-wrap');
+    const cx = (wrap.clientWidth  / 2 - state.viewport.x) / state.viewport.scale;
+    const cy = (wrap.clientHeight / 2 - state.viewport.y) / state.viewport.scale;
+    createNodeCard(newNode, cx - 90, cy - 65);
+
+    // 自动选中新节点，方便用户继续编辑
+    selectNode(newId);
+
+    await saveData();
+    showToast(`360° 全景图节点「${state.nodeIndexMap[newId]}」已创建，可在右侧面板编辑 ✓`, 'success');
 
     // 延迟关闭 Modal
     setTimeout(() => closeAI3DModal(), 1200);
