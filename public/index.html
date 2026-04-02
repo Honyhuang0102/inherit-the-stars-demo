@@ -884,6 +884,9 @@ function preloadNode(nodeId) {
     return;
   }
 
+  // panorama 和 3d_model 节点不需要视频预加载
+  if (node.type === 'panorama' || node.type === '3d_model') return;
+
   const v = createVideoElement(nodeId, node.video_url, true);
   videoPool.set(nodeId, v);
   console.log(`[VideoPool] Preloading: ${nodeId} → ${node.video_url}`);
@@ -992,12 +995,21 @@ async function loadNode(nodeId) {
 
   // ── 分流：3d_model 节点走 model-viewer 引擎 ─────────────────────────────
   if (node.type === '3d_model') {
+    exitPanoramaMode();
     await load3DModelNode(node);
     return;
   }
 
-  // ── 退出 3D 模式（如果之前是 3D 模型）────────────────────────────────────
+  // ── 分流：panorama 节点走全景图引擎 ─────────────────────────────────────
+  if (node.type === 'panorama') {
+    exit3DModelMode();
+    await loadPanoramaNode(node);
+    return;
+  }
+
+  // ── 退出 3D 模式和全景图模式（如果之前是 3D 模型或全景图）────────────────
   exit3DModelMode();
+  exitPanoramaMode();
 
   // ── 步骤 1：获取或创建目标视频 ──────────────────────────────────────────
   let targetVideo;
@@ -1385,6 +1397,164 @@ function exit3DModelMode() {
     currentModelViewer = null;
   }
   $model3dContainer.innerHTML = '';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  PANORAMA ENGINE  (360° equirectangular viewer)
+//  支持 panorama 类型节点：全景图拖拽旋转、热点按钮渲染
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 全景图容器（动态创建）
+let $panoContainer = null;
+let panoState = { dragging: false, startX: 0, startY: 0, rotX: 0, rotY: 0, curRotX: 0, curRotY: 0 };
+
+// 进入全景图模式
+async function loadPanoramaNode(node) {
+  // 暂停并隐藏所有视频
+  if (engine.activeVideo) {
+    engine.activeVideo.pause();
+    engine.activeVideo = null;
+  }
+
+  // 确保全景图容器存在
+  if (!$panoContainer) {
+    $panoContainer = document.createElement('div');
+    $panoContainer.id = 'pano-container';
+    $panoContainer.style.cssText = 'position:absolute;inset:0;z-index:5;display:none;overflow:hidden;background:#000;';
+    document.getElementById('phone-shell').appendChild($panoContainer);
+  }
+
+  document.body.classList.add('pano-mode');
+  $panoContainer.style.display = 'block';
+  $panoContainer.innerHTML = '';
+  panoState = { dragging: false, startX: 0, startY: 0, rotX: 0, rotY: 0, curRotX: 0, curRotY: 0 };
+
+  const panoUrl = node.panorama_url || '';
+  if (!panoUrl) {
+    $panoContainer.innerHTML = '<div style="color:#fff;padding:40px;text-align:center;font-family:monospace;letter-spacing:0.1em;">暂无全景图<br/>请在编辑器中设置全景图 URL</div>';
+    // 仍然渲染选项按钮
+    renderPanoChoices(node);
+    return;
+  }
+
+  // 创建全景图查看器（CSS 3D 球体投影近似）
+  const viewer = document.createElement('div');
+  viewer.style.cssText = 'position:absolute;inset:0;overflow:hidden;cursor:grab;';
+  
+  const imgWrap = document.createElement('div');
+  imgWrap.style.cssText = 'position:absolute;width:200%;height:100%;left:-50%;transform-origin:center center;transition:none;';
+  
+  const img = document.createElement('img');
+  img.src = panoUrl;
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;';
+  img.draggable = false;
+  
+  imgWrap.appendChild(img);
+  viewer.appendChild(imgWrap);
+  $panoContainer.appendChild(viewer);
+
+  // 拖拽旋转交互
+  let isDragging = false, lastX = 0, lastY = 0;
+  let offsetX = 0, offsetY = 0; // 水平偏移百分比（0~100 对应全景图一圈）
+
+  function updatePanoView() {
+    // 水平循环滚动（equirectangular 投影）
+    const clampedY = Math.max(-30, Math.min(30, offsetY));
+    imgWrap.style.transform = `translateX(${offsetX % 100}%) translateY(${clampedY}px)`;
+  }
+
+  viewer.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    viewer.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  viewer.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    lastX = e.touches[0].clientX;
+    lastY = e.touches[0].clientY;
+    e.preventDefault();
+  }, { passive: false });
+
+  const onMove = (x, y) => {
+    if (!isDragging) return;
+    const dx = x - lastX;
+    const dy = y - lastY;
+    lastX = x; lastY = y;
+    // 水平拖拽 → 全景图水平偏移（1px = 0.05% 偏移）
+    offsetX -= dx * 0.05;
+    offsetY += dy * 0.3;
+    updatePanoView();
+  };
+
+  document.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+  document.addEventListener('touchmove', (e) => onMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+
+  const onEnd = () => {
+    isDragging = false;
+    viewer.style.cursor = 'grab';
+  };
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
+
+  // 渲染热点选项
+  renderPanoChoices(node);
+
+  // 预加载分支目标
+  if (node.choices) {
+    node.choices.forEach(c => {
+      const target = engine.gameData.nodes[c.target_node];
+      if (target && target.type === '3d_model') {
+        preload3DModel(c.target_node);
+      } else if (target && target.type !== 'panorama') {
+        preloadNode(c.target_node);
+      }
+    });
+  }
+
+  console.log(`[PanoEngine] Panorama loaded: ${node.panorama_url}`);
+}
+
+// 渲染全景图热点选项
+function renderPanoChoices(node) {
+  // 移除旧的热点层
+  const oldLayer = $panoContainer ? $panoContainer.querySelector('.pano-choices-layer') : null;
+  if (oldLayer) oldLayer.remove();
+
+  if (!node.choices || !node.choices.length) return;
+
+  const layer = document.createElement('div');
+  layer.className = 'pano-choices-layer';
+  layer.style.cssText = 'position:absolute;inset:0;z-index:10;pointer-events:none;';
+
+  node.choices.forEach((choice, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'pano-hs-btn';
+    btn.style.cssText = 'position:absolute;pointer-events:auto;transform:translate(-50%,-50%);';
+    
+    // 使用 choice.position 或默认位置
+    const pos = choice.position || {};
+    const px = pos.x || `${30 + idx * 20}%`;
+    const py = pos.y || '70%';
+    btn.style.left = px;
+    btn.style.top = py;
+    btn.textContent = choice.label || `选项 ${idx + 1}`;
+    btn.addEventListener('click', () => handleChoice(choice));
+    layer.appendChild(btn);
+  });
+
+  if ($panoContainer) $panoContainer.appendChild(layer);
+}
+
+// 退出全景图模式
+function exitPanoramaMode() {
+  if (!document.body.classList.contains('pano-mode')) return;
+  document.body.classList.remove('pano-mode');
+  if ($panoContainer) {
+    $panoContainer.style.display = 'none';
+    $panoContainer.innerHTML = '';
+  }
 }
 
 

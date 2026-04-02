@@ -3017,12 +3017,18 @@ async function startAI3DGeneration() {
 // 节点添加 / 删除
 // ══════════════════════════════════════════════════════════════
 
-// 计算下一个自增节点 ID（扫描现有节点中的最大数字，+1）
+// 计算下一个自增节点 ID（扫描所有节点 key，包括 "node_xxx" 和纯数字格式，取最大数字 +1）
 function nextNodeId() {
   let max = 0;
   Object.keys(state.gameData.nodes || {}).forEach(k => {
-    const n = parseInt(k, 10);
-    if (!isNaN(n) && n > max) max = n;
+    // 支持纯数字 key（如 "1"、"7"）和 node_xxx 格式（如 "node_1774981622405"）
+    const nums = k.match(/\d+/g);
+    if (nums) {
+      nums.forEach(ns => {
+        const n = parseInt(ns, 10);
+        if (!isNaN(n) && n > max) max = n;
+      });
+    }
   });
   return String(max + 1);
 }
@@ -3117,10 +3123,11 @@ function openInspector(nodeId) {
   let choicesHtml = '';
   if (nodeData.choices) {
     choicesHtml = `
+      ${(nodeData.type !== '3d_model' && nodeData.type !== 'panorama') ? `
       <div class="insp-field">
         <div class="insp-label">分支时间 (秒)</div>
         <input class="insp-input" id="insp-branch-sec" type="number" value="${nodeData.branch_time || nodeData.branch_at_second || 5}" min="0"/>
-      </div>
+      </div>` : ''}
       <div class="insp-field">
         <div class="insp-label">选项列表 <span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(拖动预览区按鈕可重新定位)</span></div>
         <div class="insp-choices-list" id="insp-choices">
@@ -3161,12 +3168,17 @@ function openInspector(nodeId) {
       </div>`;
   }
 
-  // 3D 模型上传区域 HTML
-  const model3dUploadHtml = nodeData.type === '3d_model' ? `
+  // 全景图上传区域 HTML（panorama 和 3d_model 类型共用）
+  const model3dUploadHtml = (nodeData.type === '3d_model' || nodeData.type === 'panorama') ? `
     <div class="insp-field">
       <div class="insp-label">360° 全景图 URL</div>
       <input class="insp-input" id="insp-panorama-url" value="${escHtml(nodeData.panorama_url||'')}" placeholder="https://...skybox...jpg"/>
     </div>
+    ${nodeData.poster_url ? `
+    <div class="insp-field">
+      <div class="insp-label">缩略图预览</div>
+      <img src="${escHtml(nodeData.poster_url)}" style="width:100%;border-radius:4px;max-height:120px;object-fit:cover;"/>
+    </div>` : ''}
     <div class="insp-field">
       <div class="insp-label" style="display:flex;align-items:center;gap:6px;">
         生成 360° 全景图
@@ -3206,7 +3218,7 @@ function openInspector(nodeId) {
       <div class="insp-label">标题</div>
       <input class="insp-input" id="insp-title-val" value="${escHtml(nodeData.title||'')}"/>
     </div>
-    ${nodeData.type !== '3d_model' ? `
+    ${(nodeData.type !== '3d_model' && nodeData.type !== 'panorama') ? `
     <div class="insp-field">
       <div class="insp-label">视频文件</div>
       <div class="video-upload-zone" id="video-upload-zone" onclick="document.getElementById('video-file-input').click()">
@@ -3282,15 +3294,15 @@ function applyInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
   nodeData.title = document.getElementById('insp-title-val')?.value || nodeData.title;
 
-  // 3D 模型 URL / 视频 URL
-  if (nodeData.type === '3d_model') {
+  // 3D 模型 URL / 全景图 URL / 视频 URL
+  if (nodeData.type === '3d_model' || nodeData.type === 'panorama') {
     const panoramaUrl = document.getElementById('insp-panorama-url')?.value;
     if (panoramaUrl !== undefined) nodeData.panorama_url = panoramaUrl;
   } else {
     nodeData.video_url = document.getElementById('insp-video-url')?.value || nodeData.video_url;
   }
   if (nodeData.choices) {
-    if (nodeData.type !== '3d_model') {
+    if (nodeData.type !== '3d_model' && nodeData.type !== 'panorama') {
       const branchVal = parseFloat(document.getElementById('insp-branch-sec')?.value) || 5;
       nodeData.branch_at_second = branchVal;
       nodeData.branch_time      = branchVal;
@@ -3313,8 +3325,24 @@ function applyInspector(nodeId) {
           nodeData.choices[idx].position = inp.value;
         } else if (field === 'normal') {
           nodeData.choices[idx].normal = inp.value;
-        } else {
-          nodeData.choices[idx][field] = inp.value;
+        } else if (field === 'target_node') {
+          // 支持用户输入序号（nodeIndexMap 中的显示数字）或实际节点 key
+          // 如果输入的是纯数字，先尝试从 nodeIndexMap 反向查找实际 key
+          const inputVal = inp.value.trim();
+          if (inputVal && /^\d+$/.test(inputVal)) {
+            // 尝试反向查找：序号 → 实际 nodeId
+            const seqNum = parseInt(inputVal, 10);
+            const reverseEntry = Object.entries(state.nodeIndexMap || {}).find(([, v]) => v === seqNum);
+            if (reverseEntry) {
+              // 找到对应的实际 key
+              nodeData.choices[idx][field] = reverseEntry[0];
+            } else {
+              // 没有序号匹配，直接尝试作为实际 key（如果节点 key 就是数字）
+              nodeData.choices[idx][field] = inputVal;
+            }
+          } else {
+            nodeData.choices[idx][field] = inputVal;
+          }
         }
       });
     });
@@ -3572,11 +3600,46 @@ function updatePreviewPanel(nodeData) {
   const placeholder = document.getElementById('screen-placeholder');
   const screenContent = document.getElementById('screen-content');
 
-  // 移除旧的 video 元素
+  // 移除旧的 video 元素和全景图元素
   const oldVideo = screenContent.querySelector('.preview-video-el');
   if (oldVideo) oldVideo.remove();
+  const oldPano = screenContent.querySelector('.preview-pano-el');
+  if (oldPano) oldPano.remove();
 
-  if (nodeData.video_url) {
+  if (nodeData.type === 'panorama' && nodeData.panorama_url) {
+    // 全景图节点：显示全景图预览（简单图片展示）
+    placeholder.style.display = 'none';
+    const panoWrap = document.createElement('div');
+    panoWrap.className = 'preview-pano-el';
+    panoWrap.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;overflow:hidden;';
+    const panoImg = document.createElement('img');
+    panoImg.src = nodeData.panorama_url;
+    panoImg.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    panoImg.title = '全景图预览（实际游戏中可拖拽旋转）';
+    const panoLabel = document.createElement('div');
+    panoLabel.style.cssText = 'position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:10px;color:rgba(255,255,255,0.7);pointer-events:none;letter-spacing:0.1em;';
+    panoLabel.textContent = '360° PANORAMA';
+    panoWrap.appendChild(panoImg);
+    panoWrap.appendChild(panoLabel);
+    const choicesLayer = document.getElementById('screen-choices');
+    screenContent.insertBefore(panoWrap, choicesLayer);
+  } else if (nodeData.type === 'panorama' && nodeData.poster_url) {
+    // 全景图节点但 panorama_url 未设置：显示缩略图
+    placeholder.style.display = 'none';
+    const panoWrap = document.createElement('div');
+    panoWrap.className = 'preview-pano-el';
+    panoWrap.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;overflow:hidden;';
+    const panoImg = document.createElement('img');
+    panoImg.src = nodeData.poster_url;
+    panoImg.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;opacity:0.6;';
+    const panoLabel = document.createElement('div');
+    panoLabel.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,0.8);font-size:11px;letter-spacing:0.1em;gap:6px;';
+    panoLabel.innerHTML = '<span style="font-size:20px;">🌐</span><span>360° PANORAMA</span><span style="font-size:9px;opacity:0.6;">全景图生成中或未设置</span>';
+    panoWrap.appendChild(panoImg);
+    panoWrap.appendChild(panoLabel);
+    const choicesLayer = document.getElementById('screen-choices');
+    screenContent.insertBefore(panoWrap, choicesLayer);
+  } else if (nodeData.video_url) {
     // 隐藏占位符，显示视频
     placeholder.style.display = 'none';
     const vid = document.createElement('video');
@@ -4057,10 +4120,62 @@ function loadImmersiveNode(nodeData) {
   if (nodeData.type === '3d_model') {
     // ── 3D 模型模式 ──
     screen.classList.add('model3d-active');
+    screen.classList.remove('panorama-active');
     init3DModelViewer(nodeData);
+  } else if (nodeData.type === 'panorama') {
+    // ── 360° 全景图模式 ──
+    screen.classList.remove('model3d-active', 'model3d-picking');
+    screen.classList.add('panorama-active');
+    model3dPickMode = false;
+    destroy3DModelViewer();
+
+    const placeholder = document.getElementById('imm-placeholder');
+    const oldVid = screen.querySelector('.imm-video-el');
+    if (oldVid) oldVid.remove();
+    const oldPano = screen.querySelector('.imm-pano-el');
+    if (oldPano) oldPano.remove();
+
+    const screenContent = screen.querySelector('.imm-screen-content');
+    const choicesLayer = document.getElementById('immersive-choices');
+
+    if (nodeData.panorama_url) {
+      placeholder.style.display = 'none';
+      const panoWrap = document.createElement('div');
+      panoWrap.className = 'imm-pano-el';
+      panoWrap.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;overflow:hidden;border-radius:inherit;';
+      const panoImg = document.createElement('img');
+      panoImg.src = nodeData.panorama_url;
+      panoImg.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      panoImg.title = '360° 全景图预览';
+      const panoLabel = document.createElement('div');
+      panoLabel.style.cssText = 'position:absolute;top:12px;left:0;right:0;text-align:center;font-size:11px;color:rgba(255,255,255,0.6);pointer-events:none;letter-spacing:0.12em;';
+      panoLabel.textContent = '360° PANORAMA · 编辑器预览';
+      panoWrap.appendChild(panoImg);
+      panoWrap.appendChild(panoLabel);
+      screenContent.insertBefore(panoWrap, choicesLayer);
+    } else if (nodeData.poster_url) {
+      placeholder.style.display = 'none';
+      const panoWrap = document.createElement('div');
+      panoWrap.className = 'imm-pano-el';
+      panoWrap.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:1;overflow:hidden;border-radius:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+      const panoImg = document.createElement('img');
+      panoImg.src = nodeData.poster_url;
+      panoImg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.4;';
+      const panoLabel = document.createElement('div');
+      panoLabel.style.cssText = 'position:relative;z-index:2;text-align:center;color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:0.12em;';
+      panoLabel.innerHTML = '<div style="font-size:28px;margin-bottom:8px;">🌐</div><div>360° PANORAMA</div><div style="font-size:10px;opacity:0.6;margin-top:4px;">全景图生成中或未设置</div>';
+      panoWrap.appendChild(panoImg);
+      panoWrap.appendChild(panoLabel);
+      screenContent.insertBefore(panoWrap, choicesLayer);
+    } else {
+      placeholder.style.display = '';
+      placeholder.style.backgroundImage = '';
+    }
+
+    renderImmersiveChoices(nodeData);
   } else {
     // ── 2D 视频模式 ──
-    screen.classList.remove('model3d-active', 'model3d-picking');
+    screen.classList.remove('model3d-active', 'model3d-picking', 'panorama-active');
     model3dPickMode = false;
     destroy3DModelViewer();
 
@@ -4068,6 +4183,8 @@ function loadImmersiveNode(nodeData) {
     const placeholder = document.getElementById('imm-placeholder');
     const oldVid = screen.querySelector('.imm-video-el');
     if (oldVid) oldVid.remove();
+    const oldPano = screen.querySelector('.imm-pano-el');
+    if (oldPano) oldPano.remove();
 
     if (nodeData.video_url) {
       placeholder.style.display = 'none';
