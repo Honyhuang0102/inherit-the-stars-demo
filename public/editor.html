@@ -5045,7 +5045,445 @@ function initCanvasZoomPan() {
   console.log('[ZoomPan] Canvas zoom/pan engine initialized');
 }
 
-// 在 enterImmersiveMode 之后调用 initCanvasZoomPan
-// 在 exitImmersiveMode 之前调用 resetCanvasTransform
 
+// ── Add Game Panel button to toolbar ─────────────────────────────
+(function addGamePanelBtn() {
+  const moreBtn = document.getElementById('tool-more-btn');
+  if (moreBtn && moreBtn.parentNode) {
+    const sep = document.createElement('div');
+    sep.className = 'tool-divider';
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn';
+    btn.title = '游戏系统设置';
+    btn.innerHTML = '<span style="font-size:14px;">⚙️</span><span class="tool-tip">游戏设置</span>';
+    btn.setAttribute("onclick", "openGamePanel()");
+    moreBtn.parentNode.insertBefore(sep, moreBtn);
+    moreBtn.parentNode.insertBefore(btn, sep);
+  }
+})();
+
+</script>
+<!-- ═══════════════════════════════════════════════════════
+     GAME SYSTEMS PANEL
+═══════════════════════════════════════════════════════ -->
+<div id="game-panel" style="display:none;flex-direction:column;position:fixed;top:60px;left:260px;width:300px;max-height:calc(100vh - 80px);background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:400;overflow:hidden;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span style="font-size:12px;font-weight:600;color:var(--text-primary);">⚙️ Game Settings</span>
+    <button onclick="document.getElementById('game-panel').style.display='none'" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;line-height:1;">✕</button>
+  </div>
+  <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;">
+    <button class="gp-tab active" data-tab="variables" onclick="renderGamePanelTab('variables')" title="变量">📊</button>
+    <button class="gp-tab" data-tab="items" onclick="renderGamePanelTab('items')" title="道具">🎒</button>
+    <button class="gp-tab" data-tab="theme" onclick="renderGamePanelTab('theme')" title="主题">🎨</button>
+    <button class="gp-tab" data-tab="shop" onclick="renderGamePanelTab('shop')" title="商城">🛒</button>
+    <button class="gp-tab" data-tab="respawn" onclick="renderGamePanelTab('respawn')" title="重生">💀</button>
+    <button class="gp-tab" data-tab="endings" onclick="renderGamePanelTab('endings')" title="结局">🏆</button>
+  </div>
+  <div id="gp-body" style="overflow-y:auto;flex:1;padding:8px 10px;"></div>
+</div>
+
+<style>
+.gp-tab{background:none;border:none;padding:6px 11px;cursor:pointer;color:var(--text-tertiary);font-size:15px;white-space:nowrap;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;}
+.gp-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.gp-tab:hover:not(.active){color:var(--text-secondary);}
+.gp-input{width:100%;padding:4px 7px;font-size:11px;background:var(--bg-canvas);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);outline:none;box-sizing:border-box;margin-top:3px;}
+.gp-input:focus{border-color:var(--border-strong);}
+.gp-label{font-size:10px;color:var(--text-tertiary);letter-spacing:.05em;font-weight:500;}
+.gp-add-btn{padding:5px 10px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;}
+.gp-add-btn:hover{opacity:.85;}
+.gp-micro-btn{padding:2px 7px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);cursor:pointer;}
+.gp-micro-btn:hover{background:var(--bg-card-hover);}
+.gp-micro-btn.danger{border-color:var(--accent-red);color:var(--accent-red);}
+.gp-item{display:flex;align-items:center;gap:6px;padding:5px 6px;background:var(--bg-card);border-radius:var(--radius-sm);margin-bottom:4px;}
+.gp-item-icon{font-size:16px;flex-shrink:0;}
+.gp-item-info{flex:1;min-width:0;}
+.gp-item-name{font-size:11px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gp-item-sub{font-size:10px;color:var(--text-tertiary);}
+.gp-item-actions{display:flex;gap:3px;flex-shrink:0;}
+.gp-section{margin-bottom:6px;}
+.gp-tpl-btn{padding:4px 8px;font-size:10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-secondary);}
+.gp-tpl-btn:hover{background:var(--bg-card-hover);}
+.gp-theme-tile{padding:10px 6px;background:var(--bg-card);border:2px solid transparent;border-radius:var(--radius-sm);cursor:pointer;display:flex;flex-direction:column;align-items:center;transition:border-color .15s,background .15s;}
+.gp-theme-tile:hover{background:var(--bg-card-hover);}
+.gp-theme-tile.active{background:var(--bg-canvas);}
+.eff-section{margin-top:5px;border-top:1px solid var(--border);padding-top:5px;}
+.eff-toggle{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;color:var(--text-secondary);user-select:none;}
+.eff-toggle:hover{color:var(--text-primary);}
+.eff-body{margin-top:4px;padding:5px;background:var(--bg-canvas);border-radius:var(--radius-sm);}
+.eff-row{display:flex;gap:3px;align-items:center;margin-bottom:3px;}
+.eff-select{padding:3px 4px;font-size:10px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);max-width:95px;}
+.eff-num{width:48px;padding:3px 4px;font-size:10px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);}
+.eff-del-btn{padding:1px 5px;font-size:10px;background:none;border:1px solid var(--accent-red);border-radius:3px;color:var(--accent-red);cursor:pointer;line-height:1.4;}
+.eff-add-btn{padding:2px 7px;font-size:10px;background:none;border:1px solid var(--border);border-radius:3px;color:var(--text-tertiary);cursor:pointer;margin-top:2px;}
+.eff-add-btn:hover{border-color:var(--accent);color:var(--accent);}
+.cond-fail-select{padding:3px 4px;font-size:10px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);max-width:80px;}
+.node-checkpoint-badge{position:absolute;top:2px;right:2px;font-size:9px;background:#2d6a2d;color:#9eff9e;border-radius:3px;padding:1px 4px;pointer-events:none;}
+.checkpoint-toggle{margin-top:4px;}
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// GAME SYSTEMS ENGINE — Editor Side
+// ═══════════════════════════════════════════════════════════════════
+
+function ensureGameSettings() {
+  if (!state.gameData) return;
+  if (!state.gameData.game_settings) state.gameData.game_settings = {};
+  const gs = state.gameData.game_settings;
+  if (!gs.variables) gs.variables = [];
+  if (!gs.items) gs.items = [];
+  if (!gs.shop) gs.shop = [];
+  if (!gs.endings) gs.endings = [];
+  if (!gs.theme) gs.theme = 'minimal_clean';
+}
+
+function openGamePanel() {
+  ensureGameSettings();
+  const p = document.getElementById('game-panel');
+  const isOpen = p.style.display === 'flex';
+  p.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen) renderGamePanelTab('variables');
+}
+
+function renderGamePanelTab(tab) {
+  document.querySelectorAll('.gp-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const body = document.getElementById('gp-body');
+  if (!body) return;
+  if (tab === 'variables') body.innerHTML = renderVariablesTab();
+  else if (tab === 'items') body.innerHTML = renderItemsTab();
+  else if (tab === 'theme') body.innerHTML = renderThemeTab();
+  else if (tab === 'shop') body.innerHTML = renderShopTab();
+  else if (tab === 'respawn') body.innerHTML = renderRespawnTab();
+  else if (tab === 'endings') body.innerHTML = renderEndingsTab();
+}
+
+// ── VARIABLES TAB ────────────────────────────────────────────────
+const VARIABLE_TEMPLATES = {
+  romance:[
+    {id:'affection',name:'好感度',icon:'❤️',type:'number',initial:0,min:0,max:100,visible:true},
+    {id:'trust',name:'信任度',icon:'🎭',type:'number',initial:0,min:0,max:100,visible:true},
+    {id:'coins',name:'金币',icon:'💰',type:'number',initial:100,min:0,max:9999,visible:true}
+  ],
+  adventure:[
+    {id:'hp',name:'生命值',icon:'❤️',type:'number',initial:100,min:0,max:100,visible:true},
+    {id:'attack',name:'攻击力',icon:'⚔️',type:'number',initial:10,min:0,max:999,visible:true},
+    {id:'defense',name:'防御力',icon:'🛡️',type:'number',initial:5,min:0,max:999,visible:true},
+    {id:'coins',name:'金币',icon:'💰',type:'number',initial:50,min:0,max:9999,visible:true}
+  ],
+  mystery:[
+    {id:'clues',name:'线索数',icon:'🔍',type:'number',initial:0,min:0,max:99,visible:true},
+    {id:'sanity',name:'理智值',icon:'😰',type:'number',initial:100,min:0,max:100,visible:true},
+    {id:'trust',name:'信任度',icon:'🤝',type:'number',initial:0,min:0,max:100,visible:true}
+  ]
+};
+
+function renderVariablesTab() {
+  const vars = state.gameData.game_settings.variables;
+  return '<div class="gp-section" style="display:flex;align-items:center;justify-content:space-between;"><button class="gp-add-btn" onclick="openVarForm(-1)">+ 添加变量</button></div>'
+  + '<div id="gp-var-list" style="margin-top:6px;">'
+  + vars.map((v,i) => `<div class="gp-item"><span class="gp-item-icon">${v.icon||'📊'}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(v.name)}</div><div class="gp-item-sub">${v.type==='number'?`${v.initial} [${v.min}–${v.max}]`:v.type} ${v.visible?'👁':'🔒'}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openVarForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteVar(${i})">✕</button></div></div>`).join('')
+  + '</div>'
+  + '<div class="gp-section" style="margin-top:8px;"><div class="gp-label">快速模板</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;"><button class="gp-tpl-btn" onclick="applyVarTemplate(\'romance\')">💕 恋爱向</button><button class="gp-tpl-btn" onclick="applyVarTemplate(\'adventure\')">⚔️ 冒险向</button><button class="gp-tpl-btn" onclick="applyVarTemplate(\'mystery\')">🔍 悬疑向</button></div></div>'
+  + '<div id="gp-var-form" style="display:none;margin-top:8px;padding:8px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);">'
+  + '<div class="gp-label">变量 ID (英文)</div><input id="vf-id" placeholder="如 affection" class="gp-input"/>'
+  + '<div class="gp-label" style="margin-top:4px;">名称</div><input id="vf-name" placeholder="如 好感度" class="gp-input"/>'
+  + '<div style="display:flex;gap:4px;margin-top:4px;"><div style="flex:1;"><div class="gp-label">图标</div><input id="vf-icon" placeholder="❤️" class="gp-input"/></div><div style="flex:2;"><div class="gp-label">类型</div><select id="vf-type" class="gp-input" onchange="onVarTypeChange()"><option value="number">数值</option><option value="boolean">开关</option><option value="text">文本</option></select></div></div>'
+  + '<div id="vf-number-fields"><div class="gp-label" style="margin-top:4px;">初始 / 最小 / 最大</div><div style="display:flex;gap:4px;margin-top:2px;"><input id="vf-initial" type="number" value="0" class="gp-input"/><input id="vf-min" type="number" value="0" class="gp-input"/><input id="vf-max" type="number" value="100" class="gp-input"/></div></div>'
+  + '<div style="display:flex;align-items:center;gap:10px;margin-top:5px;"><label style="font-size:11px;color:var(--text-secondary);"><input type="checkbox" id="vf-visible" checked/> 显示给玩家</label><label style="font-size:11px;color:var(--text-secondary);"><input type="checkbox" id="vf-is-rel" onchange="document.getElementById(\'vf-rel-fields\').style.display=this.checked?\'block\':\'none\'"/> 角色关系</label></div>'
+  + '<div id="vf-rel-fields" style="display:none;margin-top:4px;"><input id="vf-avatar" placeholder="角色头像 URL" class="gp-input"/><input id="vf-rel-label" placeholder="关系标签" class="gp-input" style="margin-top:3px;"/></div>'
+  + '<div style="display:flex;gap:4px;margin-top:6px;"><button class="gp-add-btn" onclick="saveVar()">保存</button><button class="gp-micro-btn" onclick="document.getElementById(\'gp-var-form\').style.display=\'none\'">取消</button></div>'
+  + '</div>';
+}
+
+let _varFormEditIdx = -1;
+function openVarForm(idx) {
+  _varFormEditIdx = idx;
+  document.getElementById('gp-var-form').style.display = 'block';
+  const el = id => document.getElementById(id);
+  if (idx < 0) {
+    ['vf-id','vf-name','vf-icon','vf-avatar','vf-rel-label'].forEach(k => el(k).value='');
+    el('vf-type').value='number'; el('vf-initial').value='0'; el('vf-min').value='0'; el('vf-max').value='100';
+    el('vf-visible').checked=true; el('vf-is-rel').checked=false; el('vf-rel-fields').style.display='none'; el('vf-number-fields').style.display='block';
+  } else {
+    const v = state.gameData.game_settings.variables[idx];
+    el('vf-id').value=v.id; el('vf-name').value=v.name; el('vf-icon').value=v.icon||'';
+    el('vf-type').value=v.type; el('vf-initial').value=v.initial||0; el('vf-min').value=v.min||0; el('vf-max').value=v.max||100;
+    el('vf-visible').checked=!!v.visible; el('vf-is-rel').checked=!!v.is_relationship;
+    el('vf-rel-fields').style.display=v.is_relationship?'block':'none';
+    if(el('vf-avatar')) el('vf-avatar').value=v.character_avatar||'';
+    if(el('vf-rel-label')) el('vf-rel-label').value=v.relationship_label||'';
+    onVarTypeChange();
+  }
+}
+function onVarTypeChange() {
+  document.getElementById('vf-number-fields').style.display = document.getElementById('vf-type').value==='number'?'block':'none';
+}
+function saveVar() {
+  const el = id => document.getElementById(id);
+  const id=el('vf-id').value.trim(), name=el('vf-name').value.trim();
+  if (!id||!name) { showToast('ID 和名称不能为空','error'); return; }
+  const v = { id, name, icon:el('vf-icon').value.trim()||'📊', type:el('vf-type').value,
+    initial:parseFloat(el('vf-initial').value)||0, min:parseFloat(el('vf-min').value)||0, max:parseFloat(el('vf-max').value)||100,
+    visible:el('vf-visible').checked, is_relationship:el('vf-is-rel').checked,
+    character_avatar:el('vf-avatar')?.value||null, relationship_label:el('vf-rel-label')?.value||null };
+  const vars=state.gameData.game_settings.variables;
+  if (_varFormEditIdx<0) vars.push(v); else vars[_varFormEditIdx]=v;
+  saveData(); renderGamePanelTab('variables'); showToast('变量已保存','success');
+}
+function deleteVar(i) { state.gameData.game_settings.variables.splice(i,1); saveData(); renderGamePanelTab('variables'); }
+function applyVarTemplate(tpl) {
+  const tmpl=VARIABLE_TEMPLATES[tpl]; if(!tmpl) return;
+  const existing=state.gameData.game_settings.variables;
+  tmpl.forEach(v=>{ if(!existing.find(e=>e.id===v.id)) existing.push({...v}); });
+  saveData(); renderGamePanelTab('variables'); showToast('模板已应用','success');
+}
+
+// ── ITEMS TAB ────────────────────────────────────────────────────
+const THEME_ICONS = {
+  neon_abyss:['🔋','💉','🔑','🛡️','📡','⚡','🔬','💊','🔌','📦','🧪','🔫','🛸','💻','📱','🎮','🔭','🧲','⚙️','🔧'],
+  ancient_scroll:['🗡️','🧪','📜','💎','🏺','🪄','🏹','🛡️','📿','🧿','🔮','🌿','🍵','🕯️','📯','🌙','⭐','🌸','🍀','🎋'],
+  crystal_dream:['💐','💎','💌','🎀','🔮','🌸','🦋','✨','🌟','🪄','💫','🌙','🎁','🍓','🌈','🫀','💝','🌺','🪷','🫧'],
+  dark_forest:['🔦','🗡️','💊','🪤','🧭','🔑','🪓','🕯️','💀','🍄','🌿','🕸️','🦇','🐺','🌑','⚰️','🩸','🔪','🧟','🗝️'],
+  comic_pop:['💣','⭐','🎯','🧲','🎪','🎃','🎭','🎨','🎠','🎡','🎢','🎰','🎲','🃏','🎸','🥊','🏆','🎖️','🏅','🎗️'],
+  minimal_clean:['🔑','📦','📝','💡','🔔','📌','📍','🔖','✂️','📎','🖇️','📐','📏','🖊️','💼','🗂️','📁','📂','🗃️','🗑️']
+};
+function renderItemsTab() {
+  const items=state.gameData.game_settings.items||[];
+  const theme=state.gameData.game_settings.theme||'minimal_clean';
+  const iconLib=THEME_ICONS[theme]||THEME_ICONS.minimal_clean;
+  return '<div class="gp-section" style="display:flex;align-items:center;justify-content:space-between;"><button class="gp-add-btn" onclick="openItemForm(-1)">+ 添加道具</button></div>'
+  + '<div id="gp-item-list" style="margin-top:6px;">'
+  + items.map((it,i)=>`<div class="gp-item"><span class="gp-item-icon">${it.icon||'📦'}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(it.name)}</div><div class="gp-item-sub">${escHtml(it.description||'')}${it.stackable?' ×'+it.max_count:''}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openItemForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteItem(${i})">✕</button></div></div>`).join('')
+  + '</div>'
+  + '<div id="gp-item-form" style="display:none;margin-top:8px;padding:8px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);">'
+  + '<div class="gp-label">道具 ID (英文)</div><input id="if-id" placeholder="如 key_old" class="gp-input"/>'
+  + '<div class="gp-label" style="margin-top:4px;">名称</div><input id="if-name" placeholder="如 古老的钥匙" class="gp-input"/>'
+  + '<div class="gp-label" style="margin-top:4px;">选择图标</div>'
+  + '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;">' + iconLib.map(ic=>`<span style="cursor:pointer;font-size:18px;padding:2px 3px;border-radius:4px;" onclick="document.getElementById(\'if-icon\').value=\'${ic}\'">${ic}</span>`).join('') + '</div>'
+  + '<input id="if-icon" placeholder="或输入 emoji" class="gp-input" style="margin-top:4px;"/>'
+  + '<div class="gp-label" style="margin-top:4px;">描述</div><input id="if-desc" placeholder="道具描述" class="gp-input"/>'
+  + '<div style="display:flex;align-items:center;gap:8px;margin-top:5px;"><label style="font-size:11px;color:var(--text-secondary);"><input type="checkbox" id="if-stackable"/> 可叠加</label><span class="gp-label">最大:</span><input id="if-max" type="number" value="1" class="gp-input" style="width:60px;margin-top:0;"/></div>'
+  + '<div style="display:flex;gap:4px;margin-top:6px;"><button class="gp-add-btn" onclick="saveItem()">保存</button><button class="gp-micro-btn" onclick="document.getElementById(\'gp-item-form\').style.display=\'none\'">取消</button></div>'
+  + '</div>';
+}
+let _itemFormEditIdx=-1;
+function openItemForm(idx) {
+  _itemFormEditIdx=idx; const el=id=>document.getElementById(id);
+  el('gp-item-form').style.display='block';
+  if (idx<0) { ['if-id','if-name','if-icon','if-desc'].forEach(k=>el(k).value=''); el('if-stackable').checked=false; el('if-max').value='1'; }
+  else { const it=state.gameData.game_settings.items[idx]; el('if-id').value=it.id; el('if-name').value=it.name; el('if-icon').value=it.icon||''; el('if-desc').value=it.description||''; el('if-stackable').checked=!!it.stackable; el('if-max').value=it.max_count||1; }
+}
+function saveItem() {
+  const el=id=>document.getElementById(id);
+  const id=el('if-id').value.trim(), name=el('if-name').value.trim();
+  if (!id||!name) { showToast('ID 和名称不能为空','error'); return; }
+  const it={id,name,icon:el('if-icon').value.trim()||'📦',description:el('if-desc').value.trim(),stackable:el('if-stackable').checked,max_count:parseInt(el('if-max').value)||1};
+  const items=state.gameData.game_settings.items;
+  if (_itemFormEditIdx<0) items.push(it); else items[_itemFormEditIdx]=it;
+  saveData(); renderGamePanelTab('items'); showToast('道具已保存','success');
+}
+function deleteItem(i) { state.gameData.game_settings.items.splice(i,1); saveData(); renderGamePanelTab('items'); }
+
+// ── THEME TAB ────────────────────────────────────────────────────
+const THEMES_META=[
+  {id:'neon_abyss',name:'Neon Abyss',emoji:'🌆',accent:'#00FFFF'},
+  {id:'ancient_scroll',name:'Ancient Scroll',emoji:'📜',accent:'#C8A97E'},
+  {id:'crystal_dream',name:'Crystal Dream',emoji:'💎',accent:'#FFB6C1'},
+  {id:'dark_forest',name:'Dark Forest',emoji:'🌲',accent:'#4a7a4a'},
+  {id:'comic_pop',name:'Comic Pop',emoji:'💥',accent:'#FFD700'},
+  {id:'minimal_clean',name:'Minimal',emoji:'⬜',accent:'#888'},
+];
+function renderThemeTab() {
+  const cur=state.gameData.game_settings.theme||'minimal_clean';
+  return '<div class="gp-label" style="margin-bottom:6px;">选择世界风格</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+  + THEMES_META.map(t=>`<div class="gp-theme-tile ${cur===t.id?'active':''}" onclick="selectTheme('${t.id}')" style="border-color:${cur===t.id?t.accent:'transparent'};"><div style="font-size:22px;margin-bottom:3px;">${t.emoji}</div><div style="font-size:10px;color:var(--text-secondary);text-align:center;">${t.name}</div></div>`).join('')
+  + '</div>';
+}
+function selectTheme(id) { state.gameData.game_settings.theme=id; saveData(); renderGamePanelTab('theme'); showToast('主题已更改','success'); }
+
+// ── SHOP TAB ─────────────────────────────────────────────────────
+const SHOP_TEMPLATES={
+  survival:[{item_id:'potion_revive',price_bubbles:5,description:'立即复活，保留进度',max_per_game:null},{item_id:'shield',price_bubbles:10,description:'抵挡一次致命伤害',max_per_game:3}],
+  romance:[{item_id:'flowers',price_bubbles:5,description:'送给她，好感度+10',max_per_game:null},{item_id:'ring',price_bubbles:20,description:'表白神器，好感度+30',max_per_game:1}],
+  mystery:[{item_id:'extra_clue',price_bubbles:5,description:'获取一条额外线索',max_per_game:null},{item_id:'hack_tool',price_bubbles:15,description:'解锁一个锁定选项',max_per_game:null}]
+};
+function renderShopTab() {
+  const shop=state.gameData.game_settings.shop||[], items=state.gameData.game_settings.items||[];
+  return '<div class="gp-section" style="display:flex;align-items:center;justify-content:space-between;"><button class="gp-add-btn" onclick="openShopForm(-1)">+ 添加商品</button></div>'
+  + '<div class="gp-label" style="margin-top:3px;color:var(--text-tertiary);">分成：创作者 60% / 平台 25% / 商店 15%</div>'
+  + '<div id="gp-shop-list" style="margin-top:6px;">' + shop.map((s,i)=>{const it=items.find(x=>x.id===s.item_id)||{name:s.item_id,icon:'📦'};return `<div class="gp-item"><span class="gp-item-icon">${it.icon}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(it.name)}</div><div class="gp-item-sub">🫧 ${s.price_bubbles}${s.max_per_game?' · 限'+s.max_per_game+'个/局':''}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openShopForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteShopItem(${i})">✕</button></div></div>`;}).join('') + '</div>'
+  + '<div id="gp-shop-form" style="display:none;margin-top:8px;padding:8px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);">'
+  + '<div class="gp-label">道具</div><select id="sf-item" class="gp-input"><option value="">-- 选择道具 --</option>' + items.map(it=>`<option value="${it.id}">${it.icon} ${it.name}</option>`).join('') + '</select>'
+  + '<div style="display:flex;gap:4px;margin-top:4px;"><div style="flex:1;"><div class="gp-label">价格 🫧</div><input id="sf-price" type="number" value="5" class="gp-input"/></div><div style="flex:1;"><div class="gp-label">每局限购</div><input id="sf-max" type="number" placeholder="不限" class="gp-input"/></div></div>'
+  + '<div class="gp-label" style="margin-top:4px;">描述</div><input id="sf-desc" placeholder="商品描述" class="gp-input"/>'
+  + '<div style="display:flex;gap:4px;margin-top:6px;"><button class="gp-add-btn" onclick="saveShopItem()">保存</button><button class="gp-micro-btn" onclick="document.getElementById(\'gp-shop-form\').style.display=\'none\'">取消</button></div></div>'
+  + '<div class="gp-section" style="margin-top:8px;"><div class="gp-label">推荐模板</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;"><button class="gp-tpl-btn" onclick="applyShopTemplate(\'survival\')">🧪 生存类</button><button class="gp-tpl-btn" onclick="applyShopTemplate(\'romance\')">💐 恋爱类</button><button class="gp-tpl-btn" onclick="applyShopTemplate(\'mystery\')">🔍 悬疑类</button></div></div>';
+}
+let _shopFormEditIdx=-1;
+function openShopForm(idx) {
+  _shopFormEditIdx=idx; const el=id=>document.getElementById(id); el('gp-shop-form').style.display='block';
+  if (idx<0) { el('sf-item').value=''; el('sf-price').value='5'; el('sf-max').value=''; el('sf-desc').value=''; }
+  else { const s=state.gameData.game_settings.shop[idx]; el('sf-item').value=s.item_id; el('sf-price').value=s.price_bubbles; el('sf-max').value=s.max_per_game||''; el('sf-desc').value=s.description||''; }
+}
+function saveShopItem() {
+  const el=id=>document.getElementById(id); const item_id=el('sf-item').value;
+  if (!item_id) { showToast('请选择道具','error'); return; }
+  const s={item_id,price_bubbles:parseInt(el('sf-price').value)||5,max_per_game:parseInt(el('sf-max').value)||null,description:el('sf-desc').value.trim()};
+  if (isNaN(s.max_per_game)) s.max_per_game=null;
+  const shop=state.gameData.game_settings.shop;
+  if (_shopFormEditIdx<0) shop.push(s); else shop[_shopFormEditIdx]=s;
+  saveData(); renderGamePanelTab('shop'); showToast('商品已保存','success');
+}
+function deleteShopItem(i) { state.gameData.game_settings.shop.splice(i,1); saveData(); renderGamePanelTab('shop'); }
+function applyShopTemplate(tpl) {
+  const tmpl=SHOP_TEMPLATES[tpl]; if(!tmpl) return;
+  const shop=state.gameData.game_settings.shop;
+  tmpl.forEach(s=>{ if(!shop.find(x=>x.item_id===s.item_id)) shop.push({...s}); });
+  saveData(); renderGamePanelTab('shop'); showToast('商城模板已应用','success');
+}
+
+// ── RESPAWN TAB ──────────────────────────────────────────────────
+function _ensureRR() {
+  if (!state.gameData.game_settings.respawn_rules) state.gameData.game_settings.respawn_rules={death_conditions:[],respawn_mode:'start',revive_item_id:null,death_message:'你已经倒下了...'};
+  const rr=state.gameData.game_settings.respawn_rules; if (!rr.death_conditions) rr.death_conditions=[];
+  return rr;
+}
+function renderRespawnTab() {
+  const rr=state.gameData.game_settings.respawn_rules||{}, vars=(state.gameData.game_settings.variables||[]).filter(v=>v.type==='number'), items=state.gameData.game_settings.items||[], dc=rr.death_conditions||[];
+  return '<div class="gp-label">死亡条件 <span style="font-weight:400;">(任一触发即死亡)</span></div>'
+  + '<div id="gp-death-cond-list" style="margin-top:4px;">' + dc.map((c,i)=>{const v=vars.find(x=>x.id===c.variable_id)||{name:c.variable_id,icon:'📊'};return `<div class="gp-item" style="padding:4px 6px;"><span style="font-size:12px;">${v.icon||'📊'} ${v.name}</span><select class="eff-select" onchange="updateDeathCond(${i},'operator',this.value)"><option value="lte" ${c.operator==='lte'?'selected':''}>≤</option><option value="gte" ${c.operator==='gte'?'selected':''}>≥</option><option value="eq" ${c.operator==='eq'?'selected':''}>=</option></select><input type="number" value="${c.value}" class="eff-num" onchange="updateDeathCond(${i},'value',+this.value)"/><button class="eff-del-btn" onclick="removeDeathCond(${i})">✕</button></div>`;}).join('') + '</div>'
+  + '<div style="display:flex;gap:4px;align-items:center;margin-top:5px;"><select id="dc-var-sel" class="eff-select" style="max-width:130px;"><option value="">-- 选择变量 --</option>' + vars.map(v=>`<option value="${v.id}">${v.icon||''} ${v.name}</option>`).join('') + '</select><button class="gp-micro-btn" onclick="addDeathCond()">+ 添加</button></div>'
+  + '<div class="gp-label" style="margin-top:10px;">重生模式</div><div style="margin-top:4px;"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:3px;"><input type="radio" name="respawn_mode" value="start" ' + ((rr.respawn_mode||'start')==='start'?'checked':'') + ' onchange="setRespawnMode(\'start\')"/> 从起点重生（清除所有道具和变量）</label><label style="font-size:11px;color:var(--text-secondary);display:block;"><input type="radio" name="respawn_mode" value="checkpoint" ' + (rr.respawn_mode==='checkpoint'?'checked':'') + ' onchange="setRespawnMode(\'checkpoint\')"/> 从检查点重生（恢复快照）</label></div>'
+  + '<div class="gp-label" style="margin-top:8px;">复活道具</div><select id="respawn-revive-item" class="gp-input" style="margin-top:3px;" onchange="setReviveItem(this.value)"><option value="">-- 无 --</option>' + items.map(it=>`<option value="${it.id}" ${rr.revive_item_id===it.id?'selected':''}>${it.icon} ${it.name}</option>`).join('') + '</select>'
+  + '<div class="gp-label" style="margin-top:8px;">死亡提示文案</div><input class="gp-input" id="respawn-msg" value="' + escHtml(rr.death_message||'你已经倒下了...') + '" style="margin-top:3px;" onchange="setDeathMessage(this.value)"/>';
+}
+function addDeathCond() { const varId=document.getElementById('dc-var-sel').value; if(!varId) return; _ensureRR().death_conditions.push({variable_id:varId,operator:'lte',value:0}); saveData(); renderGamePanelTab('respawn'); }
+function removeDeathCond(i) { _ensureRR().death_conditions.splice(i,1); saveData(); renderGamePanelTab('respawn'); }
+function updateDeathCond(i,field,val) { _ensureRR().death_conditions[i][field]=val; saveData(); }
+function setRespawnMode(mode) { _ensureRR().respawn_mode=mode; saveData(); }
+function setReviveItem(id) { _ensureRR().revive_item_id=id||null; saveData(); }
+function setDeathMessage(msg) { _ensureRR().death_message=msg; saveData(); }
+
+// ── ENDINGS TAB ──────────────────────────────────────────────────
+function renderEndingsTab() {
+  const endings=state.gameData.game_settings.endings||[], endingNodes=Object.values(state.gameData.nodes||{}).filter(n=>n.type==='ending'), showP=state.gameData.game_settings.show_endings_progress;
+  return '<div class="gp-section" style="display:flex;align-items:center;justify-content:space-between;"><button class="gp-add-btn" onclick="openEndingForm(-1)">+ 添加结局</button></div>'
+  + '<label style="font-size:11px;color:var(--text-secondary);margin-top:4px;display:block;"><input type="checkbox" ' + (showP?'checked':'') + ' onchange="setShowEndingsProgress(this.checked)"/> 向玩家展示收集进度</label>'
+  + '<div id="gp-ending-list" style="margin-top:6px;">' + endings.map((e,i)=>`<div class="gp-item"><span class="gp-item-icon">${e.rarity==='legendary'?'⭐':e.rarity==='rare'?'💫':'✅'}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(e.name)}</div><div class="gp-item-sub">${e.rarity} · 节点 ${e.node_id}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openEndingForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteEnding(${i})">✕</button></div></div>`).join('') + '</div>'
+  + '<div id="gp-ending-form" style="display:none;margin-top:8px;padding:8px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);">'
+  + '<div class="gp-label">结局 ID</div><input id="ef-id" placeholder="如 ending_a" class="gp-input"/>'
+  + '<div class="gp-label" style="margin-top:4px;">名称</div><input id="ef-name" placeholder="如 大团圆" class="gp-input"/>'
+  + '<div class="gp-label" style="margin-top:4px;">绑定节点</div><select id="ef-node" class="gp-input"><option value="">-- 选择 ending 节点 --</option>' + endingNodes.map(n=>`<option value="${n.id}">${n.id}: ${n.title||''}</option>`).join('') + '</select>'
+  + '<div class="gp-label" style="margin-top:4px;">稀有度</div><select id="ef-rarity" class="gp-input"><option value="common">普通</option><option value="rare">稀有</option><option value="legendary">传说</option></select>'
+  + '<div class="gp-label" style="margin-top:4px;">描述</div><input id="ef-desc" placeholder="结局描述" class="gp-input"/>'
+  + '<div class="gp-label" style="margin-top:4px;">解锁提示</div><input id="ef-hint" placeholder="可选" class="gp-input"/>'
+  + '<div style="display:flex;gap:4px;margin-top:6px;"><button class="gp-add-btn" onclick="saveEnding()">保存</button><button class="gp-micro-btn" onclick="document.getElementById(\'gp-ending-form\').style.display=\'none\'">取消</button></div></div>';
+}
+let _endingFormEditIdx=-1;
+function openEndingForm(idx) {
+  _endingFormEditIdx=idx; const el=id=>document.getElementById(id); el('gp-ending-form').style.display='block';
+  if (idx<0) { ['ef-id','ef-name','ef-desc','ef-hint'].forEach(k=>el(k).value=''); el('ef-node').value=''; el('ef-rarity').value='common'; }
+  else { const e=state.gameData.game_settings.endings[idx]; el('ef-id').value=e.id; el('ef-name').value=e.name; el('ef-node').value=e.node_id; el('ef-rarity').value=e.rarity||'common'; el('ef-desc').value=e.description||''; el('ef-hint').value=e.unlock_hint||''; }
+}
+function saveEnding() {
+  const el=id=>document.getElementById(id); const id=el('ef-id').value.trim(), name=el('ef-name').value.trim(), node_id=el('ef-node').value;
+  if (!id||!name||!node_id) { showToast('ID、名称、节点不能为空','error'); return; }
+  const e={id,name,node_id,rarity:el('ef-rarity').value,description:el('ef-desc').value.trim(),unlock_hint:el('ef-hint').value.trim()||null};
+  const endings=state.gameData.game_settings.endings;
+  if (_endingFormEditIdx<0) endings.push(e); else endings[_endingFormEditIdx]=e;
+  saveData(); renderGamePanelTab('endings'); showToast('结局已保存','success');
+}
+function deleteEnding(i) { state.gameData.game_settings.endings.splice(i,1); saveData(); renderGamePanelTab('endings'); }
+function setShowEndingsProgress(v) { state.gameData.game_settings.show_endings_progress=v; saveData(); }
+
+// ── INSPECTOR EXTENSIONS ─────────────────────────────────────────
+// Wrap openInspector to inject Effects/Conditions/Style sections per choice
+const _origOpenInspector = openInspector;
+openInspector = function(nodeId) {
+  _origOpenInspector(nodeId);
+  setTimeout(() => {
+    ensureGameSettings();
+    const nodeData=state.gameData.nodes[nodeId]; if(!nodeData||!nodeData.choices) return;
+    nodeData.choices.forEach((choice,idx) => {
+      const row=document.querySelector(`.insp-choice-row[data-idx="${idx}"]`); if(!row) return;
+      if (row.querySelector('.eff-section')) return;
+      row.appendChild(buildEffectsSection(choice,idx,nodeId));
+      row.appendChild(buildConditionsSection(choice,idx,nodeId));
+      row.appendChild(buildStyleSection(choice,idx,nodeId));
+    });
+    // Checkpoint toggle
+    if (document.querySelector('.checkpoint-toggle')) return;
+    const saveBtn=document.querySelector('#insp-body .insp-save-btn'); if(!saveBtn) return;
+    const nd=state.gameData.nodes[nodeId]; if(!nd) return;
+    const div=document.createElement('div'); div.className='checkpoint-toggle insp-field'; div.style.cssText='display:flex;align-items:center;gap:6px;margin-top:4px;';
+    div.innerHTML=`<label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="insp-checkpoint" ${nd.is_checkpoint?'checked':''} onchange="setNodeCheckpoint('${nodeId}',this.checked)"/> 📌 设为检查点</label>`;
+    saveBtn.parentNode.insertBefore(div,saveBtn);
+  }, 50);
+};
+
+function _getInspChoice(choiceIdx) {
+  const nodeId=document.getElementById('inspector')?.dataset?.nodeId; if(!nodeId) return null;
+  const nd=state.gameData.nodes[nodeId]; return (nd&&nd.choices)?nd.choices[choiceIdx]:null;
+}
+
+function buildEffectsSection(choice,idx,nodeId) {
+  const wrap=document.createElement('div'); wrap.className='eff-section';
+  const effects=choice.effects||[], vars=state.gameData.game_settings.variables||[], items=state.gameData.game_settings.items||[];
+  wrap.innerHTML=`<div class="eff-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><span style="color:#f59e0b;">⚡</span> Effects <span style="margin-left:auto;font-size:9px;">${effects.length>0?effects.length+'个':''}</span></div>
+  <div class="eff-body" style="display:none;"><div id="eff-list-${idx}">`
+  + effects.map((e,ei)=>renderEffectRow(e,idx,ei,vars,items)).join('')
+  + `</div><div style="margin-top:4px;"><button class="eff-add-btn" onclick="addEffect(${idx},'variable','${nodeId}')">+ 变量效果</button><button class="eff-add-btn" style="margin-left:4px;" onclick="addEffect(${idx},'item','${nodeId}')">+ 道具效果</button></div></div>`;
+  return wrap;
+}
+function renderEffectRow(e,choiceIdx,effIdx,vars,items) {
+  if (e.type==='variable') {
+    return `<div class="eff-row"><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'variable_id',this.value)"><option value="">--变量--</option>${vars.map(v=>`<option value="${v.id}" ${e.variable_id===v.id?'selected':''}>${v.icon||''} ${v.name}</option>`).join('')}</select><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'operator',this.value)"><option value="add" ${e.operator==='add'?'selected':''}>+</option><option value="subtract" ${e.operator==='subtract'?'selected':''}>-</option><option value="set" ${e.operator==='set'?'selected':''}>=</option></select><input type="number" class="eff-num" value="${e.value||0}" onchange="updateEffect(${choiceIdx},${effIdx},'value',+this.value)"/><button class="eff-del-btn" onclick="removeEffect(${choiceIdx},${effIdx})">✕</button></div>`;
+  } else {
+    return `<div class="eff-row"><span style="font-size:10px;color:var(--text-tertiary);">${e.action==='give'?'给':'取'}</span><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'item_id',this.value)"><option value="">--道具--</option>${items.map(it=>`<option value="${it.id}" ${e.item_id===it.id?'selected':''}>${it.icon} ${it.name}</option>`).join('')}</select><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'action',this.value)"><option value="give" ${e.action==='give'?'selected':''}>获得</option><option value="take" ${e.action==='take'?'selected':''}>消耗</option></select><input type="number" class="eff-num" value="${e.count||1}" min="1" onchange="updateEffect(${choiceIdx},${effIdx},'count',+this.value)"/><button class="eff-del-btn" onclick="removeEffect(${choiceIdx},${effIdx})">✕</button></div>`;
+  }
+}
+function updateEffect(choiceIdx,effIdx,field,value) { const c=_getInspChoice(choiceIdx); if(!c||!c.effects) return; if(c.effects[effIdx]) c.effects[effIdx][field]=value; }
+function addEffect(choiceIdx,type,nodeId) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; const c=nd.choices[choiceIdx]; if(!c) return; if(!c.effects) c.effects=[]; if(type==='variable') c.effects.push({type:'variable',variable_id:'',operator:'add',value:0}); else c.effects.push({type:'item',action:'give',item_id:'',count:1}); openInspector(nodeId); }
+function removeEffect(choiceIdx,effIdx) { const nodeId=document.getElementById('inspector')?.dataset?.nodeId; const nd=state.gameData.nodes[nodeId]; if(!nd) return; const c=nd.choices[choiceIdx]; if(!c||!c.effects) return; c.effects.splice(effIdx,1); openInspector(nodeId); }
+
+function buildConditionsSection(choice,idx,nodeId) {
+  const wrap=document.createElement('div'); wrap.className='eff-section';
+  const conds=choice.conditions||[], vars=state.gameData.game_settings.variables||[], items=state.gameData.game_settings.items||[];
+  wrap.innerHTML=`<div class="eff-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'"><span style="color:#ef4444;">🔒</span> Conditions <span style="margin-left:auto;font-size:9px;">${conds.length>0?conds.length+'个':''}</span></div>
+  <div class="eff-body" style="display:none;"><div id="cond-list-${idx}">`
+  + conds.map((c,ci)=>renderCondRow(c,idx,ci,vars,items)).join('')
+  + `</div><div style="margin-top:4px;"><button class="eff-add-btn" onclick="addCond(${idx},'variable','${nodeId}')">+ 变量条件</button><button class="eff-add-btn" style="margin-left:4px;" onclick="addCond(${idx},'item','${nodeId}')">+ 道具条件</button></div></div>`;
+  return wrap;
+}
+function renderCondRow(c,choiceIdx,condIdx,vars,items) {
+  const isVar=!c.item_id&&!!c.variable_id;
+  const OPS=isVar?['gte','lte','eq','ne'].map(o=>`<option value="${o}" ${c.operator===o?'selected':''}>${{gte:'≥',lte:'≤',eq:'=',ne:'≠'}[o]}</option>`).join(''):['gte','lte','eq'].map(o=>`<option value="${o}" ${c.operator===o?'selected':''}>${{gte:'≥',lte:'≤',eq:'='}[o]}</option>`).join('');
+  const subjectSel=isVar?`<select class="eff-select" onchange="updateCond(${choiceIdx},${condIdx},'variable_id',this.value)"><option value="">--变量--</option>${vars.map(v=>`<option value="${v.id}" ${c.variable_id===v.id?'selected':''}>${v.icon||''} ${v.name}</option>`).join('')}</select>`:`<select class="eff-select" onchange="updateCond(${choiceIdx},${condIdx},'item_id',this.value)"><option value="">--道具--</option>${items.map(it=>`<option value="${it.id}" ${c.item_id===it.id?'selected':''}>${it.icon} ${it.name}</option>`).join('')}</select>`;
+  const FAIL=['hidden','locked','alt_text'].map(f=>`<option value="${f}" ${c.fail_behavior===f?'selected':''}>${{hidden:'隐藏',locked:'锁定',alt_text:'替换文案'}[f]}</option>`).join('');
+  return `<div style="border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:4px;"><div class="eff-row">${subjectSel}<select class="eff-select" onchange="updateCond(${choiceIdx},${condIdx},'operator',this.value)">${OPS}</select><input type="number" class="eff-num" value="${c.value||0}" onchange="updateCond(${choiceIdx},${condIdx},'value',+this.value)"/><button class="eff-del-btn" onclick="removeCond(${choiceIdx},${condIdx})">✕</button></div><div style="display:flex;gap:3px;align-items:center;margin-top:3px;"><span style="font-size:10px;color:var(--text-tertiary);">否则:</span><select class="cond-fail-select" onchange="updateCond(${choiceIdx},${condIdx},'fail_behavior',this.value)">${FAIL}</select></div>${c.fail_behavior!=='hidden'?`<input style="margin-top:3px;width:100%;padding:3px 5px;font-size:10px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);" placeholder="提示文案" value="${escHtml(c.fail_message||'')}" onchange="updateCond(${choiceIdx},${condIdx},'fail_message',this.value)"/>`:''}  </div>`;
+}
+function updateCond(choiceIdx,condIdx,field,value) { const c=_getInspChoice(choiceIdx); if(!c||!c.conditions) return; if(c.conditions[condIdx]) c.conditions[condIdx][field]=value; }
+function addCond(choiceIdx,type,nodeId) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; const c=nd.choices[choiceIdx]; if(!c) return; if(!c.conditions) c.conditions=[]; if(type==='variable') c.conditions.push({type:'variable',variable_id:'',operator:'gte',value:0,fail_behavior:'locked',fail_message:''}); else c.conditions.push({type:'item',item_id:'',operator:'gte',value:1,fail_behavior:'hidden',fail_message:''}); openInspector(nodeId); }
+function removeCond(choiceIdx,condIdx) { const nodeId=document.getElementById('inspector')?.dataset?.nodeId; const nd=state.gameData.nodes[nodeId]; if(!nd) return; const c=nd.choices[choiceIdx]; if(!c||!c.conditions) return; c.conditions.splice(condIdx,1); openInspector(nodeId); }
+
+function buildStyleSection(choice,idx,nodeId) {
+  const wrap=document.createElement('div'); wrap.className='eff-section';
+  const preset=choice.style_preset||'normal', cd=choice.countdown||null;
+  wrap.innerHTML=`<div class="eff-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">🎨 Style / Countdown</div>
+  <div class="eff-body" style="display:none;">
+    <div class="eff-row"><span style="font-size:10px;color:var(--text-tertiary);width:52px;">按钮样式:</span><select class="eff-select" style="max-width:120px;" onchange="updateStylePreset(${idx},'${nodeId}',this.value)"><option value="normal" ${preset==='normal'?'selected':''}>普通</option><option value="important" ${preset==='important'?'selected':''}>⭐ 重要</option><option value="danger" ${preset==='danger'?'selected':''}>⚠️ 危险</option><option value="hidden" ${preset==='hidden'?'selected':''}>👻 隐藏</option></select></div>
+    <div class="eff-row" style="margin-top:4px;"><label style="font-size:10px;color:var(--text-secondary);"><input type="checkbox" id="cd-enable-${idx}" ${cd?'checked':''} onchange="toggleCountdown(${idx},'${nodeId}',this.checked)"/> ⏱ 启用倒计时</label></div>
+    <div id="cd-cfg-${idx}" style="${cd?'':'display:none;'}"><div class="eff-row" style="margin-top:3px;"><span style="font-size:10px;color:var(--text-tertiary);">秒数:</span><input type="number" value="${cd?cd.seconds:5}" min="1" class="eff-num" style="width:50px;" onchange="updateCountdown(${idx},'${nodeId}','seconds',+this.value)"/><span style="font-size:10px;color:var(--text-tertiary);">超时跳转:</span><input class="eff-select" placeholder="节点ID" value="${cd&&cd.timeout_target_node||''}" style="max-width:80px;" onchange="updateCountdown(${idx},'${nodeId}','timeout_target_node',this.value)"/></div></div>
+  </div>`;
+  return wrap;
+}
+function updateStylePreset(ci,nodeId,val) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; nd.choices[ci].style_preset=val; }
+function toggleCountdown(ci,nodeId,enabled) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; if(enabled) nd.choices[ci].countdown={seconds:5,timeout_target_node:'',timeout_effects:[]}; else delete nd.choices[ci].countdown; document.getElementById(`cd-cfg-${ci}`).style.display=enabled?'block':'none'; }
+function updateCountdown(ci,nodeId,field,val) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; if(!nd.choices[ci].countdown) nd.choices[ci].countdown={seconds:5,timeout_target_node:'',timeout_effects:[]}; nd.choices[ci].countdown[field]=val; }
+
+function setNodeCheckpoint(nodeId,val) {
+  const nd=state.gameData.nodes[nodeId]; if(!nd) return; nd.is_checkpoint=val;
+  const card=state.nodes[nodeId]?.el; if(card) { let b=card.querySelector('.node-checkpoint-badge'); if(val&&!b){b=document.createElement('div');b.className='node-checkpoint-badge';b.textContent='📌';card.style.position='relative';card.appendChild(b);}else if(!val&&b) b.remove(); }
+  showToast(val?'检查点已设置':'检查点已取消','success');
+}
 </script>

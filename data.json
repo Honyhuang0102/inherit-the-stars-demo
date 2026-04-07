@@ -1,9 +1,60 @@
 {
   "title": "星之继承者 · 交互演示",
-  "start_node": "1",
+  "start_node": "node_A",
   "nodes": {
     "1": {
       "id": "1",
+      "type": "panorama",
+      "title": "新 360° 全景场景",
+      "description": "A doctor wearing glasses and a white lab coat activates a mysterious electronic device in his laboratory, and then cosmic nebulae unfold before him.",
+      "panorama_url": "/panoramas/skybox_15142456.jpg",
+      "poster_url": "https://images.blockadelabs.com/thumbs/imagine/thumb_Cyberpunk_thumb_A_doctor_wearing_glasses_5714057048_15142456.jpg?ver=1",
+      "choices": [],
+      "_pos": {
+        "x": 956.195652173913,
+        "y": 239.4782608695652
+      }
+    },
+    "2": {
+      "id": "2",
+      "type": "branching",
+      "title": "新视频节点",
+      "video_url": "/videos/video_1775108962785.mp4",
+      "branch_at_second": 15,
+      "choices": [
+        {
+          "label": "回到原点",
+          "sublabel": "",
+          "hotkey": "1",
+          "target_node": "1",
+          "position": {
+            "x": "50%",
+            "y": "62%"
+          }
+        },
+        {
+          "label": "看看周围",
+          "sublabel": "",
+          "hotkey": "2",
+          "target_node": "6",
+          "position": {
+            "x": "50%",
+            "y": "74%"
+          }
+        }
+      ],
+      "_pos": {
+        "x": 694.7826086956522,
+        "y": 236.73913043478262
+      },
+      "poster_url": "/videos/covers/video_1775108962785_cover.jpg",
+      "orientation": "portrait",
+      "video_width": 720,
+      "video_height": 1280,
+      "branch_time": 15
+    },
+    "node_A": {
+      "id": "node_A",
       "title": "第一章：月球惊魂",
       "description": "舰桥审讯室。你手握一份足以颠覆人类史观的碳14检测报告。",
       "video_url": "/videos/video_1774968376212.mp4",
@@ -14,7 +65,7 @@
           "id": "choice_1",
           "label": "[ 悄悄收下一个神秘设备]",
           "sublabel": "",
-          "target_node": "2",
+          "target_node": "node_1774981622405",
           "hotkey": "1",
           "position": {
             "x": "49.7%",
@@ -29,7 +80,7 @@
           "id": "choice_2",
           "label": "[ 呼叫舰艇护卫队]",
           "sublabel": "",
-          "target_node": "5",
+          "target_node": "node_C",
           "hotkey": "2",
           "position": {
             "x": "50%",
@@ -53,8 +104,8 @@
       "next_node": "",
       "_sliderMaxSec": 15.069002
     },
-    "5": {
-      "id": "5",
+    "node_C": {
+      "id": "node_C",
       "title": "结局二：沉默的星海",
       "description": "秘密随你沉入虚空。文明继续在谎言中运转，而你独自承载那颗恒星的重量。",
       "video_url": "/videos/video_1774968891100.mp4",
@@ -72,8 +123,8 @@
       "branch_time": 5,
       "branch_at_second": 5
     },
-    "2": {
-      "id": "2",
+    "node_1774981622405": {
+      "id": "node_1774981622405",
       "type": "branching",
       "title": "新视频节点",
       "video_url": "/videos/video_1774981642483.mp4",
@@ -83,7 +134,7 @@
           "label": "自己独自研究",
           "sublabel": "",
           "hotkey": "1",
-          "target_node": "3",
+          "target_node": "node_1774981658388",
           "position": {
             "x": "31.2%",
             "y": "78.7%"
@@ -97,7 +148,7 @@
           "label": "给到丹克博士",
           "sublabel": "",
           "hotkey": "2",
-          "target_node": "4",
+          "target_node": "7",
           "position": {
             "x": "77.9%",
             "y": "78.4%"
@@ -116,10 +167,11 @@
       "orientation": "portrait",
       "video_width": 720,
       "video_height": 1280,
-      "branch_time": 13
+      "branch_time": 13,
+      "next_node": "2"
     },
-    "3": {
-      "id": "3",
+    "node_1774981658388": {
+      "id": "node_1774981658388",
       "type": "ending",
       "title": "B2",
       "video_url": "/videos/video_1774981852345.mp4",
@@ -134,23 +186,44 @@
       "video_width": 720,
       "video_height": 1280,
       "branch_time": 11
-    },
-    "4": {
-      "id": "4",
-      "type": "ending",
-      "title": "GOOD",
-      "video_url": "/videos/video_1774982032925.mp4",
-      "ending_tag": "ENDING · NEW",
-      "description": "五万年前在月球死亡的地球人，谜团开启",
-      "_pos": {
-        "x": 754.5,
-        "y": 213
-      },
-      "poster_url": "/videos/covers/video_1774982032925_cover.jpg",
-      "orientation": "portrait",
-      "video_width": 720,
-      "video_height": 1280,
-      "branch_time": 15
     }
+  },
+  "game_settings": {
+    "variables": [
+      {
+        "id": "affection",
+        "name": "好感度",
+        "icon": "❤️",
+        "type": "number",
+        "initial": 0,
+        "min": 0,
+        "max": 100,
+        "visible": true
+      },
+      {
+        "id": "trust",
+        "name": "信任度",
+        "icon": "🎭",
+        "type": "number",
+        "initial": 0,
+        "min": 0,
+        "max": 100,
+        "visible": true
+      },
+      {
+        "id": "coins",
+        "name": "金币",
+        "icon": "💰",
+        "type": "number",
+        "initial": 100,
+        "min": 0,
+        "max": 9999,
+        "visible": true
+      }
+    ],
+    "items": [],
+    "shop": [],
+    "endings": [],
+    "theme": "minimal_clean"
   }
 }

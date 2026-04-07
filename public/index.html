@@ -1559,5 +1559,658 @@ function exitPanoramaMode() {
 
 
 </script>
+
+
+<!-- GAME HUD: variables bar + panel buttons -->
+<style>
+#game-hud{position:absolute;top:35px;left:0;right:0;z-index:55;display:flex;align-items:center;justify-content:space-between;padding:4px 10px;pointer-events:none;}
+#hud-vars{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.hud-var{display:flex;align-items:center;gap:3px;font-family:var(--font-mono);font-size:11px;font-weight:600;color:#e0f0ff;text-shadow:0 0 8px rgba(0,212,255,0.5);}
+.hud-var-val{min-width:18px;text-align:right;transition:color .3s;}
+.hud-var-val.flash{color:#fff;text-shadow:0 0 12px #fff;}
+#hud-btns{display:flex;gap:5px;pointer-events:auto;}
+.hud-icon-btn{background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:#fff;transition:background .2s;flex-shrink:0;}
+.hud-icon-btn:hover{background:rgba(255,255,255,0.15);}
+/* Slide-up panels */
+.game-panel-overlay{position:absolute;inset:0;z-index:150;background:rgba(0,0,0,0.5);display:none;align-items:flex-end;}
+.game-panel-overlay.open{display:flex;}
+.game-slide-panel{background:#0a0e1a;border-top:1px solid #1c2a3a;width:100%;max-height:75%;overflow-y:auto;border-radius:16px 16px 0 0;padding:16px;}
+.gsp-title{font-size:13px;font-weight:600;color:#c8d8e8;margin-bottom:12px;letter-spacing:.05em;}
+.gsp-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0d1520;border-radius:8px;margin-bottom:6px;}
+.gsp-item-icon{font-size:20px;}
+.gsp-item-info{flex:1;}
+.gsp-item-name{font-size:12px;color:#c8d8e8;font-weight:500;}
+.gsp-item-count{font-size:10px;color:#4a6070;}
+.gsp-item-qty{font-size:13px;font-weight:600;color:#00d4ff;}
+/* Relationship panel */
+.rel-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1c2a3a;}
+.rel-avatar{width:36px;height:36px;border-radius:50%;background:#1c2a3a;display:flex;align-items:center;justify-content:center;font-size:20px;overflow:hidden;flex-shrink:0;}
+.rel-avatar img{width:100%;height:100%;object-fit:cover;}
+.rel-info{flex:1;}
+.rel-name{font-size:11px;color:#c8d8e8;font-weight:500;margin-bottom:4px;}
+.rel-bar-bg{height:5px;background:#1c2a3a;border-radius:3px;overflow:hidden;}
+.rel-bar-fill{height:100%;background:linear-gradient(90deg,#00d4ff,#ff6b35);border-radius:3px;transition:width .5s ease;}
+.rel-val{font-size:10px;color:#4a6070;margin-left:6px;flex-shrink:0;}
+/* Death screen */
+#death-screen{position:absolute;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(100,0,0,0);transition:background .8s;}
+#death-screen.visible{display:flex;background:rgba(100,0,0,0.85);}
+.death-title{font-family:var(--font-mono);font-size:14px;letter-spacing:.3em;color:#ff3b5c;text-transform:uppercase;margin-bottom:8px;}
+.death-msg{font-size:12px;color:#c8d8e8;margin-bottom:20px;text-align:center;padding:0 20px;}
+.death-btn{width:80%;padding:11px 16px;margin-bottom:8px;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#c8d8e8;font-family:var(--font-mono);font-size:11px;cursor:pointer;text-align:center;transition:background .2s;}
+.death-btn:hover{background:rgba(255,255,255,0.16);}
+.death-btn.primary{border-color:#00d4ff;color:#00d4ff;}
+.death-btn.danger{border-color:#ff3b5c;color:#ff3b5c;}
+/* Shop panel */
+.shop-item-card{display:flex;align-items:center;gap:10px;padding:10px;background:#0d1520;border-radius:8px;margin-bottom:8px;}
+.shop-item-price{font-size:12px;color:#00d4ff;font-weight:600;white-space:nowrap;}
+.shop-buy-btn{padding:6px 14px;background:#00d4ff;color:#000;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.shop-buy-btn:hover{opacity:.85;}
+.shop-buy-btn:disabled{background:#1c2a3a;color:#4a6070;cursor:not-allowed;}
+/* Ending collection panel */
+.ending-collect-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1c2a3a;}
+.ending-badge{font-size:18px;flex-shrink:0;}
+.ending-info-name{font-size:12px;color:#c8d8e8;font-weight:500;}
+.ending-info-sub{font-size:10px;color:#4a6070;}
+/* Hotspot locked style */
+.hotspot-btn.locked{opacity:0.5;cursor:not-allowed;border-color:rgba(255,255,255,0.1);}
+.hotspot-btn.locked::after{content:'🔒';font-size:10px;margin-left:5px;}
+/* Style presets */
+.hotspot-btn.preset-important{border-color:rgba(255,215,0,0.6);box-shadow:0 0 12px rgba(255,215,0,0.3),0 4px 24px rgba(0,0,0,0.35);}
+.hotspot-btn.preset-important:hover{box-shadow:0 0 20px rgba(255,215,0,0.5),0 6px 32px rgba(0,0,0,0.45);}
+.hotspot-btn.preset-danger{border-color:rgba(255,59,92,0.6);background:rgba(255,59,92,0.15);box-shadow:0 0 12px rgba(255,59,92,0.3);}
+.hotspot-btn.preset-hidden{opacity:0.45;border-style:dashed;}
+/* Countdown ring */
+.countdown-ring{position:absolute;top:-18px;left:50%;transform:translateX(-50%);pointer-events:none;}
+/* Item acquire animation */
+@keyframes item-float{0%{opacity:0;transform:translate(-50%,-50%) scale(.7);}30%{opacity:1;transform:translate(-50%,-50%) scale(1.1);}70%{opacity:1;transform:translate(-50%,-100%);}100%{opacity:0;transform:translate(-50%,-140%);}}
+.item-float-anim{position:absolute;z-index:180;font-size:22px;animation:item-float 1.4s ease forwards;pointer-events:none;}
+/* Theme CSS variables (applied to phone-shell when game loads) */
+.theme-neon_abyss{--hs-bg:rgba(0,30,60,0.7);--hs-border:rgba(0,212,255,0.4);--hs-glow:rgba(0,212,255,0.25);}
+.theme-ancient_scroll{--hs-bg:rgba(40,25,10,0.8);--hs-border:rgba(200,169,126,0.5);--hs-glow:rgba(200,169,126,0.2);}
+.theme-crystal_dream{--hs-bg:rgba(60,10,40,0.7);--hs-border:rgba(255,182,193,0.5);--hs-glow:rgba(255,182,193,0.2);}
+.theme-dark_forest{--hs-bg:rgba(10,30,10,0.85);--hs-border:rgba(74,122,74,0.5);--hs-glow:rgba(0,100,0,0.2);}
+.theme-comic_pop{--hs-bg:rgba(60,40,0,0.75);--hs-border:rgba(255,215,0,0.5);--hs-glow:rgba(255,215,0,0.2);}
+.theme-minimal_clean{--hs-bg:rgba(20,20,20,0.75);--hs-border:rgba(200,200,200,0.3);--hs-glow:none;}
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// GAME ENGINE — Player Runtime
+// ═══════════════════════════════════════════════════════════════════
+
+const gameState = {
+  variables: {},   // id -> current value
+  inventory: {},   // item_id -> count
+  bubbles: 0,      // Bubble currency
+  checkpointSave: null,
+  endingsUnlocked: new Set(),
+};
+
+function gsInit(gameData) {
+  if (!gameData.game_settings) return;
+  const gs = gameData.game_settings;
+  // Variables
+  (gs.variables||[]).forEach(v => {
+    gameState.variables[v.id] = v.initial !== undefined ? v.initial : (v.type==='boolean' ? false : 0);
+  });
+  // Bubbles from localStorage
+  const stored = localStorage.getItem('gs_bubbles_' + (gameData.title||'game'));
+  gameState.bubbles = stored !== null ? parseInt(stored) : 100;
+  // Endings
+  const storedEndings = localStorage.getItem('gs_endings_' + (gameData.title||'game'));
+  if (storedEndings) {
+    try { JSON.parse(storedEndings).forEach(e => gameState.endingsUnlocked.add(e)); } catch(e) {}
+  }
+  // Apply theme
+  const shell = document.getElementById('phone-shell');
+  if (shell && gs.theme) {
+    shell.className = shell.className.replace(/theme-\S+/g,'').trim();
+    shell.classList.add('theme-' + gs.theme);
+  }
+  renderHUD(gameData);
+}
+
+// ── HUD ──────────────────────────────────────────────────────────
+function renderHUD(gameData) {
+  const gs = gameData.game_settings;
+  if (!gs) return;
+  const vars = (gs.variables||[]).filter(v=>v.visible);
+  const hasInventory = (gs.items||[]).length > 0;
+  const hasShop = (gs.shop||[]).length > 0;
+  const hasRelationships = (gs.variables||[]).some(v=>v.is_relationship);
+  const hasEndings = (gs.endings||[]).length > 0;
+
+  const hudEl = document.getElementById('game-hud');
+  if (!hudEl) return;
+
+  hudEl.querySelector('#hud-vars').innerHTML = vars.map(v =>
+    `<span class="hud-var"><span>${v.icon||'📊'}</span><span class="hud-var-val" id="hud-var-${v.id}">${formatVarVal(v, gameState.variables[v.id])}</span></span>`
+  ).join('');
+
+  const btns = hudEl.querySelector('#hud-btns');
+  btns.innerHTML = '';
+  if (hasInventory) btns.innerHTML += `<div class="hud-icon-btn" onclick="openInventoryPanel()" title="背包">🎒</div>`;
+  if (hasShop) btns.innerHTML += `<div class="hud-icon-btn" onclick="openShopPanel()" title="商城">🛒</div>`;
+  if (hasRelationships) btns.innerHTML += `<div class="hud-icon-btn" onclick="openRelPanel()" title="关系">🤝</div>`;
+  if (hasEndings) btns.innerHTML += `<div class="hud-icon-btn" onclick="openEndingsPanel()" title="结局">🏆</div>`;
+  btns.style.pointerEvents = 'auto';
+}
+
+function formatVarVal(v, val) {
+  if (v.type==='boolean') return val ? '✓' : '✗';
+  return val !== undefined ? val : v.initial;
+}
+
+function updateHUDVar(varId, newVal) {
+  const el = document.getElementById('hud-var-' + varId);
+  if (!el) return;
+  el.textContent = newVal;
+  el.classList.remove('flash');
+  void el.offsetWidth; // reflow
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 600);
+}
+
+// ── Execute Effects ───────────────────────────────────────────────
+function executeEffects(effects, gameData) {
+  if (!effects || !effects.length) return;
+  const gs = gameData.game_settings;
+  effects.forEach(e => {
+    if (e.type === 'variable') {
+      const varDef = (gs.variables||[]).find(v=>v.id===e.variable_id);
+      if (!varDef) return;
+      let cur = gameState.variables[e.variable_id] !== undefined ? gameState.variables[e.variable_id] : varDef.initial;
+      if (e.operator==='add') cur = cur + e.value;
+      else if (e.operator==='subtract') cur = cur - e.value;
+      else if (e.operator==='set') cur = e.value;
+      // Clamp to min/max
+      if (varDef.type==='number') {
+        if (varDef.min !== undefined) cur = Math.max(varDef.min, cur);
+        if (varDef.max !== undefined) cur = Math.min(varDef.max, cur);
+      }
+      gameState.variables[e.variable_id] = cur;
+      if (varDef.visible) updateHUDVar(e.variable_id, cur);
+    } else if (e.type === 'item') {
+      const itemDef = (gs.items||[]).find(i=>i.id===e.item_id);
+      if (!itemDef) return;
+      const cur = gameState.inventory[e.item_id] || 0;
+      let newCount = e.action==='give' ? cur + (e.count||1) : Math.max(0, cur - (e.count||1));
+      if (itemDef.stackable && itemDef.max_count) newCount = Math.min(newCount, itemDef.max_count);
+      if (!itemDef.stackable) newCount = Math.min(newCount, 1);
+      gameState.inventory[e.item_id] = newCount;
+      if (e.action==='give') showItemAcquireAnim(itemDef);
+    }
+  });
+}
+
+function showItemAcquireAnim(itemDef) {
+  const shell = document.getElementById('phone-shell');
+  const el = document.createElement('div');
+  el.className = 'item-float-anim';
+  el.textContent = (itemDef.icon||'📦') + ' +1';
+  el.style.cssText = 'left:50%;top:60%;font-size:18px;color:#fff;';
+  shell.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// ── Evaluate Conditions ────────────────────────────────────────────
+function evalConditions(conditions) {
+  if (!conditions || !conditions.length) return { pass: true };
+  for (const c of conditions) {
+    let lhs, rhs = c.value;
+    if (c.type==='item' || c.item_id) {
+      lhs = gameState.inventory[c.item_id] || 0;
+    } else {
+      lhs = gameState.variables[c.variable_id] !== undefined ? gameState.variables[c.variable_id] : 0;
+    }
+    let pass = false;
+    if (c.operator==='gte'||c.operator==='ge') pass = lhs >= rhs;
+    else if (c.operator==='lte'||c.operator==='le') pass = lhs <= rhs;
+    else if (c.operator==='eq'||c.operator==='=') pass = lhs == rhs;
+    else if (c.operator==='ne') pass = lhs != rhs;
+    else if (c.operator==='is') pass = !!lhs;
+    else if (c.operator==='not') pass = !lhs;
+    if (!pass) return { pass: false, fail_behavior: c.fail_behavior||'locked', fail_message: c.fail_message||'条件不满足' };
+  }
+  return { pass: true };
+}
+
+// ── Check Death Conditions ────────────────────────────────────────
+function checkDeathConditions(gameData) {
+  const gs = gameData.game_settings;
+  const rr = gs && gs.respawn_rules;
+  if (!rr || !rr.death_conditions || !rr.death_conditions.length) return;
+  for (const dc of rr.death_conditions) {
+    const val = gameState.variables[dc.variable_id] !== undefined ? gameState.variables[dc.variable_id] : 0;
+    let dead = false;
+    if (dc.operator==='lte') dead = val <= dc.value;
+    else if (dc.operator==='gte') dead = val >= dc.value;
+    else if (dc.operator==='eq') dead = val == dc.value;
+    if (dead) { triggerDeath(rr, gameData); return; }
+  }
+}
+
+function triggerDeath(rr, gameData) {
+  const screen = document.getElementById('death-screen');
+  if (!screen) return;
+  document.querySelector('.death-msg').textContent = rr.death_message || '你已经倒下了...';
+  // Revive item button
+  const reviveBtn = document.getElementById('death-revive-btn');
+  if (reviveBtn) {
+    const reviveItem = rr.revive_item_id ? (gameData.game_settings.items||[]).find(i=>i.id===rr.revive_item_id) : null;
+    const count = rr.revive_item_id ? (gameState.inventory[rr.revive_item_id]||0) : 0;
+    if (reviveItem && count > 0) {
+      reviveBtn.style.display='block';
+      reviveBtn.textContent = `💊 使用 ${reviveItem.icon} ${reviveItem.name} (×${count}) — 保留进度`;
+    } else {
+      reviveBtn.style.display='none';
+    }
+  }
+  if (engine.activeVideo) engine.activeVideo.pause();
+  screen.classList.add('visible');
+}
+
+function respawnFromCheckpoint(gameData) {
+  const screen = document.getElementById('death-screen');
+  screen.classList.remove('visible');
+  const rr = gameData.game_settings.respawn_rules;
+  const reviveId = rr && rr.revive_item_id;
+  if (reviveId) gameState.inventory[reviveId] = Math.max(0,(gameState.inventory[reviveId]||1)-1);
+  if (gameState.checkpointSave) {
+    const save = gameState.checkpointSave;
+    Object.assign(gameState.variables, save.variables);
+    Object.assign(gameState.inventory, save.inventory);
+    renderHUD(gameData);
+    loadNode(save.node_id);
+  } else {
+    respawnFromStart(gameData);
+  }
+}
+function respawnFromStart(gameData) {
+  const screen = document.getElementById('death-screen');
+  screen.classList.remove('visible');
+  gsInit(gameData);
+  loadNode(gameData.start_node);
+}
+
+function saveCheckpoint(nodeId, gameData) {
+  gameState.checkpointSave = {
+    node_id: nodeId,
+    variables: {...gameState.variables},
+    inventory: {...gameState.inventory},
+  };
+  const title = gameData.title||'game';
+  localStorage.setItem('gs_checkpoint_'+title, JSON.stringify(gameState.checkpointSave));
+}
+
+// ── Slide-up Panels ────────────────────────────────────────────────
+function openInventoryPanel() {
+  const gs = engine.gameData.game_settings;
+  const items = (gs&&gs.items)||[];
+  const rows = items.map(it => {
+    const count = gameState.inventory[it.id]||0;
+    return `<div class="gsp-item">
+      <span class="gsp-item-icon">${it.icon||'📦'}</span>
+      <div class="gsp-item-info"><div class="gsp-item-name">${it.name}</div><div class="gsp-item-count">${it.description||''}</div></div>
+      <span class="gsp-item-qty">×${count}</span>
+    </div>`;
+  }).join('');
+  openGameSlidePanel('🎒 背包', rows||'<div style="color:#4a6070;font-size:12px;text-align:center;padding:20px;">背包是空的</div>');
+}
+
+function openRelPanel() {
+  const gs = engine.gameData.game_settings;
+  const relVars = (gs&&gs.variables||[]).filter(v=>v.is_relationship);
+  const rows = relVars.map(v => {
+    const cur = gameState.variables[v.id]||0;
+    const max = v.max||100;
+    const pct = Math.round(Math.min(100, Math.max(0, (cur/max)*100)));
+    const avatarHtml = v.character_avatar
+      ? `<img src="${v.character_avatar}" alt="${v.name}"/>`
+      : `<span style="font-size:18px;">${v.icon||'👤'}</span>`;
+    return `<div class="rel-row">
+      <div class="rel-avatar">${avatarHtml}</div>
+      <div class="rel-info">
+        <div class="rel-name">${v.name}</div>
+        <div style="display:flex;align-items:center;">
+          <div class="rel-bar-bg" style="flex:1;"><div class="rel-bar-fill" style="width:${pct}%"></div></div>
+          <span class="rel-val">${cur}/${max}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  openGameSlidePanel('🤝 关系', rows||'<div style="color:#4a6070;font-size:12px;text-align:center;padding:20px;">暂无关系数据</div>');
+}
+
+function openShopPanel() {
+  const gs = engine.gameData.game_settings;
+  const shop = (gs&&gs.shop)||[];
+  const items = (gs&&gs.items)||[];
+  const rows = shop.map(s => {
+    const it = items.find(i=>i.id===s.item_id)||{name:s.item_id,icon:'📦',description:''};
+    const canAfford = gameState.bubbles >= s.price_bubbles;
+    const purchased = gameState.inventory[s.item_id]||0;
+    const maxReached = s.max_per_game && purchased >= s.max_per_game;
+    return `<div class="shop-item-card">
+      <span style="font-size:22px;">${it.icon}</span>
+      <div style="flex:1;">
+        <div style="font-size:12px;color:#c8d8e8;font-weight:500;">${it.name}</div>
+        <div style="font-size:10px;color:#4a6070;">${s.description||it.description||''}</div>
+        ${s.max_per_game?`<div style="font-size:10px;color:#4a6070;">已购 ${purchased}/${s.max_per_game}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <span class="shop-item-price">🫧 ${s.price_bubbles}</span>
+        <button class="shop-buy-btn" ${(!canAfford||maxReached)?'disabled':''} onclick="purchaseShopItem('${s.item_id}',${s.price_bubbles},${JSON.stringify(s.max_per_game)})">
+          ${maxReached?'已达上限':(!canAfford?'余额不足':'购买')}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+  const balanceHtml = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span style="font-size:12px;color:#4a6070;">我的 Bubbles</span><span style="font-size:16px;color:#00d4ff;font-weight:600;" id="shop-balance-display">🫧 ${gameState.bubbles}</span></div>`;
+  openGameSlidePanel('🛒 商城', balanceHtml + (rows||'<div style="color:#4a6070;text-align:center;padding:20px;">暂无商品</div>'));
+}
+
+async function purchaseShopItem(itemId, price, maxPerGame) {
+  if (gameState.bubbles < price) { showGameToast('Bubbles 不足'); return; }
+  const purchased = gameState.inventory[itemId]||0;
+  if (maxPerGame && purchased >= maxPerGame) { showGameToast('已达购买上限'); return; }
+  // Call server
+  try {
+    const res = await fetch('/api/shop/purchase', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({item_id:itemId, price_bubbles:price, world_title: engine.gameData.title||'game'})
+    });
+    const data = await res.json();
+    if (data.success) {
+      gameState.bubbles = data.new_balance;
+      gameState.inventory[itemId] = (gameState.inventory[itemId]||0) + 1;
+      const balEl = document.getElementById('shop-balance-display');
+      if (balEl) balEl.textContent = '🫧 ' + gameState.bubbles;
+      showGameToast('购买成功！');
+      openShopPanel(); // refresh
+    } else {
+      showGameToast(data.error||'购买失败');
+    }
+  } catch(e) {
+    // Offline fallback
+    gameState.bubbles -= price;
+    gameState.inventory[itemId] = (gameState.inventory[itemId]||0) + 1;
+    const title = engine.gameData.title||'game';
+    localStorage.setItem('gs_bubbles_'+title, gameState.bubbles);
+    showGameToast('购买成功！(离线)');
+    openShopPanel();
+  }
+}
+
+function openEndingsPanel() {
+  const gs = engine.gameData.game_settings;
+  const endings = (gs&&gs.endings)||[];
+  const total = endings.length;
+  const unlocked = [...gameState.endingsUnlocked];
+  const rows = endings.map(e => {
+    const isUnlocked = gameState.endingsUnlocked.has(e.id);
+    const badge = e.rarity==='legendary'?'⭐':e.rarity==='rare'?'💫':'✅';
+    return `<div class="ending-collect-row">
+      <span class="ending-badge">${isUnlocked?badge:'🔒'}</span>
+      <div>
+        <div class="ending-info-name">${isUnlocked?e.name:'???'}</div>
+        <div class="ending-info-sub">${isUnlocked?e.description||'':e.unlock_hint||''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  openGameSlidePanel(`🏆 结局收集 ${unlocked.length}/${total}`, rows||'<div style="color:#4a6070;text-align:center;padding:20px;">暂无结局配置</div>');
+}
+
+function openGameSlidePanel(title, contentHtml) {
+  const overlay = document.getElementById('game-panel-overlay');
+  document.getElementById('game-slide-title').textContent = title;
+  document.getElementById('game-slide-content').innerHTML = contentHtml;
+  overlay.classList.add('open');
+}
+function closeGameSlidePanel() {
+  document.getElementById('game-panel-overlay').classList.remove('open');
+}
+
+function showGameToast(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#fff;font-size:11px;padding:6px 14px;border-radius:20px;z-index:300;white-space:nowrap;font-family:var(--font-mono);';
+  el.textContent = msg;
+  document.getElementById('phone-shell').appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+// ── Countdown Engine ───────────────────────────────────────────────
+const countdownTimers = {};
+function startCountdown(btn, choice, gameData) {
+  const cd = choice.countdown;
+  if (!cd || !cd.seconds) return;
+  const secs = cd.seconds;
+  let remaining = secs;
+  const SVG_SIZE = 32, R = 14, CIRC = 2*Math.PI*R;
+  const ring = document.createElement('div');
+  ring.className = 'countdown-ring';
+  ring.innerHTML = `<svg width="${SVG_SIZE}" height="${SVG_SIZE}" viewBox="0 0 ${SVG_SIZE} ${SVG_SIZE}">
+    <circle cx="${SVG_SIZE/2}" cy="${SVG_SIZE/2}" r="${R}" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+    <circle id="cd-arc-${choice.label}" cx="${SVG_SIZE/2}" cy="${SVG_SIZE/2}" r="${R}" fill="none" stroke="#00d4ff" stroke-width="2"
+      stroke-dasharray="${CIRC}" stroke-dashoffset="0" transform="rotate(-90 ${SVG_SIZE/2} ${SVG_SIZE/2})"/>
+    <text x="${SVG_SIZE/2}" y="${SVG_SIZE/2+4}" text-anchor="middle" fill="#fff" font-size="9" font-family="monospace">${remaining}</text>
+  </svg>`;
+  btn.style.position = 'relative';
+  btn.appendChild(ring);
+  const key = choice.label + Math.random();
+  countdownTimers[key] = setInterval(() => {
+    remaining--;
+    const arc = ring.querySelector('circle:last-of-type');
+    const txt = ring.querySelector('text');
+    if (arc) arc.style.strokeDashoffset = CIRC * (1 - remaining/secs);
+    if (txt) txt.textContent = remaining;
+    // Red edge when low
+    const shell = document.getElementById('phone-shell');
+    if (remaining <= 2 && shell) shell.style.boxShadow = `0 0 0 3px rgba(255,59,92,${0.3+(2-remaining)*0.25}) inset`;
+    if (remaining <= 0) {
+      clearInterval(countdownTimers[key]);
+      if (shell) shell.style.boxShadow = '';
+      // Execute timeout effects
+      if (cd.timeout_effects) executeEffects(cd.timeout_effects, gameData);
+      if (cd.timeout_target_node) loadNode(cd.timeout_target_node);
+    }
+  }, 1000);
+}
+function clearAllCountdowns() {
+  Object.values(countdownTimers).forEach(t => clearInterval(t));
+  for (const k in countdownTimers) delete countdownTimers[k];
+  const shell = document.getElementById('phone-shell');
+  if (shell) shell.style.boxShadow = '';
+}
+
+// ── Override showChoices to integrate game engine ─────────────────
+const _origShowChoices = showChoices;
+showChoices = function(node) {
+  // Don't call _origShowChoices — we reimplement with game logic
+  if (engine.choiceShown) return;
+  engine.choiceShown = true;
+
+  $hotspotLayer.querySelectorAll('.hotspot-btn').forEach(el => el.remove());
+  $hotspotSvg.innerHTML = '';
+
+  const gameData = engine.gameData;
+
+  node.choices.forEach((choice, idx) => {
+    // Evaluate conditions
+    const condResult = evalConditions(choice.conditions);
+
+    if (!condResult.pass && condResult.fail_behavior === 'hidden') return; // Don't render
+
+    if (choice.type === 'polygon' && choice.points && choice.points.length >= 3) {
+      // Polygon hotspot (no condition support for now)
+      const pts = choice.points.map(p=>`${parseFloat(p.x)},${parseFloat(p.y)}`).join(' ');
+      const polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+      polygon.setAttribute('points',pts);
+      polygon.setAttribute('vector-effect','non-scaling-stroke');
+      polygon.classList.add('poly-hotspot');
+      polygon.dataset.choiceIdx = idx;
+      polygon.dataset.targetNode = choice.target_node||'';
+      $hotspotSvg.setAttribute('viewBox','0 0 100 100');
+      $hotspotSvg.setAttribute('preserveAspectRatio','none');
+      $hotspotSvg.style.pointerEvents='none';
+      polygon.addEventListener('click', () => handleChoice(choice));
+      $hotspotSvg.appendChild(polygon);
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'hotspot-btn';
+    btn.dataset.targetNode = choice.target_node||'';
+    btn.dataset.choiceIdx = idx;
+
+    const pos = choice.position||{};
+    btn.style.left = pos.x||defaultHotspotX(idx, node.choices.length);
+    btn.style.top = pos.y||defaultHotspotY(idx, node.choices.length);
+
+    // Style preset
+    if (choice.style_preset && choice.style_preset !== 'normal') {
+      btn.classList.add('preset-' + choice.style_preset);
+    }
+
+    // Locked state
+    const isLocked = !condResult.pass;
+    if (isLocked) {
+      btn.classList.add('locked');
+      btn.innerHTML = `<span class="hs-ready-dot"></span><span class="hs-label">${choice.label||''}</span>`;
+      btn.addEventListener('click', () => showGameToast(condResult.fail_message||'条件不满足'));
+    } else {
+      const preloadedVid = videoPool.get(choice.target_node);
+      if (preloadedVid && preloadedVid.readyState>=4) btn.classList.add('is-ready');
+      btn.innerHTML = `<span class="hs-ready-dot"></span><span class="hs-label">${choice.label||''}</span>`;
+      btn.addEventListener('click', () => handleGameChoice(choice, gameData));
+      // Start countdown
+      if (choice.countdown && choice.countdown.seconds) {
+        startCountdown(btn, choice, gameData);
+      }
+    }
+    $hotspotLayer.appendChild(btn);
+  });
+
+  $hotspotLayer.classList.add('visible');
+  if (engine.activeVideo) engine.activeVideo.pause();
+};
+
+// ── Override handleChoice to add effects ─────────────────────────
+function handleGameChoice(choice, gameData) {
+  if (engine.transitioning) return;
+  clearAllCountdowns();
+  // Execute effects
+  executeEffects(choice.effects, gameData);
+  // Check death after effects
+  checkDeathConditions(gameData);
+  // If death triggered, don't navigate
+  if (document.getElementById('death-screen').classList.contains('visible')) return;
+  engine.transitioning = true;
+  hideHotspots();
+  if (engine.activeVideo) {
+    engine.activeVideo.removeEventListener('timeupdate', onTimeUpdate);
+    engine.activeVideo.removeEventListener('seeked', onSeeked);
+    engine.activeVideo.removeEventListener('ended', onEnded);
+  }
+  loadNode(choice.target_node);
+}
+
+// Override loadNode to handle checkpoints and endings
+const _origLoadNode = loadNode;
+loadNode = async function(nodeId) {
+  clearAllCountdowns();
+  await _origLoadNode(nodeId);
+  // Check checkpoint
+  const gameData = engine.gameData;
+  if (!gameData) return;
+  const node = gameData.nodes[nodeId];
+  if (node && node.is_checkpoint) saveCheckpoint(nodeId, gameData);
+  // Check ending
+  if (node && node.type==='ending') triggerEnding(node, gameData);
+};
+
+function triggerEnding(node, gameData) {
+  const gs = gameData.game_settings;
+  const endings = (gs&&gs.endings)||[];
+  const ending = endings.find(e=>e.node_id===node.id);
+  if (ending) {
+    gameState.endingsUnlocked.add(ending.id);
+    const title = gameData.title||'game';
+    localStorage.setItem('gs_endings_'+title, JSON.stringify([...gameState.endingsUnlocked]));
+    // Enhance ending screen with rarity + progress
+    const total = endings.length;
+    const count = gameState.endingsUnlocked.size;
+    const badge = ending.rarity==='legendary'?'⭐':ending.rarity==='rare'?'💫':'✅';
+    // Append progress info to ending screen
+    setTimeout(() => {
+      const endingTag = document.getElementById('ending-tag-text');
+      if (endingTag) endingTag.textContent = (endingTag.textContent||'ENDING') + ` ${badge}`;
+      const descEl = document.getElementById('ending-desc-text');
+      if (descEl && gs.show_endings_progress) {
+        const prog = document.createElement('div');
+        prog.style.cssText='margin-top:10px;font-size:10px;letter-spacing:.15em;color:var(--clr-text-dim);';
+        prog.textContent = `结局收集 ${count}/${total}`;
+        descEl.after(prog);
+      }
+    }, 50);
+  }
+}
+
+// ── Wait for engine.gameData then call gsInit ────────────────────
+(function waitForGameData() {
+  let attempts = 0;
+  const poll = setInterval(function() {
+    attempts++;
+    if (engine && engine.gameData && engine.gameData.game_settings) {
+      clearInterval(poll);
+      gsInit(engine.gameData);
+    } else if (attempts > 60) {
+      clearInterval(poll); // give up after 6s
+    }
+  }, 100);
+})();
+
+// ── DOM injection: HUD bar + panels ──────────────────────────────
+(function injectGameDOM() {
+  const shell = document.getElementById('phone-shell');
+  if (!shell) return;
+
+  // HUD bar
+  const hud = document.createElement('div');
+  hud.id = 'game-hud';
+  hud.innerHTML = '<div id="hud-vars"></div><div id="hud-btns"></div>';
+  shell.appendChild(hud);
+
+  // Death screen
+  const death = document.createElement('div');
+  death.id = 'death-screen';
+  death.innerHTML = `
+    <div class="death-title">💀 GAME OVER</div>
+    <div class="death-msg"></div>
+    <button class="death-btn primary" id="death-revive-btn" style="display:none;" onclick="respawnFromCheckpoint(engine.gameData)"></button>
+    <button class="death-btn" onclick="openShopPanel()">🛒 去商城购买复活道具</button>
+    <button class="death-btn danger" onclick="respawnFromStart(engine.gameData)">🔄 从头重生（清除所有进度）</button>
+  `;
+  shell.appendChild(death);
+
+  // Slide-up panel overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'game-panel-overlay';
+  overlay.className = 'game-panel-overlay';
+  overlay.innerHTML = `
+    <div class="game-slide-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span class="gsp-title" id="game-slide-title"></span>
+        <button onclick="closeGameSlidePanel()" style="background:none;border:none;color:#4a6070;cursor:pointer;font-size:18px;">✕</button>
+      </div>
+      <div id="game-slide-content"></div>
+    </div>
+  `;
+  overlay.addEventListener('click', e => { if(e.target===overlay) closeGameSlidePanel(); });
+  shell.appendChild(overlay);
+})();
+</script>
+
 </body>
 </html>

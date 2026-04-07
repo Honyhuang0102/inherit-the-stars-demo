@@ -486,6 +486,36 @@ app.get('/api/health', (_req, res) => {
 });
 
 // ── 启动服务 ──────────────────────────────────────────────────────────────────
+
+
+// ── SHOP PURCHASE API ──────────────────────────────────────────────
+// Simple in-memory user balance store (resets on server restart — for demo)
+const bubbleBalances = {};  // key: world_title+ip -> balance
+
+app.post('/api/shop/purchase', (req, res) => {
+  const { item_id, price_bubbles, world_title } = req.body;
+  if (!item_id || !price_bubbles) return res.json({ success:false, error:'缺少参数' });
+
+  const ip = req.ip || 'anon';
+  const key = (world_title||'game') + '|' + ip;
+
+  // Init balance if first time
+  if (bubbleBalances[key] === undefined) bubbleBalances[key] = 100;
+
+  const balance = bubbleBalances[key];
+  if (balance < price_bubbles) return res.json({ success:false, error:'Bubble 余额不足' });
+
+  const newBalance = balance - price_bubbles;
+  bubbleBalances[key] = newBalance;
+
+  // Log revenue split
+  const creator = Math.round(price_bubbles * 0.60);
+  const platform = Math.round(price_bubbles * 0.25);
+  console.log(`[Shop] Purchase: ${item_id} × 1, ${price_bubbles}🫧 | creator:${creator} platform:${platform} | ${key}`);
+
+  res.json({ success:true, new_balance:newBalance, item:{ id:item_id, count:1 } });
+});
+
 app.listen(PORT, () => {
   const hasKey = !!(process.env.BLOCKADE_LABS_API_KEY);
   console.log('');
