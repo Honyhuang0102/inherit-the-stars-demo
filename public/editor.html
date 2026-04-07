@@ -2286,6 +2286,46 @@ body.immersive-mode #right-panel {
 <!-- /immersive-overlay -->
 
 <script>
+// ── Project / Auth helpers ─────────────────────────────────────────
+const _projectId = new URLSearchParams(location.search).get('project');
+function _getToken() { return localStorage.getItem('dd_token') || ''; }
+function _authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _getToken() };
+}
+async function _refreshToken() {
+  const rt = localStorage.getItem('dd_refresh_token');
+  if (!rt) return false;
+  try {
+    const r = await fetch('https://infidive.ai/api/v1/auth/refresh', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ refresh_token: rt })
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    const t = ((d.data || d).accessToken || (d.data || d).access_token || '');
+    if (t) { localStorage.setItem('dd_token', t); return true; }
+    return false;
+  } catch(e) { return false; }
+}
+async function _apiFetch(url, opts={}) {
+  const headers = { ..._authHeaders(), ...(opts.headers || {}) };
+  delete opts.headers;
+  let r = await fetch(url, { ...opts, headers });
+  if (r.status === 401 && _projectId) {
+    const refreshed = await _refreshToken();
+    if (refreshed) {
+      r = await fetch(url, { ...opts, headers: _authHeaders() });
+    } else {
+      localStorage.removeItem('dd_token');
+      location.href = '/login';
+      return null;
+    }
+  }
+  return r;
+}
+function _dataUrl() { return _projectId ? '/api/projects/' + _projectId + '/data' : '/api/game-data'; }
+function _saveUrl() { return _projectId ? '/api/projects/' + _projectId + '/save' : '/api/save-data'; }
+
 // ── STATE ──────────────────────────────────────────────────────
 const state = {
   gameData: null,
@@ -2326,12 +2366,11 @@ window.addEventListener('DOMContentLoaded', async () => {
           state.gameData.nodes[id]._pos = { x: n.x, y: n.y };
         }
       });
-      const r = await fetch('/api/save-data', {
+      const r = await _apiFetch(_saveUrl(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(state.gameData)
       });
-      if (r.ok) {
+      if (r && r.ok) {
         const now = new Date();
         const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         // 更新自动保存标识（静默，不弹 Toast）
@@ -2346,7 +2385,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 async function loadData() {
   try {
-    const r = await fetch('/api/game-data');
+    const r = await _apiFetch(_dataUrl());
+    if (!r) return;
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (!data || !data.nodes) throw new Error('数据格式错误');
@@ -3905,11 +3945,11 @@ async function saveData() {
   }
 
   try {
-    const r = await fetch('/api/save-data', {
+    const r = await _apiFetch(_saveUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(state.gameData),
     });
+    if (!r) return;
     const result = await r.json();
     if (r.ok) showToast('✓ 保存成功', 'success');
     else showToast('保存失败: ' + (result.error || '未知错误'), 'error');
@@ -5045,6 +5085,34 @@ function initCanvasZoomPan() {
   console.log('[ZoomPan] Canvas zoom/pan engine initialized');
 }
 
+
+// ── Dashboard button + project title ─────────────────────────────
+(function addDashboardElements() {
+  if (!_projectId) return; // no-op when loaded without ?project=
+  // Add "← Dashboard" button at the LEFT of toolbar
+  const toolbar = document.getElementById('toolbar');
+  if (toolbar) {
+    const dashBtn = document.createElement('button');
+    dashBtn.className = 'tool-btn';
+    dashBtn.title = '返回项目列表';
+    dashBtn.style.cssText = 'flex-shrink:0;';
+    dashBtn.innerHTML = '<span style="font-size:13px;">←</span><span class="tool-tip">Dashboard</span>';
+    dashBtn.onclick = () => { if (confirm('返回项目仪表盘？未保存的更改将丢失。')) location.href = '/dashboard'; };
+    const divider = document.createElement('div');
+    divider.className = 'tool-divider';
+    toolbar.insertBefore(divider, toolbar.firstChild);
+    toolbar.insertBefore(dashBtn, toolbar.firstChild);
+  }
+  // Show project title in autosave area if exists
+  const ai = document.getElementById('autosave-indicator');
+  if (ai) {
+    // Fetch project title from index
+    fetch('/api/projects/' + _projectId + '/data', { headers: { 'Authorization': 'Bearer ' + _getToken() } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.title && ai) ai.setAttribute('data-project', d.title); })
+      .catch(()=>{});
+  }
+})();
 
 // ── Add Game Panel button to toolbar ─────────────────────────────
 (function addGamePanelBtn() {

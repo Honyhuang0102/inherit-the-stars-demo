@@ -6,15 +6,19 @@ const https    = require('https');
 const http     = require('http');
 const multer   = require('multer');
 const FormData = require('form-data');
+const jwt      = require('jsonwebtoken');
 
 const app  = express();
 const PORT = 3000;
-const DATA_PATH    = path.join(__dirname, 'data.json');
-const PUBLIC_DIR   = path.join(__dirname, 'public');
-const PANORAMA_DIR = path.join(PUBLIC_DIR, 'panoramas');
-const MODELS_DIR   = path.join(PUBLIC_DIR, 'models');
-const VIDEOS_DIR   = path.join(PUBLIC_DIR, 'videos');
-const COVERS_DIR   = path.join(VIDEOS_DIR, 'covers');
+const DATA_PATH       = path.join(__dirname, 'data.json');
+const PUBLIC_DIR      = path.join(__dirname, 'public');
+const PANORAMA_DIR    = path.join(PUBLIC_DIR, 'panoramas');
+const MODELS_DIR      = path.join(PUBLIC_DIR, 'models');
+const VIDEOS_DIR      = path.join(PUBLIC_DIR, 'videos');
+const COVERS_DIR      = path.join(VIDEOS_DIR, 'covers');
+const PROJECTS_DIR    = path.join(__dirname, 'projects');
+const PROJECTS_INDEX  = path.join(PROJECTS_DIR, '_index.json');
+const PROJECTS_BACKUP = path.join(PROJECTS_DIR, 'backups');
 
 // ── Blockade Labs API 配置 ────────────────────────────────────────────────────
 const BLOCKADE_API_BASE = 'https://backend.blockadelabs.com/api/v1';
@@ -22,7 +26,7 @@ const SKYBOX_STYLE_ID   = 35;   // M3 UHD Render（高清科幻写实风格）
 const INIT_STRENGTH     = 0.35; // 反向比例：0.11=最强影响，0.9=无影响；0.35≈中强影响
 
 // ── 确保目录存在 ──────────────────────────────────────────────────────────────
-[PANORAMA_DIR, MODELS_DIR, VIDEOS_DIR, COVERS_DIR].forEach(d => {
+[PANORAMA_DIR, MODELS_DIR, VIDEOS_DIR, COVERS_DIR, PROJECTS_DIR, PROJECTS_BACKUP].forEach(d => {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
 });
 
@@ -47,10 +51,226 @@ function loadEnv() {
 }
 loadEnv();
 
+// ── JWT 认证中间件 ─────────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || '';
+function authenticate(req, res, next) {
+  if (!JWT_SECRET) return res.status(500).json({ error: 'JWT_SECRET not configured' });
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'No token' });
+  try {
+    const decoded = jwt.verify(auth.split(' ')[1], JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch(e) {
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+// ── 项目元数据读写工具 ─────────────────────────────────────────────
+function readIndex() {
+  try { return JSON.parse(fs.readFileSync(PROJECTS_INDEX, 'utf8')); }
+  catch(e) { return []; }
+}
+function writeIndex(index) {
+  const tmp = PROJECTS_INDEX + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(index, null, 2), 'utf8');
+  fs.renameSync(tmp, PROJECTS_INDEX);
+}
+function projectDataPath(projectId) {
+  return path.join(PROJECTS_DIR, projectId + '.json');
+}
+function checkOwnership(project, userId) {
+  // null user_id = legacy project, accessible to all authenticated users
+  return project.user_id === null || project.user_id === userId;
+}
+function updateIndexEntry(projectId, updates) {
+  const index = readIndex();
+  const i = index.findIndex(p => p.id === projectId);
+  if (i !== -1) { Object.assign(index[i], updates, { updated_at: new Date().toISOString() }); writeIndex(index); }
+}
+
+// ── 旧 data.json 迁移 → proj_legacy ────────────────────────────────
+(function migrateIfNeeded() {
+  const migratedFlag = path.join(PROJECTS_DIR, '_migrated');
+  if (fs.existsSync(migratedFlag)) return;
+  if (fs.existsSync(DATA_PATH)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+      const projectId = 'proj_legacy';
+      fs.writeFileSync(projectDataPath(projectId), JSON.stringify(data, null, 2), 'utf8');
+      const index = [{
+        id: projectId, user_id: null,
+        title: data.title || 'Legacy Project',
+        thumbnail: null,
+        node_count: Object.keys(data.nodes || {}).length,
+        status: 'draft',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }];
+      writeIndex(index);
+      fs.writeFileSync(migratedFlag, '1', 'utf8');
+      console.log('[Projects] data.json migrated to proj_legacy');
+    } catch(e) { console.warn('[Projects] Migration failed:', e.message); }
+  } else {
+    writeIndex([]);
+    fs.writeFileSync(migratedFlag, '1', 'utf8');
+    console.log('[Projects] _index.json initialized (no legacy data)');
+  }
+})();
+
 // ── 中间件 ────────────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ extended: true, limit: '600mb' }));
 app.use(express.static(PUBLIC_DIR));
+
+// ── 路由：登录页 ─────────────────────────────────────────────────
+app.get('/login', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'login.html')));
+app.get('/dashboard', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'dashboard.html')));
+app.get('/play', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'index.html')));
+
+// ── 项目列表 ─────────────────────────────────────────────────────
+app.get('/api/projects', authenticate, (req, res) => {
+  const index = readIndex();
+  const userProjects = index.filter(p => checkOwnership(p, req.userId));
+  userProjects.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+  res.json({ data: userProjects });
+});
+
+// ── 新建项目 ─────────────────────────────────────────────────────
+app.post('/api/projects', authenticate, (req, res) => {
+  const { title } = req.body;
+  if (!title || typeof title !== 'string') return res.status(400).json({ error: '缺少 title' });
+  const projectId = 'proj_' + Date.now();
+  const emptyData = {
+    title: title.trim(),
+    start_node: 'node_1',
+    nodes: {
+      node_1: { title: '开场', choices: [], video: null, is_ending: false, _pos: { x: 200, y: 200 } }
+    }
+  };
+  fs.writeFileSync(projectDataPath(projectId), JSON.stringify(emptyData, null, 2), 'utf8');
+  const index = readIndex();
+  const entry = {
+    id: projectId, user_id: req.userId,
+    title: title.trim(), thumbnail: null,
+    node_count: 1, status: 'draft',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  index.push(entry);
+  writeIndex(index);
+  console.log(`[Projects] Created: ${projectId} by ${req.userId}`);
+  res.json({ data: entry });
+});
+
+// ── 获取项目数据 ─────────────────────────────────────────────────
+app.get('/api/projects/:id/data', authenticate, (req, res) => {
+  const index = readIndex();
+  const project = index.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: '项目不存在' });
+  if (!checkOwnership(project, req.userId)) return res.status(403).json({ error: '无权访问' });
+  const dataPath = projectDataPath(req.params.id);
+  if (!fs.existsSync(dataPath)) return res.status(404).json({ error: '项目数据不存在' });
+  try {
+    const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ error: '读取项目数据失败' });
+  }
+});
+
+// ── 保存项目数据 ─────────────────────────────────────────────────
+app.post('/api/projects/:id/save', authenticate, (req, res) => {
+  const index = readIndex();
+  const project = index.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: '项目不存在' });
+  if (!checkOwnership(project, req.userId)) return res.status(403).json({ error: '无权访问' });
+  const payload = req.body;
+  if (!payload || !payload.nodes || !payload.start_node) return res.status(400).json({ error: '数据格式错误' });
+
+  const dataPath = projectDataPath(req.params.id);
+  const backupPath = path.join(PROJECTS_BACKUP, req.params.id + '_' + Date.now() + '.json');
+  if (fs.existsSync(dataPath)) { try { fs.copyFileSync(dataPath, backupPath); } catch(e) {} }
+
+  const tmp = dataPath + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), 'utf8');
+  fs.renameSync(tmp, dataPath);
+
+  // Update metadata
+  const nodeCount = Object.keys(payload.nodes || {}).length;
+  updateIndexEntry(req.params.id, { node_count: nodeCount, title: payload.title || project.title });
+  console.log(`[Projects] Saved: ${req.params.id} (${nodeCount} nodes)`);
+  res.json({ ok: true, message: '保存成功', timestamp: new Date().toISOString() });
+});
+
+// ── 重命名项目 ─────────────────────────────────────────────────────
+app.put('/api/projects/:id', authenticate, (req, res) => {
+  const index = readIndex();
+  const project = index.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: '项目不存在' });
+  if (!checkOwnership(project, req.userId)) return res.status(403).json({ error: '无权访问' });
+  const { title } = req.body;
+  if (!title) return res.status(400).json({ error: '缺少 title' });
+  updateIndexEntry(req.params.id, { title: title.trim() });
+  // Also update title inside the data file
+  const dataPath = projectDataPath(req.params.id);
+  if (fs.existsSync(dataPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+      data.title = title.trim();
+      fs.writeFileSync(dataPath, JSON.stringify(data, null, 2), 'utf8');
+    } catch(e) {}
+  }
+  res.json({ ok: true });
+});
+
+// ── 删除项目 ─────────────────────────────────────────────────────
+app.delete('/api/projects/:id', authenticate, (req, res) => {
+  const index = readIndex();
+  const i = index.findIndex(p => p.id === req.params.id);
+  if (i === -1) return res.status(404).json({ error: '项目不存在' });
+  if (!checkOwnership(index[i], req.userId)) return res.status(403).json({ error: '无权访问' });
+  const projectId = req.params.id;
+  // Remove data file
+  const dataPath = projectDataPath(projectId);
+  if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);
+  // Remove media dir
+  const mediaDir = path.join(PROJECTS_DIR, 'media', projectId);
+  if (fs.existsSync(mediaDir)) fs.rmSync(mediaDir, { recursive: true, force: true });
+  index.splice(i, 1);
+  writeIndex(index);
+  console.log(`[Projects] Deleted: ${projectId}`);
+  res.json({ ok: true });
+});
+
+// ── 复制项目 ─────────────────────────────────────────────────────
+app.post('/api/projects/:id/duplicate', authenticate, (req, res) => {
+  const index = readIndex();
+  const project = index.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: '项目不存在' });
+  if (!checkOwnership(project, req.userId)) return res.status(403).json({ error: '无权访问' });
+  const srcPath = projectDataPath(req.params.id);
+  if (!fs.existsSync(srcPath)) return res.status(404).json({ error: '项目数据不存在' });
+
+  const newId = 'proj_' + Date.now();
+  const data = JSON.parse(fs.readFileSync(srcPath, 'utf8'));
+  data.title = (data.title || project.title) + ' (副本)';
+  fs.writeFileSync(projectDataPath(newId), JSON.stringify(data, null, 2), 'utf8');
+  const entry = {
+    id: newId, user_id: req.userId,
+    title: data.title, thumbnail: project.thumbnail,
+    node_count: project.node_count, status: 'draft',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  index.push(entry);
+  writeIndex(index);
+  console.log(`[Projects] Duplicated: ${req.params.id} → ${newId}`);
+  res.json({ data: entry });
+});
+
+
+
 
 // ── multer 配置（内存存储，限 20MB）─────────────────────────────────────────
 const upload = multer({

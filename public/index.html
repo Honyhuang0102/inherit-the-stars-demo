@@ -837,8 +837,22 @@ function showError() {
 // ── Fetch Game Data ────────────────────────────────────────────────────────────
 async function fetchGameData() {
   try {
-    const res = await fetch('/api/game-data');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const _pid = new URLSearchParams(location.search).get('project');
+    const _token = localStorage.getItem('dd_token') || '';
+    const _url = _pid ? '/api/projects/' + _pid + '/data' : '/api/game-data';
+    const _headers = (_pid && _token) ? { 'Authorization': 'Bearer ' + _token } : {};
+    const res = await fetch(_url, { headers: _headers });
+    if (!res.ok) {
+      // If project not found and we have a project param, show error
+      if (_pid && res.status === 404) throw new Error('Project not found');
+      // Fallback to default game data
+      if (_pid) {
+        const fallback = await fetch('/api/game-data');
+        if (!fallback.ok) throw new Error(`HTTP ${fallback.status}`);
+        return await fallback.json();
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     return await res.json();
   } catch (err) {
     console.error('[VideoPool] fetchGameData failed:', err);

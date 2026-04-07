@@ -168,8 +168,7 @@
       "video_width": 720,
       "video_height": 1280,
       "branch_time": 13,
-      "next_node": "2",
-      "_sliderMaxSec": 18
+      "next_node": "2"
     },
     "node_1774981658388": {
       "id": "node_1774981658388",
@@ -188,43 +187,5 @@
       "video_height": 1280,
       "branch_time": 11
     }
-  },
-  "game_settings": {
-    "variables": [
-      {
-        "id": "affection",
-        "name": "好感度",
-        "icon": "❤️",
-        "type": "number",
-        "initial": 0,
-        "min": 0,
-        "max": 100,
-        "visible": true
-      },
-      {
-        "id": "trust",
-        "name": "信任度",
-        "icon": "🎭",
-        "type": "number",
-        "initial": 0,
-        "min": 0,
-        "max": 100,
-        "visible": true
-      },
-      {
-        "id": "coins",
-        "name": "金币",
-        "icon": "💰",
-        "type": "number",
-        "initial": 100,
-        "min": 0,
-        "max": 9999,
-        "visible": true
-      }
-    ],
-    "items": [],
-    "shop": [],
-    "endings": [],
-    "theme": "minimal_clean"
   }
 }

@@ -20,6 +20,7 @@
   "homepage": "https://github.com/Honyhuang0102/inherit-the-stars-demo#readme",
   "dependencies": {
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "tencentcloud-sdk-nodejs-ai3d": "^4.1.203"
   }
