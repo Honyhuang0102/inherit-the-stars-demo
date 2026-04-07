@@ -1973,9 +1973,9 @@ body.immersive-mode #right-panel {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               保存
             </div>
-            <div class="menu-item" onclick="showToast('发布功能开发中','info');closeMoreMenu()">
+            <div class="menu-item" id="menu-publish-infidive" onclick="publishToInfidive();closeMoreMenu()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              发布
+              🚀 发布到 infidive
             </div>
           </div>
         </button>
@@ -5553,5 +5553,48 @@ function setNodeCheckpoint(nodeId,val) {
   const nd=state.gameData.nodes[nodeId]; if(!nd) return; nd.is_checkpoint=val;
   const card=state.nodes[nodeId]?.el; if(card) { let b=card.querySelector('.node-checkpoint-badge'); if(val&&!b){b=document.createElement('div');b.className='node-checkpoint-badge';b.textContent='📌';card.style.position='relative';card.appendChild(b);}else if(!val&&b) b.remove(); }
   showToast(val?'检查点已设置':'检查点已取消','success');
+}
+
+// ── Bridge: Publish to infidive ────────────────────────────────────
+async function publishToInfidive() {
+  const token = localStorage.getItem('dd_token');
+  if (!token) {
+    showToast('Please login first', 'error');
+    return;
+  }
+  if (!state.gameData || !state.gameData.nodes) {
+    showToast('No project data to publish', 'error');
+    return;
+  }
+  if (!confirm('Publish this project to infidive app?\nIt will appear in the Oasis Feed.')) return;
+
+  const btn = document.getElementById('menu-publish-infidive');
+  if (btn) btn.style.opacity = '0.5';
+  showToast('Publishing...', 'info');
+
+  try {
+    const response = await fetch('https://infidive.ai/api/v1/bridge/publish', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        game_data: state.gameData,
+        project_id: _projectId || null
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Publish failed');
+
+    showToast('Published! ' + result.clip_count + ' clips to infidive app', 'success');
+    console.log('[Bridge] Published:', result);
+  } catch (e) {
+    showToast('Publish failed: ' + e.message, 'error');
+    console.error('[Bridge] Error:', e);
+  } finally {
+    if (btn) btn.style.opacity = '1';
+  }
 }
 </script>
