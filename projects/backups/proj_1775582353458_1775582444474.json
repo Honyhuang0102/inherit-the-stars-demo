@@ -1,0 +1,23 @@
+{
+  "title": "test",
+  "start_node": "node_1",
+  "nodes": {
+    "node_1": {
+      "title": "开场",
+      "choices": [],
+      "video": null,
+      "is_ending": false,
+      "_pos": {
+        "x": 200,
+        "y": 200
+      }
+    }
+  },
+  "game_settings": {
+    "variables": [],
+    "items": [],
+    "shop": [],
+    "endings": [],
+    "theme": "minimal_clean"
+  }
+}

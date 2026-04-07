@@ -143,10 +143,8 @@ app.post('/api/projects', authenticate, (req, res) => {
   const projectId = 'proj_' + Date.now();
   const emptyData = {
     title: title.trim(),
-    start_node: 'node_1',
-    nodes: {
-      node_1: { title: '开场', choices: [], video: null, is_ending: false, _pos: { x: 200, y: 200 } }
-    }
+    start_node: '',
+    nodes: {}
   };
   fs.writeFileSync(projectDataPath(projectId), JSON.stringify(emptyData, null, 2), 'utf8');
   const index = readIndex();
@@ -186,7 +184,7 @@ app.post('/api/projects/:id/save', authenticate, (req, res) => {
   if (!project) return res.status(404).json({ error: '项目不存在' });
   if (!checkOwnership(project, req.userId)) return res.status(403).json({ error: '无权访问' });
   const payload = req.body;
-  if (!payload || !payload.nodes || !payload.start_node) return res.status(400).json({ error: '数据格式错误' });
+  if (!payload || !payload.nodes || typeof payload.nodes !== 'object') return res.status(400).json({ error: '数据格式错误' });
 
   const dataPath = projectDataPath(req.params.id);
   const backupPath = path.join(PROJECTS_BACKUP, req.params.id + '_' + Date.now() + '.json');
