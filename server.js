@@ -119,8 +119,8 @@ function updateIndexEntry(projectId, updates) {
 })();
 
 // ── 中间件 ────────────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '600mb' }));
-app.use(express.urlencoded({ extended: true, limit: '600mb' }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(express.static(PUBLIC_DIR));
 
 // ── 路由：登录页 ─────────────────────────────────────────────────
@@ -299,59 +299,6 @@ function downloadFile(url, destPath) {
   });
 }
 
-// ── Blockade Labs HTTP 请求封装 ───────────────────────────────────────────────
-function blockadeRequest(method, endpoint, options = {}) {
-  return new Promise((resolve, reject) => {
-    const apiKey = process.env.BLOCKADE_LABS_API_KEY || '';
-    if (!apiKey) {
-      return reject(new Error('BLOCKADE_LABS_API_KEY 未配置'));
-    }
-
-    const url = new URL(BLOCKADE_API_BASE + endpoint);
-    const isFormData = options.formData instanceof FormData;
-
-    const headers = {
-      'x-api-key': apiKey,
-      ...(isFormData ? options.formData.getHeaders() : { 'Content-Type': 'application/json' }),
-      ...options.headers,
-    };
-
-    const body = isFormData
-      ? options.formData.getBuffer()
-      : (options.body ? JSON.stringify(options.body) : null);
-
-    const reqOptions = {
-      hostname: url.hostname,
-      path: url.pathname + url.search,
-      method: method.toUpperCase(),
-      headers: {
-        ...headers,
-        ...(body ? { 'Content-Length': Buffer.byteLength(body) } : {}),
-      },
-    };
-
-    const req = https.request(reqOptions, (res) => {
-      let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (res.statusCode >= 400) {
-            reject(new Error(`Blockade Labs API 错误 ${res.statusCode}: ${JSON.stringify(parsed)}`));
-          } else {
-            resolve(parsed);
-          }
-        } catch (e) {
-          reject(new Error(`响应解析失败: ${data.substring(0, 200)}`));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    if (body) req.write(body);
-    req.end();
-  });
-}
 
 // ── 内存任务状态存储 ──────────────────────────────────────────────────────────
 // jobId -> { status, panoramaUrl, thumbUrl, error, blockadeId }
@@ -394,7 +341,7 @@ app.post('/api/save-data', (req, res) => {
     return res.status(400).json({ error: `start_node "${payload.start_node}" 在 nodes 中不存在` });
   }
 
-  const backupPath = path.join(__dirname, `data.backup.${Date.now()}.json`);
+  const backupPath = path.join(PROJECTS_BACKUP, `legacy_${Date.now()}.json`);
   try {
     if (fs.existsSync(DATA_PATH)) fs.copyFileSync(DATA_PATH, backupPath);
   } catch (e) {

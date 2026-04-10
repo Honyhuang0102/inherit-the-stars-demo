@@ -805,6 +805,7 @@ const $timeDisplay    = document.getElementById('time-display');
 const engine = {
   gameData:      null,   // 完整 JSON 数据
   currentNodeId: null,   // 当前活跃节点 ID
+  firedTimelineEvents: new Set(), // Events fired in current node
   activeVideo:   null,   // 当前活跃 <video> 元素引用
   choiceShown:   false,  // 是否已弹出热点选项
   branchHandled: false,  // 是否已触发分支（防重入）
@@ -926,9 +927,9 @@ function releaseStaleVideos(keepIds) {
 }
 
 // ── Activate Video ─────────────────────────────────────────────────────────────
-async function activateVideo(v) {
+async function activateVideo(v, seekTo = 0) {
   v.className   = 'vid-active';
-  v.currentTime = 0;
+  v.currentTime = seekTo;
 
   if (engine.userInteracted) {
     v.muted = false;
@@ -989,7 +990,7 @@ $tapStart.addEventListener('click', unlockAudio);
 $tapStart.addEventListener('touchstart', unlockAudio, { passive: true });
 
 // ── Load Node (Main Entry) ─────────────────────────────────────────────────────
-async function loadNode(nodeId) {
+async function loadNode(nodeId, seekTo = 0) {
   const node = engine.gameData.nodes[nodeId];
   if (!node) {
     console.error('[VideoPool] loadNode: node not found:', nodeId);
@@ -1001,6 +1002,7 @@ async function loadNode(nodeId) {
   engine.branchHandled  = false;
   engine.transitioning  = false;
   engine.videoEnded     = false; // 重置视频结束标志，新节点正常控制热点显隐
+  engine.firedTimelineEvents = new Set(); // Reset per-node fired events
 
   // 重置 UI
   hideHotspots();
@@ -1042,7 +1044,7 @@ async function loadNode(nodeId) {
   }
 
   engine.activeVideo = targetVideo;
-  await activateVideo(targetVideo);
+  await activateVideo(targetVideo, seekTo);
 
   // 绑定事件（每次激活后重新绑定，避免多实例事件冲突）
   targetVideo.addEventListener('timeupdate', onTimeUpdate);
@@ -1073,6 +1075,49 @@ function onTimeUpdate() {
   const t = this.currentTime;
   $timeDisplay.textContent = formatTime(t);
   maybeTriggerBranch(t);
+  checkTimelineEvents(t);
+}
+
+// ── Timeline Events: fire time-based effects ────────────────────────────────
+function checkTimelineEvents(currentTime) {
+  const node = engine.gameData.nodes[engine.currentNodeId];
+  if (!node || !node.timeline_events || !node.timeline_events.length) return;
+  const gs = engine.gameData.game_settings;
+  if (!gs) return;
+
+  node.timeline_events.forEach(evt => {
+    if (!evt.id || engine.firedTimelineEvents.has(evt.id)) return;
+
+    // Resolve trigger time
+    let triggerTime;
+    if (evt.time === 'start') { triggerTime = 0; }
+    else if (evt.time === 'branch') { triggerTime = node.branch_at_second || node.branch_time || 0; }
+    else { triggerTime = typeof evt.time === 'number' ? evt.time : 0; }
+
+    // Fire when current time passes the trigger point (with 0.5s tolerance window)
+    if (currentTime >= triggerTime && currentTime <= triggerTime + 0.8) {
+      engine.firedTimelineEvents.add(evt.id);
+      if (evt.effects && evt.effects.length) {
+        // Reuse existing executeEffects (pass gs as mock gameData)
+        executeEffects(evt.effects, engine.gameData);
+        // Visual flash feedback
+        showTimelineEventFired(evt);
+      }
+    }
+  });
+}
+
+function showTimelineEventFired(evt) {
+  // Brief HUD flash to indicate a timeline event fired
+  const hasVarEffect = evt.effects?.some(e => e.type === 'variable' || e.variable_id);
+  if (!hasVarEffect) return;
+  // The HUD var displays are already updated by executeEffects -> updateHUDVar
+  // Add a subtle "pulse" to the HUD
+  const hud = document.getElementById('game-hud');
+  if (!hud) return;
+  hud.style.transition = 'opacity 0.1s';
+  hud.style.opacity = '0.5';
+  setTimeout(() => { hud.style.opacity = '1'; }, 150);
 }
 
 // ── seeked Handler ─────────────────────────────────────────────────────────────
@@ -1085,11 +1130,15 @@ function onSeeked() {
 function onEnded() {
   if (this !== engine.activeVideo) return;
   engine.videoEnded = true; // 标记视频已结束，阻止 updateHotspotVisibility 继续隐藏热点
+  // Fire any 'branch'/'end' timed events that haven't fired yet
   const node = engine.gameData.nodes[engine.currentNodeId];
+  if (node && node.timeline_events) {
+    checkTimelineEvents(node.branch_at_second || node.branch_time || 99999);
+  }
   if (node && node.type === 'ending') {
     showEnding(node);
-  } else if (node && node.type === 'branching') {
-    // 视频结束，强制显示所有热点（忽略 timeWindow 限制，用户必须做出选择）
+  } else if (node && node.choices && node.choices.length > 0) {
+    // 视频结束，显示选项热点（用户必须做出选择）
     showChoices(node);
   } else if (node && node.next_node && engine.gameData.nodes[node.next_node]) {
     // 直连节点：视频播完自动跳转到 next_node
@@ -1182,7 +1231,7 @@ function showChoices(node) {
 
       btn.innerHTML = `
         <span class="hs-ready-dot"></span>
-        <span class="hs-label">${choice.label || ''}</span>
+        <span class="hs-label">${escHtml(choice.label || '')}</span>
       `;
 
       const preloadedVid = videoPool.get(choice.target_node);
@@ -1247,8 +1296,18 @@ function handleChoice(choice) {
     engine.activeVideo.removeEventListener('ended',      onEnded);
   }
 
-  // 直接切换到预加载好的视频（无黑屏等待）
-  loadNode(choice.target_node);
+  // Compute seek position from choice.seek_to
+  let seekTo = 0;
+  const seekOpt = choice.seek_to;
+  if (seekOpt === 'branch') {
+    const targetNode = engine.gameData.nodes[choice.target_node];
+    seekTo = targetNode ? (targetNode.branch_at_second || targetNode.branch_time || 0) : 0;
+  } else if (typeof seekOpt === 'number') {
+    seekTo = seekOpt;
+  }
+  // else 'start' or undefined → seekTo = 0
+
+  loadNode(choice.target_node, seekTo);
 }
 
 // ── Show Ending ────────────────────────────────────────────────────────────────
@@ -1290,7 +1349,7 @@ $restartBtn.addEventListener('click', () => {
   }
   loadNode(engine.gameData.start_node);
 });
-// ── Initt ───────────────────────────────────────────────────────────────────────
+// ── Init ────────────────────────────────────────────────────────────────────────
 async function init() {
   // 短暂 loading 动画
   await new Promise(r => setTimeout(r, 1400));
@@ -1421,6 +1480,16 @@ function exit3DModelMode() {
 // 全景图容器（动态创建）
 let $panoContainer = null;
 let panoState = { dragging: false, startX: 0, startY: 0, rotX: 0, rotY: 0, curRotX: 0, curRotY: 0 };
+let _panoHandlers = null; // document-level listener refs — must be cleaned up on exit
+
+function _removePanoHandlers() {
+  if (!_panoHandlers) return;
+  document.removeEventListener('mousemove', _panoHandlers.mm);
+  document.removeEventListener('touchmove', _panoHandlers.tm);
+  document.removeEventListener('mouseup',   _panoHandlers.mu);
+  document.removeEventListener('touchend',  _panoHandlers.te);
+  _panoHandlers = null;
+}
 
 // 进入全景图模式
 async function loadPanoramaNode(node) {
@@ -1502,15 +1571,19 @@ async function loadPanoramaNode(node) {
     updatePanoView();
   };
 
-  document.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
-  document.addEventListener('touchmove', (e) => onMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-
+  // 先清除上次全景图遗留的监听器，再注册新的
+  _removePanoHandlers();
+  const _mmHandler = (e) => onMove(e.clientX, e.clientY);
+  const _tmHandler = (e) => onMove(e.touches[0].clientX, e.touches[0].clientY);
   const onEnd = () => {
     isDragging = false;
     viewer.style.cursor = 'grab';
   };
-  document.addEventListener('mouseup', onEnd);
-  document.addEventListener('touchend', onEnd);
+  document.addEventListener('mousemove', _mmHandler);
+  document.addEventListener('touchmove', _tmHandler, { passive: true });
+  document.addEventListener('mouseup',   onEnd);
+  document.addEventListener('touchend',  onEnd);
+  _panoHandlers = { mm: _mmHandler, tm: _tmHandler, mu: onEnd, te: onEnd };
 
   // 渲染热点选项
   renderPanoChoices(node);
@@ -1564,6 +1637,7 @@ function renderPanoChoices(node) {
 // 退出全景图模式
 function exitPanoramaMode() {
   if (!document.body.classList.contains('pano-mode')) return;
+  _removePanoHandlers();
   document.body.classList.remove('pano-mode');
   if ($panoContainer) {
     $panoContainer.style.display = 'none';
@@ -1651,6 +1725,10 @@ function exitPanoramaMode() {
 // ═══════════════════════════════════════════════════════════════════
 // GAME ENGINE — Player Runtime
 // ═══════════════════════════════════════════════════════════════════
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 const gameState = {
   variables: {},   // id -> current value
@@ -1864,8 +1942,8 @@ function openInventoryPanel() {
   const rows = items.map(it => {
     const count = gameState.inventory[it.id]||0;
     return `<div class="gsp-item">
-      <span class="gsp-item-icon">${it.icon||'📦'}</span>
-      <div class="gsp-item-info"><div class="gsp-item-name">${it.name}</div><div class="gsp-item-count">${it.description||''}</div></div>
+      <span class="gsp-item-icon">${escHtml(it.icon||'📦')}</span>
+      <div class="gsp-item-info"><div class="gsp-item-name">${escHtml(it.name)}</div><div class="gsp-item-count">${escHtml(it.description||'')}</div></div>
       <span class="gsp-item-qty">×${count}</span>
     </div>`;
   }).join('');
@@ -1880,8 +1958,8 @@ function openRelPanel() {
     const max = v.max||100;
     const pct = Math.round(Math.min(100, Math.max(0, (cur/max)*100)));
     const avatarHtml = v.character_avatar
-      ? `<img src="${v.character_avatar}" alt="${v.name}"/>`
-      : `<span style="font-size:18px;">${v.icon||'👤'}</span>`;
+      ? `<img src="${escHtml(v.character_avatar)}" alt="${escHtml(v.name)}"/>`
+      : `<span style="font-size:18px;">${escHtml(v.icon||'👤')}</span>`;
     return `<div class="rel-row">
       <div class="rel-avatar">${avatarHtml}</div>
       <div class="rel-info">
@@ -1906,15 +1984,15 @@ function openShopPanel() {
     const purchased = gameState.inventory[s.item_id]||0;
     const maxReached = s.max_per_game && purchased >= s.max_per_game;
     return `<div class="shop-item-card">
-      <span style="font-size:22px;">${it.icon}</span>
+      <span style="font-size:22px;">${escHtml(it.icon)}</span>
       <div style="flex:1;">
-        <div style="font-size:12px;color:#c8d8e8;font-weight:500;">${it.name}</div>
-        <div style="font-size:10px;color:#4a6070;">${s.description||it.description||''}</div>
+        <div style="font-size:12px;color:#c8d8e8;font-weight:500;">${escHtml(it.name)}</div>
+        <div style="font-size:10px;color:#4a6070;">${escHtml(s.description||it.description||'')}</div>
         ${s.max_per_game?`<div style="font-size:10px;color:#4a6070;">已购 ${purchased}/${s.max_per_game}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <span class="shop-item-price">🫧 ${s.price_bubbles}</span>
-        <button class="shop-buy-btn" ${(!canAfford||maxReached)?'disabled':''} onclick="purchaseShopItem('${s.item_id}',${s.price_bubbles},${JSON.stringify(s.max_per_game)})">
+        <button class="shop-buy-btn" ${(!canAfford||maxReached)?'disabled':''} onclick="purchaseShopItem('${escHtml(s.item_id)}',${s.price_bubbles},${JSON.stringify(s.max_per_game)})">
           ${maxReached?'已达上限':(!canAfford?'余额不足':'购买')}
         </button>
       </div>
@@ -2091,12 +2169,12 @@ showChoices = function(node) {
     const isLocked = !condResult.pass;
     if (isLocked) {
       btn.classList.add('locked');
-      btn.innerHTML = `<span class="hs-ready-dot"></span><span class="hs-label">${choice.label||''}</span>`;
+      btn.innerHTML = `<span class="hs-ready-dot"></span><span class="hs-label">${escHtml(choice.label||'')}</span>`;
       btn.addEventListener('click', () => showGameToast(condResult.fail_message||'条件不满足'));
     } else {
       const preloadedVid = videoPool.get(choice.target_node);
       if (preloadedVid && preloadedVid.readyState>=4) btn.classList.add('is-ready');
-      btn.innerHTML = `<span class="hs-ready-dot"></span><span class="hs-label">${choice.label||''}</span>`;
+      btn.innerHTML = `<span class="hs-ready-dot"></span><span class="hs-label">${escHtml(choice.label||'')}</span>`;
       btn.addEventListener('click', () => handleGameChoice(choice, gameData));
       // Start countdown
       if (choice.countdown && choice.countdown.seconds) {

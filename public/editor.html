@@ -1031,6 +1031,7 @@ html, body {
 .toast.success { border-color: #86efac; background: #f0fdf4; color: #166534; }
 .toast.error   { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
 .toast.info    { border-color: var(--border); }
+.toast.warning { border-color: #f59e0b; color: #f59e0b; }
 @keyframes toastIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
 /* ── SCROLLBAR ─────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -1980,7 +1981,7 @@ body.immersive-mode #right-panel {
             </div>
             <div class="menu-item" id="menu-publish-infidive" onclick="publishToInfidive();closeMoreMenu()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              🚀 发布到 infidive
+              发布
             </div>
           </div>
         </button>
@@ -2494,7 +2495,7 @@ function createNodeCard(nodeData, x, y) {
     ${thumbHtml}
     <div class="node-footer">
       <div class="node-type-dot"></div>
-      <div class="node-title">${escHtml(String(state.nodeIndexMap?.[nodeData.id] ?? nodeData.id))}：${escHtml(nodeData.title || '')}</div>
+      ${state.gameData.start_node === nodeData.id ? '<span style="font-size:9px;background:#2563eb;color:#fff;border-radius:3px;padding:1px 4px;margin-right:4px;">起始</span>' : ''}<div class="node-title">${escHtml(String(state.nodeIndexMap?.[nodeData.id] ?? nodeData.id))}：${escHtml(nodeData.title || '')}</div>
     </div>
     <div class="port port-in" data-node="${nodeData.id}" onmouseup="endConnect(event, '${nodeData.id}')"></div>
     ${nodeData.choices ? choicePortsHtml : `<div class="port port-out" data-node="${nodeData.id}" onmousedown="startConnect(event, '${nodeData.id}', -1)"></div>`}
@@ -2796,7 +2797,6 @@ function clearSelection() {
 // AI 3D 资产生成向导 Modal 控制器
 // ══════════════════════════════════════════════════════════════
 
-let _ai3dFile = null; // 当前选中的文件 // 当前选中的文件（已废弃，保留兼容）
 let _ai3dTailFrameBlob = null; // 视频尾帧 Blob
 
 /**
@@ -3186,6 +3186,17 @@ function openInspector(nodeId) {
                 oninput="syncHotspotLabel(${i}, this.value)"/>
               <input placeholder="副标题" value="${escHtml(c.sublabel||'')}" data-field="sublabel" data-idx="${i}"/>
               <input placeholder="目标节点 ID" value="${escHtml(c.target_node||'')}" data-field="target_node" data-idx="${i}"/>
+              <div style="margin-top:4px;padding:5px 7px;background:var(--bg-panel);border-radius:4px;border:1px solid var(--border);">
+                <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:5px;">&#128205; 跳转到目标节点的：</div>
+                <div style="display:flex;gap:6px;margin-bottom:4px;">
+                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="start" ${(!c.seek_to||c.seek_to==='start')?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 片头</label>
+                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="branch" ${c.seek_to==='branch'?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 片尾</label>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="custom" ${(typeof c.seek_to==='number')?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 指定秒数：</label>
+                  ${(()=>{ const _tn=c.target_node&&state.gameData.nodes[c.target_node]; const _tm=_tn&&(_tn._sliderMaxSec||_tn.branch_time||_tn.branch_at_second)||null; return '<input type="number" placeholder="0" min="0" step="0.5" value="'+(typeof c.seek_to==='number'?c.seek_to:0)+'" data-field="seek_custom" data-idx="${i}" '+(_tm?'max="'+Math.ceil(_tm)+'"':'')+' style="width:70px;padding:2px 5px;font-size:11px;background:var(--bg-canvas);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);" data-field="seek_custom" data-idx="${i}"/><span style="font-size:10px;color:var(--text-tertiary);white-space:nowrap;" data-field="seek_custom_wrap" data-idx="${i}">'+(_tm?'最大 '+Math.ceil(_tm)+'s（目标节点）':'')+'</span>'; })()}
+                </div>
+              </div>
               <div style="display:flex;gap:4px;align-items:center;margin-top:2px;">
                 <span style="font-size:10px;color:var(--text-tertiary);">X:</span>
                 <input placeholder="50%" value="${escHtml((c.position&&c.position.x)||'50%')}" data-field="position_x" data-idx="${i}"
@@ -3313,6 +3324,17 @@ function openInspector(nodeId) {
   insp.style.right = (window.innerWidth - rpRect.left + 8) + 'px';
 }
 
+function toggleSeekCustom(nodeId, choiceIdx, val) {
+  const row = document.querySelector(`.insp-choice-row[data-idx="${choiceIdx}"]`);
+  if (!row) return;
+  const show = val === 'custom';
+  // toggle input
+  const inp = row.querySelector(`[data-field="seek_custom"][data-idx="${choiceIdx}"]`);
+  if (inp) inp.style.display = show ? '' : 'none';
+  // toggle hint span
+  const hint = row.querySelector(`[data-field="seek_custom_wrap"][data-idx="${choiceIdx}"]`);
+  if (hint) hint.style.display = show ? '' : 'none';
+}
 function removeChoiceInInspector(nodeId, idx) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData || !nodeData.choices) return;
@@ -3371,25 +3393,35 @@ function applyInspector(nodeId) {
         } else if (field === 'normal') {
           nodeData.choices[idx].normal = inp.value;
         } else if (field === 'target_node') {
-          // 支持用户输入序号（nodeIndexMap 中的显示数字）或实际节点 key
-          // 如果输入的是纯数字，先尝试从 nodeIndexMap 反向查找实际 key
           const inputVal = inp.value.trim();
           if (inputVal && /^\d+$/.test(inputVal)) {
-            // 尝试反向查找：序号 → 实际 nodeId
             const seqNum = parseInt(inputVal, 10);
             const reverseEntry = Object.entries(state.nodeIndexMap || {}).find(([, v]) => v === seqNum);
-            if (reverseEntry) {
-              // 找到对应的实际 key
-              nodeData.choices[idx][field] = reverseEntry[0];
-            } else {
-              // 没有序号匹配，直接尝试作为实际 key（如果节点 key 就是数字）
-              nodeData.choices[idx][field] = inputVal;
-            }
+            nodeData.choices[idx][field] = reverseEntry ? reverseEntry[0] : inputVal;
           } else {
             nodeData.choices[idx][field] = inputVal;
           }
         }
       });
+      // Resolve seek_to for this choice
+      const _seekTypeEl = row.querySelector('[data-field="seek_type"]:checked');
+      const _seekType = _seekTypeEl ? _seekTypeEl.value : 'start';
+      if (_seekType === 'branch') { nodeData.choices[idx].seek_to = 'branch'; }
+      else if (_seekType === 'custom') {
+        const _customEl = row.querySelector('[data-field="seek_custom"]');
+        let _seekVal = _customEl ? (parseFloat(_customEl.value) || 0) : 0;
+        const _targetNodeId = nodeData.choices[idx]?.target_node;
+        const _targetNode = _targetNodeId && state.gameData.nodes[_targetNodeId];
+        const _maxSec = _targetNode
+          ? (_targetNode._sliderMaxSec || _targetNode.branch_time || _targetNode.branch_at_second || null)
+          : null;
+        if (_maxSec && _seekVal > _maxSec) {
+          _seekVal = _maxSec;
+          if (_customEl) _customEl.value = _maxSec;
+          showToast('秒数超出目标节点时长，已自动修正为最大值 ' + Math.ceil(_maxSec) + 's', 'warning');
+        }
+        nodeData.choices[idx].seek_to = _seekVal;
+      } else { delete nodeData.choices[idx].seek_to; }
     });
   }
   if (nodeData.type === 'ending') {
@@ -4903,7 +4935,7 @@ function initKeyboard() {
 
 // ── TOAST ──────────────────────────────────────────────────────
 function showToast(msg, type='info') {
-  const icons = { success:'✓', error:'✕', info:'·' };
+  const icons = { success:'✓', error:'✕', info:'·', warning:'⚠' };
   const el = document.createElement('div');
   el.className = `toast ${type}`;
   el.innerHTML = `<span>${icons[type]}</span><span>${escHtml(msg)}</span>`;
@@ -5254,14 +5286,14 @@ function renderVariablesTab() {
   const vars = state.gameData.game_settings.variables;
   return '<div class="gp-section" style="display:flex;align-items:center;justify-content:space-between;"><button class="gp-add-btn" onclick="openVarForm(-1)">+ 添加变量</button></div>'
   + '<div id="gp-var-list" style="margin-top:6px;">'
-  + vars.map((v,i) => `<div class="gp-item"><span class="gp-item-icon">${v.icon||'📊'}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(v.name)}</div><div class="gp-item-sub">${v.type==='number'?`${v.initial} [${v.min}–${v.max}]`:v.type} ${v.visible?'👁':'🔒'}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openVarForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteVar(${i})">✕</button></div></div>`).join('')
+  + vars.map((v,i) => `<div class="gp-item"><span class="gp-item-icon">${v.icon||'📊'}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(v.name)}</div><div class="gp-item-sub">${v.type==='number'?`${v.initial} [${v.min}–${v.max}]`:v.type==='text'?(v.options||[]).join(' / '):v.type} ${v.visible?'👁':'🔒'}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openVarForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteVar(${i})">✕</button></div></div>`).join('')
   + '</div>'
   + '<div class="gp-section" style="margin-top:8px;"><div class="gp-label">快速模板</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;"><button class="gp-tpl-btn" onclick="applyVarTemplate(\'romance\')">💕 恋爱向</button><button class="gp-tpl-btn" onclick="applyVarTemplate(\'adventure\')">⚔️ 冒险向</button><button class="gp-tpl-btn" onclick="applyVarTemplate(\'mystery\')">🔍 悬疑向</button></div></div>'
   + '<div id="gp-var-form" style="display:none;margin-top:8px;padding:8px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);">'
-  + '<div class="gp-label">变量 ID (英文)</div><input id="vf-id" placeholder="如 affection" class="gp-input"/>'
-  + '<div class="gp-label" style="margin-top:4px;">名称</div><input id="vf-name" placeholder="如 好感度" class="gp-input"/>'
-  + '<div style="display:flex;gap:4px;margin-top:4px;"><div style="flex:1;"><div class="gp-label">图标</div><input id="vf-icon" placeholder="❤️" class="gp-input"/></div><div style="flex:2;"><div class="gp-label">类型</div><select id="vf-type" class="gp-input" onchange="onVarTypeChange()"><option value="number">数值</option><option value="boolean">开关</option><option value="text">文本</option></select></div></div>'
+  + '<div class="gp-label">名称</div><input id="vf-name" placeholder="如 好感度" class="gp-input"/>'
+  + '<div style="display:flex;gap:4px;margin-top:4px;"><div style="flex:1;"><div class="gp-label">图标</div><div style="position:relative;"><button type="button" id="vf-icon-btn" onclick="toggleIconPicker(\'vf-icon-picker\',\'vf-icon\')" style="width:100%;background:var(--bg-canvas);border:1px solid var(--border);border-radius:4px;padding:5px 8px;cursor:pointer;font-size:16px;text-align:left;color:var(--text-primary);" class="gp-input">📊</button><div id="vf-icon-picker" style="display:none;position:absolute;top:110%;left:0;z-index:999;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:8px;width:220px;box-shadow:0 4px 16px rgba(0,0,0,.4);"><div style="display:flex;flex-wrap:wrap;gap:4px;max-height:160px;overflow-y:auto;" id=\"vf-icon-grid\"></div><div style="display:flex;gap:4px;margin-top:6px;"><input id="vf-icon-custom" placeholder="自定义 emoji" style="flex:1;background:var(--bg-canvas);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:14px;color:var(--text-primary);"/><button onclick="setIconFromCustom(\'vf-icon\',\'vf-icon-btn\',\'vf-icon-custom\',\'vf-icon-picker\')" style="padding:4px 8px;background:var(--accent);border:none;border-radius:4px;color:#000;cursor:pointer;">✓</button></div></div></div><input type="hidden" id="vf-icon" value="📊"/></div><div style="flex:2;"><div class="gp-label">类型</div><select id="vf-type" class="gp-input" onchange="onVarTypeChange()"><option value="number">数值</option><option value="boolean">开关</option><option value="text">文本</option></select></div></div>'
   + '<div id="vf-number-fields"><div class="gp-label" style="margin-top:4px;">初始 / 最小 / 最大</div><div style="display:flex;gap:4px;margin-top:2px;"><input id="vf-initial" type="number" value="0" class="gp-input"/><input id="vf-min" type="number" value="0" class="gp-input"/><input id="vf-max" type="number" value="100" class="gp-input"/></div></div>'
+  + '<div id="vf-text-fields" style="display:none;"><div class="gp-label" style="margin-top:4px;">选项列表 <span style="font-size:10px;color:var(--text-tertiary);">(每个值对应一个状态，如青铜/黄金)</span></div><div id="vf-options-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div><div style="display:flex;gap:4px;margin-top:4px;"><input id="vf-option-input" placeholder="输入选项，如 青铜" class="gp-input" style="flex:1;" onkeydown="if(event.key===\'Enter\'){addVarOption();event.preventDefault();}"/><button class="gp-micro-btn" onclick="addVarOption()">+ 添加</button></div><div class="gp-label" style="margin-top:6px;">初始值</div><select id="vf-text-initial" class="gp-input" style="margin-top:2px;"><option value="">-- 请先添加选项 --</option></select></div>'
   + '<div style="display:flex;align-items:center;gap:10px;margin-top:5px;"><label style="font-size:11px;color:var(--text-secondary);"><input type="checkbox" id="vf-visible" checked/> 显示给玩家</label><label style="font-size:11px;color:var(--text-secondary);"><input type="checkbox" id="vf-is-rel" onchange="document.getElementById(\'vf-rel-fields\').style.display=this.checked?\'block\':\'none\'"/> 角色关系</label></div>'
   + '<div id="vf-rel-fields" style="display:none;margin-top:4px;"><input id="vf-avatar" placeholder="角色头像 URL" class="gp-input"/><input id="vf-rel-label" placeholder="关系标签" class="gp-input" style="margin-top:3px;"/></div>'
   + '<div style="display:flex;gap:4px;margin-top:6px;"><button class="gp-add-btn" onclick="saveVar()">保存</button><button class="gp-micro-btn" onclick="document.getElementById(\'gp-var-form\').style.display=\'none\'">取消</button></div>'
@@ -5274,29 +5306,116 @@ function openVarForm(idx) {
   document.getElementById('gp-var-form').style.display = 'block';
   const el = id => document.getElementById(id);
   if (idx < 0) {
-    ['vf-id','vf-name','vf-icon','vf-avatar','vf-rel-label'].forEach(k => el(k).value='');
+    ['vf-name','vf-icon','vf-avatar','vf-rel-label'].forEach(k => el(k).value=''); el('vf-icon').value='📊'; el('vf-icon-btn').textContent='📊'; if(el('vf-icon-picker')) el('vf-icon-picker').style.display='none';
     el('vf-type').value='number'; el('vf-initial').value='0'; el('vf-min').value='0'; el('vf-max').value='100';
     el('vf-visible').checked=true; el('vf-is-rel').checked=false; el('vf-rel-fields').style.display='none'; el('vf-number-fields').style.display='block';
+    _varTextOptions=[]; el('vf-text-fields').style.display='none'; _refreshVarOptionsList();
   } else {
     const v = state.gameData.game_settings.variables[idx];
-    el('vf-id').value=v.id; el('vf-name').value=v.name; el('vf-icon').value=v.icon||'';
+    el('vf-name').value=v.name; el('vf-icon').value=v.icon||'📊'; el('vf-icon-btn').textContent=v.icon||'📊'; if(el('vf-icon-picker')) el('vf-icon-picker').style.display='none';
     el('vf-type').value=v.type; el('vf-initial').value=v.initial||0; el('vf-min').value=v.min||0; el('vf-max').value=v.max||100;
     el('vf-visible').checked=!!v.visible; el('vf-is-rel').checked=!!v.is_relationship;
     el('vf-rel-fields').style.display=v.is_relationship?'block':'none';
     if(el('vf-avatar')) el('vf-avatar').value=v.character_avatar||'';
     if(el('vf-rel-label')) el('vf-rel-label').value=v.relationship_label||'';
+    _varTextOptions = v.type==='text' ? [...(v.options||[])] : [];
+    _refreshVarOptionsList();
+    if (v.type==='text') { setTimeout(()=>{ const s=el('vf-text-initial'); if(s) s.value=v.initial||''; },50); }
     onVarTypeChange();
   }
 }
+function toggleIconPicker(pickerId, inputId) {
+  const picker = document.getElementById(pickerId);
+  if (!picker) return;
+  const isVisible = picker.style.display !== 'none';
+  document.querySelectorAll('[id$="-icon-picker"]').forEach(p => p.style.display = 'none');
+  if (!isVisible) {
+    // Populate grid if empty
+    const grid = picker.querySelector('#vf-icon-grid');
+    if (grid && !grid.dataset.rendered) {
+      grid.dataset.rendered = '1';
+      grid.innerHTML = VAR_ICONS.map(ic =>
+        `<span style="cursor:pointer;font-size:20px;padding:3px 4px;border-radius:4px;transition:background .1s;" 
+          onmouseenter="this.style.background='var(--bg-hover)'" 
+          onmouseleave="this.style.background=''"
+          onclick="pickIcon('${inputId}','${ic}')">${ic}</span>`
+      ).join('');
+    }
+    picker.style.display = 'block';
+    setTimeout(() => {
+      document.addEventListener('click', function closePicker(ev) {
+        if (!picker.contains(ev.target) && !ev.target.id?.endsWith('-btn')) {
+          picker.style.display = 'none';
+          document.removeEventListener('click', closePicker);
+        }
+      });
+    }, 50);
+  }
+}
+function pickIcon(inputId, icon) {
+  const inp = document.getElementById(inputId);
+  const btnId = inputId === 'vf-icon' ? 'vf-icon-btn' : 'if-icon-btn';
+  const btn = document.getElementById(btnId);
+  if (inp) inp.value = icon;
+  if (btn) btn.textContent = icon;
+  document.querySelectorAll('[id$="-icon-picker"]').forEach(p => p.style.display = 'none');
+}
+function setIconFromCustom(inputId, btnId, customId, pickerId) {
+  const val = document.getElementById(customId)?.value?.trim();
+  if (!val) return;
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  if (inp) inp.value = val;
+  if (btn) btn.textContent = val;
+  const picker = document.getElementById(pickerId);
+  if (picker) picker.style.display = 'none';
+}
 function onVarTypeChange() {
-  document.getElementById('vf-number-fields').style.display = document.getElementById('vf-type').value==='number'?'block':'none';
+  const t = document.getElementById('vf-type').value;
+  document.getElementById('vf-number-fields').style.display = t==='number'?'block':'none';
+  document.getElementById('vf-text-fields').style.display = t==='text'?'block':'none';
+}
+let _varTextOptions = [];
+function _refreshVarOptionsList() {
+  const list = document.getElementById('vf-options-list');
+  const sel = document.getElementById('vf-text-initial');
+  if (!list || !sel) return;
+  const curVal = sel.value;
+  list.innerHTML = _varTextOptions.map((opt, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:3px;background:var(--bg-panel);border:1px solid var(--border);border-radius:12px;padding:2px 8px 2px 10px;font-size:12px;">
+      ${escHtml(opt)}<button onclick="removeVarOption(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);font-size:12px;padding:0 0 0 2px;">✕</button>
+    </span>`
+  ).join('');
+  sel.innerHTML = _varTextOptions.length
+    ? '<option value="">-- 选择初始值 --</option>' + _varTextOptions.map(o => `<option value="${escHtml(o)}" ${o===curVal?'selected':''}>${escHtml(o)}</option>`).join('')
+    : '<option value="">-- 请先添加选项 --</option>';
+}
+function addVarOption() {
+  const inp = document.getElementById('vf-option-input');
+  const val = inp?.value?.trim();
+  if (!val) return;
+  if (_varTextOptions.includes(val)) { showToast('该选项已存在','error'); return; }
+  _varTextOptions.push(val);
+  inp.value = '';
+  _refreshVarOptionsList();
+}
+function removeVarOption(i) {
+  _varTextOptions.splice(i, 1);
+  _refreshVarOptionsList();
 }
 function saveVar() {
   const el = id => document.getElementById(id);
-  const id=el('vf-id').value.trim(), name=el('vf-name').value.trim();
-  if (!id||!name) { showToast('ID 和名称不能为空','error'); return; }
-  const v = { id, name, icon:el('vf-icon').value.trim()||'📊', type:el('vf-type').value,
-    initial:parseFloat(el('vf-initial').value)||0, min:parseFloat(el('vf-min').value)||0, max:parseFloat(el('vf-max').value)||100,
+  const name=el('vf-name').value.trim();
+  if (!name) { showToast('名称不能为空','error'); return; }
+  const id = (_varFormEditIdx>=0) ? state.gameData.game_settings.variables[_varFormEditIdx].id : ('var_'+Date.now());
+  const varType = el('vf-type').value;
+  const isText = varType === 'text';
+  if (isText && _varTextOptions.length === 0) { showToast('请至少添加一个选项','error'); return; }
+  const textInitial = isText ? (el('vf-text-initial').value || _varTextOptions[0]) : undefined;
+  const v = { id, name, icon:el('vf-icon').value.trim()||'📊', type:varType,
+    initial: isText ? textInitial : (parseFloat(el('vf-initial').value)||0),
+    min:isText?undefined:(parseFloat(el('vf-min').value)||0), max:isText?undefined:(parseFloat(el('vf-max').value)||100),
+    options: isText ? [..._varTextOptions] : undefined,
     visible:el('vf-visible').checked, is_relationship:el('vf-is-rel').checked,
     character_avatar:el('vf-avatar')?.value||null, relationship_label:el('vf-rel-label')?.value||null };
   const vars=state.gameData.game_settings.variables;
@@ -5312,6 +5431,8 @@ function applyVarTemplate(tpl) {
 }
 
 // ── ITEMS TAB ────────────────────────────────────────────────────
+const VAR_ICONS = ['❤️','💕','💔','💜','💛','💚','💙','🧡','🤍','🖤','⭐','🌟','✨','💫','🔥','⚡','💧','🌊','❄️','🌈','📊','📈','💯','🏆','🎯','🎲','🎭','🎪','⚔️','🛡️','💰','💎','🔑','🗝️','🔍','🧪','💊','🍀','🌸','🌺','🦋','🌙','☀️','🌻','🍎','🍓','🎵','🎶','🤝','😊','😰','😤','😍','🤗','😎','🥰','👑','💪','🧠','👁️','🫀','🩸','💀','☠️','👻','🎃','🌿','🍄','🕊️','🦅','🐉','🦁','🐺','🦊','🔮','🪄','🧿','🎁','🎀','🪙','📿','🏺','🗡️','🏹','🛸','🚀','⚙️','🔧','🔌','💉','🔋','📡','🧲','🔬','🧬','🔭','🧭','🗂️','📌','🔖','📝','💡','🔔','🎖️','🥇','🥉','🏅','🎗️','🎟️','🃏','🎴','🀄','🎰','🎡','🎢','🎠'];
+
 const THEME_ICONS = {
   neon_abyss:['🔋','💉','🔑','🛡️','📡','⚡','🔬','💊','🔌','📦','🧪','🔫','🛸','💻','📱','🎮','🔭','🧲','⚙️','🔧'],
   ancient_scroll:['🗡️','🧪','📜','💎','🏺','🪄','🏹','🛡️','📿','🧿','🔮','🌿','🍵','🕯️','📯','🌙','⭐','🌸','🍀','🎋'],
@@ -5329,7 +5450,6 @@ function renderItemsTab() {
   + items.map((it,i)=>`<div class="gp-item"><span class="gp-item-icon">${it.icon||'📦'}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(it.name)}</div><div class="gp-item-sub">${escHtml(it.description||'')}${it.stackable?' ×'+it.max_count:''}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openItemForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteItem(${i})">✕</button></div></div>`).join('')
   + '</div>'
   + '<div id="gp-item-form" style="display:none;margin-top:8px;padding:8px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);">'
-  + '<div class="gp-label">道具 ID (英文)</div><input id="if-id" placeholder="如 key_old" class="gp-input"/>'
   + '<div class="gp-label" style="margin-top:4px;">名称</div><input id="if-name" placeholder="如 古老的钥匙" class="gp-input"/>'
   + '<div class="gp-label" style="margin-top:4px;">选择图标</div>'
   + '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;">' + iconLib.map(ic=>`<span style="cursor:pointer;font-size:18px;padding:2px 3px;border-radius:4px;" onclick="document.getElementById(\'if-icon\').value=\'${ic}\'">${ic}</span>`).join('') + '</div>'
@@ -5343,13 +5463,14 @@ let _itemFormEditIdx=-1;
 function openItemForm(idx) {
   _itemFormEditIdx=idx; const el=id=>document.getElementById(id);
   el('gp-item-form').style.display='block';
-  if (idx<0) { ['if-id','if-name','if-icon','if-desc'].forEach(k=>el(k).value=''); el('if-stackable').checked=false; el('if-max').value='1'; }
-  else { const it=state.gameData.game_settings.items[idx]; el('if-id').value=it.id; el('if-name').value=it.name; el('if-icon').value=it.icon||''; el('if-desc').value=it.description||''; el('if-stackable').checked=!!it.stackable; el('if-max').value=it.max_count||1; }
+  if (idx<0) { ['if-name','if-icon','if-desc'].forEach(k=>el(k).value=''); el('if-stackable').checked=false; el('if-max').value='1'; }
+  else { const it=state.gameData.game_settings.items[idx]; el('if-name').value=it.name; el('if-icon').value=it.icon||''; el('if-desc').value=it.description||''; el('if-stackable').checked=!!it.stackable; el('if-max').value=it.max_count||1; }
 }
 function saveItem() {
   const el=id=>document.getElementById(id);
-  const id=el('if-id').value.trim(), name=el('if-name').value.trim();
-  if (!id||!name) { showToast('ID 和名称不能为空','error'); return; }
+  const name=el('if-name').value.trim();
+  if (!name) { showToast('名称不能为空','error'); return; }
+  const id = (_itemFormEditIdx>=0) ? state.gameData.game_settings.items[_itemFormEditIdx].id : ('item_'+Date.now());
   const it={id,name,icon:el('if-icon').value.trim()||'📦',description:el('if-desc').value.trim(),stackable:el('if-stackable').checked,max_count:parseInt(el('if-max').value)||1};
   const items=state.gameData.game_settings.items;
   if (_itemFormEditIdx<0) items.push(it); else items[_itemFormEditIdx]=it;
@@ -5444,7 +5565,6 @@ function renderEndingsTab() {
   + '<label style="font-size:11px;color:var(--text-secondary);margin-top:4px;display:block;"><input type="checkbox" ' + (showP?'checked':'') + ' onchange="setShowEndingsProgress(this.checked)"/> 向玩家展示收集进度</label>'
   + '<div id="gp-ending-list" style="margin-top:6px;">' + endings.map((e,i)=>`<div class="gp-item"><span class="gp-item-icon">${e.rarity==='legendary'?'⭐':e.rarity==='rare'?'💫':'✅'}</span><div class="gp-item-info"><div class="gp-item-name">${escHtml(e.name)}</div><div class="gp-item-sub">${e.rarity} · 节点 ${e.node_id}</div></div><div class="gp-item-actions"><button class="gp-micro-btn" onclick="openEndingForm(${i})">编辑</button><button class="gp-micro-btn danger" onclick="deleteEnding(${i})">✕</button></div></div>`).join('') + '</div>'
   + '<div id="gp-ending-form" style="display:none;margin-top:8px;padding:8px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);">'
-  + '<div class="gp-label">结局 ID</div><input id="ef-id" placeholder="如 ending_a" class="gp-input"/>'
   + '<div class="gp-label" style="margin-top:4px;">名称</div><input id="ef-name" placeholder="如 大团圆" class="gp-input"/>'
   + '<div class="gp-label" style="margin-top:4px;">绑定节点</div><select id="ef-node" class="gp-input"><option value="">-- 选择 ending 节点 --</option>' + endingNodes.map(n=>`<option value="${n.id}">${n.id}: ${n.title||''}</option>`).join('') + '</select>'
   + '<div class="gp-label" style="margin-top:4px;">稀有度</div><select id="ef-rarity" class="gp-input"><option value="common">普通</option><option value="rare">稀有</option><option value="legendary">传说</option></select>'
@@ -5455,12 +5575,13 @@ function renderEndingsTab() {
 let _endingFormEditIdx=-1;
 function openEndingForm(idx) {
   _endingFormEditIdx=idx; const el=id=>document.getElementById(id); el('gp-ending-form').style.display='block';
-  if (idx<0) { ['ef-id','ef-name','ef-desc','ef-hint'].forEach(k=>el(k).value=''); el('ef-node').value=''; el('ef-rarity').value='common'; }
-  else { const e=state.gameData.game_settings.endings[idx]; el('ef-id').value=e.id; el('ef-name').value=e.name; el('ef-node').value=e.node_id; el('ef-rarity').value=e.rarity||'common'; el('ef-desc').value=e.description||''; el('ef-hint').value=e.unlock_hint||''; }
+  if (idx<0) { ['ef-name','ef-desc','ef-hint'].forEach(k=>el(k).value=''); el('ef-node').value=''; el('ef-rarity').value='common'; }
+  else { const e=state.gameData.game_settings.endings[idx]; el('ef-name').value=e.name; el('ef-node').value=e.node_id; el('ef-rarity').value=e.rarity||'common'; el('ef-desc').value=e.description||''; el('ef-hint').value=e.unlock_hint||''; }
 }
 function saveEnding() {
-  const el=id=>document.getElementById(id); const id=el('ef-id').value.trim(), name=el('ef-name').value.trim(), node_id=el('ef-node').value;
-  if (!id||!name||!node_id) { showToast('ID、名称、节点不能为空','error'); return; }
+  const el=id=>document.getElementById(id); const name=el('ef-name').value.trim(), node_id=el('ef-node').value;
+  if (!name||!node_id) { showToast('名称和节点不能为空','error'); return; }
+  const id = (_endingFormEditIdx>=0) ? state.gameData.game_settings.endings[_endingFormEditIdx].id : ('ending_'+Date.now());
   const e={id,name,node_id,rarity:el('ef-rarity').value,description:el('ef-desc').value.trim(),unlock_hint:el('ef-hint').value.trim()||null};
   const endings=state.gameData.game_settings.endings;
   if (_endingFormEditIdx<0) endings.push(e); else endings[_endingFormEditIdx]=e;
@@ -5489,8 +5610,11 @@ openInspector = function(nodeId) {
     const saveBtn=document.querySelector('#insp-body .insp-save-btn'); if(!saveBtn) return;
     const nd=state.gameData.nodes[nodeId]; if(!nd) return;
     const div=document.createElement('div'); div.className='checkpoint-toggle insp-field'; div.style.cssText='display:flex;align-items:center;gap:6px;margin-top:4px;';
-    div.innerHTML=`<label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="insp-checkpoint" ${nd.is_checkpoint?'checked':''} onchange="setNodeCheckpoint('${nodeId}',this.checked)"/> 📌 设为检查点</label>`;
+    const isStart = state.gameData.start_node === nodeId;
+    div.innerHTML=`<label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="insp-checkpoint" ${nd.is_checkpoint?'checked':''} onchange="setNodeCheckpoint('${nodeId}',this.checked)"/> 📌 设为检查点</label><button id="insp-start-btn" onclick="setStartNode('${nodeId}')" style="margin-left:auto;padding:2px 8px;font-size:10px;border-radius:4px;border:1px solid ${isStart?'var(--accent)':'var(--border)'};background:${isStart?'var(--accent)':'transparent'};color:${isStart?'#000':'var(--text-secondary)'};cursor:pointer;">🚀 ${isStart?'起始节点':'设为起始'}</button>`;
     saveBtn.parentNode.insertBefore(div,saveBtn);
+    // Inject timeline events section
+    _injectTimelineSection(nodeId);
   }, 50);
 };
 
@@ -5510,7 +5634,10 @@ function buildEffectsSection(choice,idx,nodeId) {
 }
 function renderEffectRow(e,choiceIdx,effIdx,vars,items) {
   if (e.type==='variable') {
-    return `<div class="eff-row"><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'variable_id',this.value)"><option value="">--变量--</option>${vars.map(v=>`<option value="${v.id}" ${e.variable_id===v.id?'selected':''}>${v.icon||''} ${v.name}</option>`).join('')}</select><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'operator',this.value)"><option value="add" ${e.operator==='add'?'selected':''}>+</option><option value="subtract" ${e.operator==='subtract'?'selected':''}>-</option><option value="set" ${e.operator==='set'?'selected':''}>=</option></select><input type="number" class="eff-num" value="${e.value||0}" onchange="updateEffect(${choiceIdx},${effIdx},'value',+this.value)"/><button class="eff-del-btn" onclick="removeEffect(${choiceIdx},${effIdx})">✕</button></div>`;
+    const _effVar = vars.find(v=>v.id===e.variable_id);
+    const _isTextVar = _effVar?.type==='text';
+    const _textOpts = _isTextVar && _effVar.options?.length ? _effVar.options.map(o=>`<option value="${o}" ${e.value===o?'selected':''}>${o}</option>`).join('') : '';
+    return `<div class="eff-row"><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'variable_id',this.value)"><option value="">--变量--</option>${vars.map(v=>`<option value="${v.id}" ${e.variable_id===v.id?'selected':''}>${v.icon||''} ${v.name}</option>`).join('')}</select>${_isTextVar ? `<span style="font-size:11px;color:var(--text-tertiary);padding:0 4px;">设为</span><select class="eff-select" style="flex:1;" onchange="updateEffect(${choiceIdx},${effIdx},'value',this.value);updateEffect(${choiceIdx},${effIdx},'operator','set');"><option value="">-- 选择 --</option>${_textOpts}</select>` : `<select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'operator',this.value)"><option value="add" ${e.operator==='add'?'selected':''}>+</option><option value="subtract" ${e.operator==='subtract'?'selected':''}>-</option><option value="set" ${e.operator==='set'?'selected':''}>=</option></select><input type="number" class="eff-num" value="${e.value||0}" onchange="updateEffect(${choiceIdx},${effIdx},'value',+this.value)"/>`}<button class="eff-del-btn" onclick="removeEffect(${choiceIdx},${effIdx})">✕</button></div>`;
   } else {
     return `<div class="eff-row"><span style="font-size:10px;color:var(--text-tertiary);">${e.action==='give'?'给':'取'}</span><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'item_id',this.value)"><option value="">--道具--</option>${items.map(it=>`<option value="${it.id}" ${e.item_id===it.id?'selected':''}>${it.icon} ${it.name}</option>`).join('')}</select><select class="eff-select" onchange="updateEffect(${choiceIdx},${effIdx},'action',this.value)"><option value="give" ${e.action==='give'?'selected':''}>获得</option><option value="take" ${e.action==='take'?'selected':''}>消耗</option></select><input type="number" class="eff-num" value="${e.count||1}" min="1" onchange="updateEffect(${choiceIdx},${effIdx},'count',+this.value)"/><button class="eff-del-btn" onclick="removeEffect(${choiceIdx},${effIdx})">✕</button></div>`;
   }
@@ -5530,10 +5657,15 @@ function buildConditionsSection(choice,idx,nodeId) {
 }
 function renderCondRow(c,choiceIdx,condIdx,vars,items) {
   const isVar=!c.item_id&&!!c.variable_id;
-  const OPS=isVar?['gte','lte','eq','ne'].map(o=>`<option value="${o}" ${c.operator===o?'selected':''}>${{gte:'≥',lte:'≤',eq:'=',ne:'≠'}[o]}</option>`).join(''):['gte','lte','eq'].map(o=>`<option value="${o}" ${c.operator===o?'selected':''}>${{gte:'≥',lte:'≤',eq:'='}[o]}</option>`).join('');
+  const _condVar = isVar ? vars.find(v=>v.id===c.variable_id) : null;
+  const _isTextCond = _condVar?.type==='text';
+  const _textCondOpts = _isTextCond && _condVar.options?.length ? _condVar.options.map(o=>`<option value="${o}" ${c.value===o?'selected':''}>${o}</option>`).join('') : '';
+  const OPS= _isTextCond
+    ? ['eq','ne'].map(o=>`<option value="${o}" ${c.operator===o?'selected':''}>${{eq:'=',ne:'≠'}[o]}</option>`).join('')
+    : isVar?['gte','lte','eq','ne'].map(o=>`<option value="${o}" ${c.operator===o?'selected':''}>${{gte:'≥',lte:'≤',eq:'=',ne:'≠'}[o]}</option>`).join(''):['gte','lte','eq'].map(o=>`<option value="${o}" ${c.operator===o?'selected':''}>${{gte:'≥',lte:'≤',eq:'='}[o]}</option>`).join('');
   const subjectSel=isVar?`<select class="eff-select" onchange="updateCond(${choiceIdx},${condIdx},'variable_id',this.value)"><option value="">--变量--</option>${vars.map(v=>`<option value="${v.id}" ${c.variable_id===v.id?'selected':''}>${v.icon||''} ${v.name}</option>`).join('')}</select>`:`<select class="eff-select" onchange="updateCond(${choiceIdx},${condIdx},'item_id',this.value)"><option value="">--道具--</option>${items.map(it=>`<option value="${it.id}" ${c.item_id===it.id?'selected':''}>${it.icon} ${it.name}</option>`).join('')}</select>`;
   const FAIL=['hidden','locked','alt_text'].map(f=>`<option value="${f}" ${c.fail_behavior===f?'selected':''}>${{hidden:'隐藏',locked:'锁定',alt_text:'替换文案'}[f]}</option>`).join('');
-  return `<div style="border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:4px;"><div class="eff-row">${subjectSel}<select class="eff-select" onchange="updateCond(${choiceIdx},${condIdx},'operator',this.value)">${OPS}</select><input type="number" class="eff-num" value="${c.value||0}" onchange="updateCond(${choiceIdx},${condIdx},'value',+this.value)"/><button class="eff-del-btn" onclick="removeCond(${choiceIdx},${condIdx})">✕</button></div><div style="display:flex;gap:3px;align-items:center;margin-top:3px;"><span style="font-size:10px;color:var(--text-tertiary);">否则:</span><select class="cond-fail-select" onchange="updateCond(${choiceIdx},${condIdx},'fail_behavior',this.value)">${FAIL}</select></div>${c.fail_behavior!=='hidden'?`<input style="margin-top:3px;width:100%;padding:3px 5px;font-size:10px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);" placeholder="提示文案" value="${escHtml(c.fail_message||'')}" onchange="updateCond(${choiceIdx},${condIdx},'fail_message',this.value)"/>`:''}  </div>`;
+  return `<div style="border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:4px;"><div class="eff-row">${subjectSel}<select class="eff-select" onchange="updateCond(${choiceIdx},${condIdx},'operator',this.value)">${OPS}</select>${_isTextCond ? `<select class="eff-select" style="flex:1;" onchange="updateCond(${choiceIdx},${condIdx},'value',this.value)"><option value="">-- 选择 --</option>${_textCondOpts}</select>` : `<input type="number" class="eff-num" value="${c.value||0}" onchange="updateCond(${choiceIdx},${condIdx},'value',+this.value)"/>`}<button class="eff-del-btn" onclick="removeCond(${choiceIdx},${condIdx})">✕</button></div><div style="display:flex;gap:3px;align-items:center;margin-top:3px;"><span style="font-size:10px;color:var(--text-tertiary);">否则:</span><select class="cond-fail-select" onchange="updateCond(${choiceIdx},${condIdx},'fail_behavior',this.value)">${FAIL}</select></div>${c.fail_behavior!=='hidden'?`<input style="margin-top:3px;width:100%;padding:3px 5px;font-size:10px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);" placeholder="提示文案" value="${escHtml(c.fail_message||'')}" onchange="updateCond(${choiceIdx},${condIdx},'fail_message',this.value)"/>`:''}  </div>`;
 }
 function updateCond(choiceIdx,condIdx,field,value) { const c=_getInspChoice(choiceIdx); if(!c||!c.conditions) return; if(c.conditions[condIdx]) c.conditions[condIdx][field]=value; }
 function addCond(choiceIdx,type,nodeId) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; const c=nd.choices[choiceIdx]; if(!c) return; if(!c.conditions) c.conditions=[]; if(type==='variable') c.conditions.push({type:'variable',variable_id:'',operator:'gte',value:0,fail_behavior:'locked',fail_message:''}); else c.conditions.push({type:'item',item_id:'',operator:'gte',value:1,fail_behavior:'hidden',fail_message:''}); openInspector(nodeId); }
@@ -5554,6 +5686,196 @@ function updateStylePreset(ci,nodeId,val) { const nd=state.gameData.nodes[nodeId
 function toggleCountdown(ci,nodeId,enabled) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; if(enabled) nd.choices[ci].countdown={seconds:5,timeout_target_node:'',timeout_effects:[]}; else delete nd.choices[ci].countdown; document.getElementById(`cd-cfg-${ci}`).style.display=enabled?'block':'none'; }
 function updateCountdown(ci,nodeId,field,val) { const nd=state.gameData.nodes[nodeId]; if(!nd||!nd.choices) return; if(!nd.choices[ci].countdown) nd.choices[ci].countdown={seconds:5,timeout_target_node:'',timeout_effects:[]}; nd.choices[ci].countdown[field]=val; }
 
+function setStartNode(nodeId) {
+  state.gameData.start_node = nodeId;
+  saveData();
+  // Re-render all node cards to update start indicator
+  renderGraph();
+  showToast('✅ 已设为起始节点', 'success');
+  // Reopen inspector
+  setTimeout(() => openInspector(nodeId), 150);
+}
+
+// ── TIMELINE EVENTS (time-based triggers on video) ────────────────────────────
+function _resolveEventTime(evtTime, node) {
+  if (evtTime === 'start') return 0;
+  if (evtTime === 'branch') return node.branch_at_second || node.branch_time || 0;
+  return typeof evtTime === 'number' ? evtTime : 0;
+}
+function renderTimelineSection(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd) return;
+  const events = nd.timeline_events || [];
+  const vars = (state.gameData.game_settings && state.gameData.game_settings.variables) || [];
+  const items = (state.gameData.game_settings && state.gameData.game_settings.items) || [];
+
+  const wrap = document.createElement('div');
+  wrap.className = 'timeline-section insp-field';
+  wrap.style.cssText = 'margin-top:6px;';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;';
+  header.innerHTML = `<span style="font-size:11px;font-weight:600;color:var(--text-secondary);">&#9201; 时间触发效果</span><button class="gp-micro-btn" onclick="addTimelineEvent('${nodeId}')">+ 添加</button>`;
+  wrap.appendChild(header);
+
+  if (events.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:10px;color:var(--text-tertiary);padding:6px;text-align:center;background:var(--bg-canvas);border-radius:4px;';
+    empty.textContent = '暂无时间触发事件';
+    wrap.appendChild(empty);
+  }
+
+  events.forEach((evt, ei) => {
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--bg-canvas);border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin-bottom:6px;';
+
+    const t = evt.time;
+    const isStart = t === 'start';
+    const isBranch = t === 'branch';
+    const isCustom = typeof t === 'number';
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:10px;font-weight:600;color:var(--accent);">触发 ${ei+1}</span>
+        <button class="eff-del-btn" onclick="removeTimelineEvent('${nodeId}',${ei})">✕ 删除</button>
+      </div>
+      <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;">&#128205; 触发时机：</div>
+      <div style="display:flex;gap:6px;margin-bottom:4px;">
+        <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="tl_time_${nodeId}_${ei}" value="start" ${isStart?'checked':''} onchange="updateTimelineEventTime('${nodeId}',${ei},'start')"/> 片头</label>
+        <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="tl_time_${nodeId}_${ei}" value="branch" ${isBranch?'checked':''} onchange="updateTimelineEventTime('${nodeId}',${ei},'branch')"/> 片尾</label>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;"><input type="radio" name="tl_time_${nodeId}_${ei}" value="custom" ${isCustom?'checked':''} onchange="updateTimelineEventTime('${nodeId}',${ei},'custom')"/> 指定秒数：</label>
+        <input type="number" id="tl_custom_${nodeId}_${ei}" placeholder="0" min="0" step="0.5" value="${isCustom?evt.time:0}" onchange="updateTimelineEventCustomTime('${nodeId}',${ei},this.value)" ${(nd._sliderMaxSec||nd.branch_time||nd.branch_at_second)?'max="'+Math.ceil(nd._sliderMaxSec||nd.branch_time||nd.branch_at_second)+'"':'' } style="width:70px;padding:2px 5px;font-size:11px;background:var(--bg-canvas);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);" />
+        <span style="font-size:10px;color:var(--text-tertiary);white-space:nowrap;">${(nd._sliderMaxSec||nd.branch_time||nd.branch_at_second)?'最大 '+Math.ceil(nd._sliderMaxSec||nd.branch_time||nd.branch_at_second)+'s':''}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:3px;"><span style="color:#f59e0b;">&#9889;</span> 触发效果（变量）：</div>
+      <div id="tl_eff_list_${nodeId}_${ei}">
+        ${(evt.effects||[]).map((e,effi) => renderTimelineEffectRow(e, nodeId, ei, effi, vars)).join('')}
+      </div>
+      <button class="eff-add-btn" onclick="addTimelineEffect('${nodeId}',${ei})">+ 添加效果</button>
+    `;
+    wrap.appendChild(card);
+  });
+
+  return wrap;
+}
+
+function renderTimelineEffectRow(e, nodeId, evtIdx, effIdx, vars) {
+  const varOpts = vars.map(v => `<option value="${v.id}" ${e.variable_id===v.id?'selected':''}>${v.icon||''} ${v.name}</option>`).join('');
+  const selectedVar = vars.find(v => v.id === e.variable_id);
+  const isText = selectedVar?.type === 'text';
+  const textOpts = isText && selectedVar.options ? selectedVar.options.map(o => `<option value="${o}" ${e.value===o?'selected':''}>${o}</option>`).join('') : '';
+  return `<div class="eff-row" id="tl_eff_${nodeId}_${evtIdx}_${effIdx}">
+    <select class="eff-select" onchange="updateTimelineEffect('${nodeId}',${evtIdx},${effIdx},'variable_id',this.value)"><option value="">--变量--</option>${varOpts}</select>
+    ${isText
+      ? `<span style="font-size:11px;color:var(--text-tertiary);padding:0 4px;">设为</span><select class="eff-select" style="flex:1;" onchange="updateTimelineEffect('${nodeId}',${evtIdx},${effIdx},'value',this.value);updateTimelineEffect('${nodeId}',${evtIdx},${effIdx},'operator','set');"><option value="">--选择--</option>${textOpts}</select>`
+      : `<select class="eff-select" onchange="updateTimelineEffect('${nodeId}',${evtIdx},${effIdx},'operator',this.value)"><option value="add" ${e.operator==='add'?'selected':''}>+</option><option value="subtract" ${e.operator==='subtract'?'selected':''}>-</option><option value="set" ${e.operator==='set'?'selected':''}>=</option></select><input type="number" class="eff-num" value="${e.value||0}" onchange="updateTimelineEffect('${nodeId}',${evtIdx},${effIdx},'value',+this.value)"/>`}
+    <button class="eff-del-btn" onclick="removeTimelineEffect('${nodeId}',${evtIdx},${effIdx})">✕</button>
+  </div>`;
+}
+
+function addTimelineEvent(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd) return;
+  if (!nd.timeline_events) nd.timeline_events = [];
+  nd.timeline_events.push({ id: 'tl_' + Date.now(), time: 0, effects: [] });
+  saveData();
+  // Re-inject the timeline section
+  const existing = document.querySelector('.timeline-section');
+  if (existing) existing.remove();
+  _injectTimelineSection(nodeId);
+}
+
+function removeTimelineEvent(nodeId, evtIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.timeline_events) return;
+  nd.timeline_events.splice(evtIdx, 1);
+  saveData();
+  const existing = document.querySelector('.timeline-section');
+  if (existing) existing.remove();
+  _injectTimelineSection(nodeId);
+}
+
+function updateTimelineEventTime(nodeId, evtIdx, type) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.timeline_events || !nd.timeline_events[evtIdx]) return;
+  const customInput = document.getElementById(`tl_custom_${nodeId}_${evtIdx}`);
+  const hintEl = customInput ? customInput.nextElementSibling : null;
+  if (type === 'custom') {
+    nd.timeline_events[evtIdx].time = parseFloat(customInput?.value) || 0;
+    if (customInput) customInput.style.display = '';
+    if (hintEl) hintEl.style.display = '';
+  } else {
+    nd.timeline_events[evtIdx].time = type;
+    if (customInput) customInput.style.display = 'none';
+    if (hintEl) hintEl.style.display = 'none';
+  }
+  saveData();
+}
+
+function updateTimelineEventCustomTime(nodeId, evtIdx, val) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.timeline_events || !nd.timeline_events[evtIdx]) return;
+  let t = parseFloat(val) || 0;
+  const maxSec = nd._sliderMaxSec || nd.branch_time || nd.branch_at_second || null;
+  if (maxSec && t > maxSec) {
+    t = maxSec;
+    const inp = document.getElementById(`tl_custom_${nodeId}_${evtIdx}`);
+    if (inp) inp.value = maxSec;
+    showToast('秒数超出视频时长，已自动修正为最大值 ' + Math.ceil(maxSec) + 's', 'warning');
+  }
+  nd.timeline_events[evtIdx].time = t;
+  saveData();
+}
+
+function addTimelineEffect(nodeId, evtIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.timeline_events || !nd.timeline_events[evtIdx]) return;
+  if (!nd.timeline_events[evtIdx].effects) nd.timeline_events[evtIdx].effects = [];
+  nd.timeline_events[evtIdx].effects.push({ type: 'variable', variable_id: '', operator: 'add', value: 0 });
+  saveData();
+  const existing = document.querySelector('.timeline-section');
+  if (existing) existing.remove();
+  _injectTimelineSection(nodeId);
+}
+
+function removeTimelineEffect(nodeId, evtIdx, effIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.timeline_events || !nd.timeline_events[evtIdx]) return;
+  nd.timeline_events[evtIdx].effects.splice(effIdx, 1);
+  saveData();
+  const existing = document.querySelector('.timeline-section');
+  if (existing) existing.remove();
+  _injectTimelineSection(nodeId);
+}
+
+function updateTimelineEffect(nodeId, evtIdx, effIdx, field, value) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.timeline_events || !nd.timeline_events[evtIdx]) return;
+  const eff = nd.timeline_events[evtIdx].effects[effIdx];
+  if (!eff) return;
+  eff[field] = value;
+  // If changing variable, re-render this event's effects list
+  if (field === 'variable_id') {
+    saveData();
+    const existing = document.querySelector('.timeline-section');
+    if (existing) existing.remove();
+    _injectTimelineSection(nodeId);
+  } else {
+    saveData();
+  }
+}
+
+function _injectTimelineSection(nodeId) {
+  setTimeout(() => {
+    const saveBtn = document.querySelector('#insp-body .insp-save-btn');
+    if (!saveBtn) return;
+    const section = renderTimelineSection(nodeId);
+    if (section) saveBtn.parentNode.insertBefore(section, saveBtn);
+  }, 30);
+}
+
 function setNodeCheckpoint(nodeId,val) {
   const nd=state.gameData.nodes[nodeId]; if(!nd) return; nd.is_checkpoint=val;
   const card=state.nodes[nodeId]?.el; if(card) { let b=card.querySelector('.node-checkpoint-badge'); if(val&&!b){b=document.createElement('div');b.className='node-checkpoint-badge';b.textContent='📌';card.style.position='relative';card.appendChild(b);}else if(!val&&b) b.remove(); }
@@ -5563,40 +5885,123 @@ function setNodeCheckpoint(nodeId,val) {
 // ── Bridge: Publish to infidive ────────────────────────────────────
 async function publishToInfidive() {
   const token = localStorage.getItem('dd_token');
-  if (!token) {
-    showToast('Please login first', 'error');
-    return;
+  if (!token) { showToast('Please login first', 'error'); return; }
+  if (!state.gameData || !state.gameData.nodes) { showToast('No project data to publish', 'error'); return; }
+  const _nodes = state.gameData.nodes;
+  const _nodeKeys = Object.keys(_nodes);
+  if (_nodeKeys.length === 0) { showToast('请先添加节点再发布', 'error'); return; }
+  // Auto-detect start_node if not set
+  if (!state.gameData.start_node || !_nodes[state.gameData.start_node]) {
+    const startTyped = _nodeKeys.find(k => _nodes[k].type === 'start');
+    state.gameData.start_node = startTyped || _nodeKeys[0];
+    saveData();
   }
-  if (!state.gameData || !state.gameData.nodes) {
-    showToast('No project data to publish', 'error');
-    return;
-  }
-  if (!confirm('Publish this project to infidive app?\nIt will appear in the Oasis Feed.')) return;
+
+  const existingWorldId = state.gameData._infidive_world_id || null;
+
+  // ── Show publish modal ────────────────────────────────────
+  _showPublishModal(existingWorldId);
+}
+
+function _showPublishModal(existingWorldId) {
+  const existing = document.getElementById('_publish_modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = '_publish_modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  const nodeCount = Object.keys(state.gameData.nodes || {}).length;
+  const title = state.gameData.title || 'Untitled';
+
+  modal.innerHTML = `
+    <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:24px 28px;width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">发布到 infidive</div>
+      <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:18px;">${nodeCount} 个节点 · ${escHtml(title)}</div>
+
+      ${existingWorldId ? `
+      <div style="margin-bottom:14px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:6px;border:2px solid var(--accent,#6366f1);background:rgba(99,102,241,0.08);cursor:pointer;margin-bottom:8px;">
+          <input type="radio" name="_pub_mode" value="update" checked style="margin-top:2px;accent-color:var(--accent,#6366f1);">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text-primary);">更新现有内容</div>
+            <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">覆盖已发布的版本，world ID 保持不变</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);cursor:pointer;">
+          <input type="radio" name="_pub_mode" value="new" style="margin-top:2px;accent-color:var(--accent,#6366f1);">
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text-primary);">发布为新内容</div>
+            <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">在 Feed 中创建全新副本</div>
+          </div>
+        </label>
+      </div>
+      ` : `
+      <div style="margin-bottom:14px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-canvas);">
+        <div style="font-size:12px;color:var(--text-secondary);">将在 Oasis Feed 中发布这个项目，观看者可以互动并选择剧情分支。</div>
+      </div>
+      `}
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+        <button onclick="document.getElementById('_publish_modal').remove()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer;">取消</button>
+        <button id="_pub_confirm_btn" onclick="_doPublish('${existingWorldId}')" style="padding:7px 18px;border-radius:5px;border:none;background:var(--accent,#6366f1);color:#fff;font-size:13px;font-weight:500;cursor:pointer;">发布</button>
+      </div>
+    </div>
+  `;
+
+  // Highlight selected radio border
+  modal.querySelectorAll('input[name="_pub_mode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      modal.querySelectorAll('label').forEach(l => {
+        const r = l.querySelector('input[type=radio]');
+        if (r) l.style.borderColor = r.checked ? 'var(--accent,#6366f1)' : 'var(--border)';
+        if (r) l.style.background = r.checked ? 'rgba(99,102,241,0.08)' : 'transparent';
+      });
+    });
+  });
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+async function _doPublish(existingWorldId) {
+  const modal = document.getElementById('_publish_modal');
+  const modeRadio = modal ? modal.querySelector('input[name="_pub_mode"]:checked') : null;
+  const mode = modeRadio ? modeRadio.value : 'new';
+  const worldIdToSend = (mode === 'update' && existingWorldId) ? existingWorldId : null;
+
+  if (modal) modal.remove();
 
   const btn = document.getElementById('menu-publish-infidive');
   if (btn) btn.style.opacity = '0.5';
-  showToast('Publishing...', 'info');
+  showToast(worldIdToSend ? '更新中...' : '发布中...', 'info');
 
   try {
-    const response = await fetch('https://infidive.ai/api/v1/bridge/publish', {
+    const response = await _apiFetch('https://infidive.ai/api/v1/bridge/publish', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         game_data: state.gameData,
-        project_id: _projectId || null
+        project_id: _projectId || null,
+        world_id: worldIdToSend
       })
     });
+    if (!response) return; // _apiFetch redirected to /login (token expired)
 
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Publish failed');
 
-    showToast('Published! ' + result.clip_count + ' clips to infidive app', 'success');
-    console.log('[Bridge] Published:', result);
+    // Save world_id back into project data so next publish defaults to Update
+    state.gameData._infidive_world_id = result.world_id;
+    saveData();
+
+    const msg = result.is_update
+      ? `已更新！${result.clip_count} 个片段同步完成`
+      : `发布成功！${result.clip_count} 个片段已上线`;
+    showToast(msg, 'success');
+    console.log('[Bridge] Result:', result);
   } catch (e) {
-    showToast('Publish failed: ' + e.message, 'error');
+    showToast((worldIdToSend ? '更新' : '发布') + '失败: ' + e.message, 'error');
     console.error('[Bridge] Error:', e);
   } finally {
     if (btn) btn.style.opacity = '1';
