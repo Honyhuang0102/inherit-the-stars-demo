@@ -5760,7 +5760,11 @@ openInspector = function(nodeId) {
       row.appendChild(buildConditionsSection(choice,idx,nodeId));
       row.appendChild(buildStyleSection(choice,idx,nodeId));
     });
-    // Checkpoint toggle
+    // Always inject these — they have their own duplicate-check inside
+    _injectTimelineSection(nodeId);
+    _injectMgTriggersSection(nodeId);
+    _injectCharExtractSection(nodeId);
+    // Checkpoint toggle (only inject once — guard by class presence)
     if (document.querySelector('.checkpoint-toggle')) return;
     const saveBtn=document.querySelector('#insp-body .insp-save-btn'); if(!saveBtn) return;
     const nd=state.gameData.nodes[nodeId]; if(!nd) return;
@@ -5768,10 +5772,6 @@ openInspector = function(nodeId) {
     const isStart = state.gameData.start_node === nodeId;
     div.innerHTML=`<label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="insp-checkpoint" ${nd.is_checkpoint?'checked':''} onchange="setNodeCheckpoint('${nodeId}',this.checked)"/> 📌 设为检查点</label><button id="insp-start-btn" onclick="setStartNode('${nodeId}')" style="margin-left:auto;padding:2px 8px;font-size:10px;border-radius:4px;border:1px solid ${isStart?'var(--accent)':'var(--border)'};background:${isStart?'var(--accent)':'transparent'};color:${isStart?'#000':'var(--text-secondary)'};cursor:pointer;">🚀 ${isStart?'起始节点':'设为起始'}</button>`;
     saveBtn.parentNode.insertBefore(div,saveBtn);
-    // Inject timeline events section
-    _injectTimelineSection(nodeId);
-    _injectMgTriggersSection(nodeId);
-    _injectCharExtractSection(nodeId);
   }, 50);
 };
 
@@ -7679,12 +7679,13 @@ document.addEventListener('click', e => {
 function openCharLib() {
   const panel = document.getElementById('char-lib-panel');
   if (!panel) return;
-  panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
-  if (panel.style.display === 'flex') {
+  const isOpen = panel.style.display === 'flex';
+  panel.style.display = isOpen ? 'none' : 'flex';
+  const btn = document.getElementById('char-lib-toolbar-btn');
+  if (btn) btn.classList.toggle('active', !isOpen);
+  if (!isOpen) {
     renderCharLib();
-    // 打开面板时不清除角色级红点，只清除工具栏红点（鼓励用户点开各角色查看）
-    // 工具栏红点在 renderCharLib 后清除
-    const btn = document.getElementById('char-lib-toolbar-btn');
+    // 清除工具栏红点（角色行红点保留，展开时才清除）
     if (btn) { const d = btn.querySelector('.char-lib-red-dot'); if (d) d.remove(); }
   }
 }
