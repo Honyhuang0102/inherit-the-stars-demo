@@ -3479,6 +3479,7 @@ function applyInspector(nodeId) {
   });
   renderConnections();
   updatePreviewPanel(nodeData);
+  saveData();
   showToast('节点已更新', 'success');
 }
 
@@ -6315,7 +6316,7 @@ function buildMgRewardTabsHtml(nodeId, rewards) {
   const labels = {win:'胜利', perfect:'完美', lose:'失败'};
   const tabBtns = outcomes.map((o,i) =>
     `<button type="button" id="mg-tab-btn-${nodeId}-${o}" onclick="selectMgOutcomeTab('${nodeId}','${o}')"
-      style="flex:1;padding:5px;font-size:11px;border-radius:4px 4px 0 0;border:1px solid var(--border);border-bottom:none;cursor:pointer;background:${i===0?'var(--bg-secondary)':'var(--bg-primary,#1a1a2e)'};color:${i===0?'var(--text-primary)':'var(--text-muted)'};">${labels[o]}</button>`
+      style="flex:1;padding:5px;font-size:11px;border-radius:4px 4px 0 0;border:1px solid ${i===0?'#9ca3af':'var(--border)'};border-bottom:none;cursor:pointer;background:${i===0?'#e5e7eb':'var(--bg-secondary)'};color:${i===0?'#111827':'var(--text-secondary)'};font-weight:${i===0?'600':'400'};">${labels[o]}</button>`
   ).join('');
   const tabPanels = outcomes.map((o,i) => {
     const r = (rewards&&rewards[o]) ? rewards[o] : {story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''};
@@ -6489,8 +6490,10 @@ function selectMgOutcomeTab(nodeId, outcome) {
     const btn   = document.getElementById('mg-tab-btn-'   + nodeId + '-' + o);
     if (panel) panel.style.display = o === outcome ? 'block' : 'none';
     if (btn) {
-      btn.style.background = o === outcome ? 'var(--bg-secondary)' : 'var(--bg-primary,#1a1a2e)';
-      btn.style.color      = o === outcome ? 'var(--text-primary)' : 'var(--text-muted)';
+      btn.style.background  = o === outcome ? '#e5e7eb' : 'var(--bg-secondary)';
+      btn.style.color       = o === outcome ? '#111827' : 'var(--text-secondary)';
+      btn.style.fontWeight  = o === outcome ? '600' : '400';
+      btn.style.borderColor = o === outcome ? '#9ca3af' : '';
     }
   });
 }
