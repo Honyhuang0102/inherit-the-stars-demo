@@ -5310,13 +5310,7 @@ function initCanvasZoomPan() {
   <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0;">
     <span style="font-size:12px;font-weight:600;color:var(--text-primary);">👤 角色库</span>
     <div style="display:flex;align-items:center;gap:6px;">
-      <div style="position:relative;">
-        <button id="char-add-btn" onclick="toggleCharAddMenu()" style="padding:3px 10px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:3px;">+ 新增 ▾</button>
-        <div id="char-add-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:3px;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-lg);z-index:500;min-width:130px;overflow:hidden;">
-          <div onclick="showAddCharModal();document.getElementById('char-add-menu').style.display='none';" style="padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">✏️ 手动添加</div>
-          <div onclick="showExtractCharModal();document.getElementById('char-add-menu').style.display='none';" style="padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">🎬 视频提取</div>
-        </div>
-      </div>
+      <button id="char-add-btn" onclick="toggleCharAddMenu(event)" style="padding:3px 10px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:3px;">+ 新增 ▾</button>
       <button onclick="document.getElementById('char-lib-panel').style.display='none'" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;line-height:1;">✕</button>
     </div>
   </div>
@@ -5761,9 +5755,12 @@ openInspector = function(nodeId) {
       row.appendChild(buildStyleSection(choice,idx,nodeId));
     });
     // Always inject these — they have their own duplicate-check inside
-    _injectTimelineSection(nodeId);
-    _injectMgTriggersSection(nodeId);
-    _injectCharExtractSection(nodeId);
+    try { _injectTimelineSection(nodeId); } catch(e) { console.error('[C3] timeline inject error', e); }
+    try { _injectMgTriggersSection(nodeId); } catch(e) { console.error('[C3] mg inject error', e); }
+    // Char extract runs slightly later to avoid race with mg-triggers
+    setTimeout(() => {
+      try { _injectCharExtractSection(nodeId); } catch(e) { console.error('[C3] charExtract inject error', e); }
+    }, 100);
     // Checkpoint toggle (only inject once — guard by class presence)
     if (document.querySelector('.checkpoint-toggle')) return;
     const saveBtn=document.querySelector('#insp-body .insp-save-btn'); if(!saveBtn) return;
@@ -7663,17 +7660,7 @@ function saveMgTrigger(nodeId, trigIdx) {
   }
 })();
 
-function toggleCharAddMenu() {
-  const m = document.getElementById('char-add-menu');
-  if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
-}
-document.addEventListener('click', e => {
-  const btn = document.getElementById('char-add-btn');
-  const menu = document.getElementById('char-add-menu');
-  if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
-    menu.style.display = 'none';
-  }
-});
+// toggleCharAddMenu: see fixed-position version below
 
 // ── T2/T3: 面板打开 + 列表渲染 ─────────────────────────────────────
 function openCharLib() {
@@ -8405,5 +8392,47 @@ async function _doNodeCharExtract(nodeId, startSec, endSec) {
     showToast('\u63d0\u53d6\u5931\u8d25', 'error');
   }
 }
+
+
+// ── 角色库下拉菜单（body级，position:fixed）──────────────────────
+(function() {
+  const menu = document.createElement('div');
+  menu.id = 'char-add-menu';
+  menu.style.cssText = 'display:none;position:fixed;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:9100;min-width:150px;overflow:hidden;';
+  menu.innerHTML = `
+    <div onclick="showAddCharModal();closeCharAddMenu();" style="padding:9px 14px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">\u270f\ufe0f \u624b\u52a8\u6dfb\u52a0</div>
+    <div onclick="showExtractCharModal();closeCharAddMenu();" style="padding:9px 14px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">\U0001f3ac \u89c6\u9891\u63d0\u53d6</div>
+  `;
+  document.body.appendChild(menu);
+})();
+
+function toggleCharAddMenu(e) {
+  const menu = document.getElementById('char-add-menu');
+  const btn  = document.getElementById('char-add-btn');
+  if (!menu) return;
+  if (menu.style.display !== 'none') { menu.style.display = 'none'; return; }
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    menu.style.top  = (r.bottom + 4) + 'px';
+    menu.style.left = Math.max(4, r.right - 150) + 'px';
+  }
+  menu.style.display = 'block';
+  if (e) e.stopPropagation();
+}
+
+function closeCharAddMenu() {
+  const m = document.getElementById('char-add-menu');
+  if (m) m.style.display = 'none';
+}
+
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('char-add-menu');
+  const btn  = document.getElementById('char-add-btn');
+  if (menu && menu.style.display !== 'none') {
+    if (!menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+      menu.style.display = 'none';
+    }
+  }
+});
 
 </script>
