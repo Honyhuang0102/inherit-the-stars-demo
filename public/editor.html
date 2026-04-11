@@ -6327,12 +6327,12 @@ function buildMgRewardTabsHtml(nodeId, rewards) {
   <div class="insp-row" style="margin-bottom:5px;">
     <label class="insp-label" style="font-size:10px;">解锁提示</label>
     <input id="mg-unlock-msg-${nodeId}-${o}" type="text" value="${escHtml(r.unlock_message||'')}" placeholder="完成时提示文字"
-      style="flex:1;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;"/>
+      style="flex:1;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 5px;font-size:11px;"/>
   </div>
   <div class="insp-row" style="margin-bottom:5px;">
     <label class="insp-label" style="font-size:10px;">解锁节点</label>
     <input id="mg-unlock-node-${nodeId}-${o}" type="text" value="${escHtml(r.story_unlock_node_id||'')}" placeholder="节点ID（留空不解锁）"
-      style="flex:1;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;"/>
+      style="flex:1;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 5px;font-size:11px;"/>
   </div>
   <div style="margin-bottom:5px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
@@ -6359,11 +6359,11 @@ function buildMgRewardItemRow(nodeId, outcome, idx, item) {
     `<option value="${escHtml(it.id)}" ${item.item_id===it.id?'selected':''}>${escHtml(it.name||it.id)}</option>`
   ).join('');
   return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;">
-  <select id="mg-reward-item-id-${nodeId}-${outcome}-${idx}" style="flex:2;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;">
+  <select id="mg-reward-item-id-${nodeId}-${outcome}-${idx}" style="flex:2;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;">
     <option value="">道具...</option>${opts}
   </select>
   <input id="mg-reward-item-qty-${nodeId}-${outcome}-${idx}" type="number" min="1" value="${item.quantity||1}"
-    style="width:44px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+    style="width:44px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;"/>
   <button type="button" onclick="removeMgRewardItem('${nodeId}','${outcome}',${idx})"
     style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;">×</button>
 </div>`;
@@ -6378,12 +6378,12 @@ function buildMgVarChangeRow(nodeId, outcome, idx, vc) {
     `<option value="${op}" ${vc.operation===op?'selected':''}>${{set:'设为',add:'增加',subtract:'减少'}[op]}</option>`
   ).join('');
   return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;">
-  <select id="mg-vc-var-${nodeId}-${outcome}-${idx}" style="flex:2;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;">
+  <select id="mg-vc-var-${nodeId}-${outcome}-${idx}" style="flex:2;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;">
     <option value="">变量...</option>${varOpts}
   </select>
-  <select id="mg-vc-op-${nodeId}-${outcome}-${idx}" style="width:45px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;">${opOpts}</select>
+  <select id="mg-vc-op-${nodeId}-${outcome}-${idx}" style="width:45px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;">${opOpts}</select>
   <input id="mg-vc-val-${nodeId}-${outcome}-${idx}" type="number" value="${vc.value||0}"
-    style="width:38px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+    style="width:38px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;"/>
   <button type="button" onclick="removeMgVarChange('${nodeId}','${outcome}',${idx})"
     style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;">×</button>
 </div>`;
@@ -6417,9 +6417,9 @@ function buildMgPowerUpRow(nodeId, idx, pu) {
   <input id="mg-pu-desc-${nodeId}-${idx}" type="text" value="${escHtml(pu.description||'')}" placeholder="名称/描述"
     style="flex:2;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 5px;font-size:10px;"/>
   <input id="mg-pu-cost-${nodeId}-${idx}" type="number" min="1" max="10" value="${pu.cost_bubbles||1}" title="费用(≤10)"
-    style="width:48px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+    style="width:48px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;"/>
   <input id="mg-pu-max-${nodeId}-${idx}" type="number" min="1" value="${pu.max_per_game||1}" title="每局上限"
-    style="width:38px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+    style="width:38px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;"/>
   <button type="button" onclick="removeMgPowerUp('${nodeId}',${idx})"
     style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;">×</button>
 </div>`;
