@@ -44,6 +44,7 @@
   --node-start:      #2563eb;
   --node-branch:     #d97706;
   --node-ending:     #7c3aed;
+  --node-minigame:   #059669;
 
   --sidebar-w:       48px;
   --sidebar-w-open:  240px;
@@ -402,6 +403,7 @@ html, body {
 .node-card.type-start    { border-top: 2px solid var(--node-start); }
 .node-card.type-branching{ border-top: 2px solid var(--node-branch); }
 .node-card.type-ending   { border-top: 2px solid var(--node-ending); }
+.node-card.type-minigame { border-top: 2px solid var(--node-minigame); }
 
 /* Thumbnail */
 .node-thumb {
@@ -450,6 +452,7 @@ html, body {
 .type-start    .node-type-dot { background: var(--node-start); }
 .type-branching .node-type-dot { background: var(--node-branch); }
 .type-ending   .node-type-dot { background: var(--node-ending); }
+.type-minigame  .node-type-dot { background: var(--node-minigame); }
 
 .node-title {
   font-size: 11px; font-weight: 500;
@@ -1949,6 +1952,10 @@ body.immersive-mode #right-panel {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <span class="tool-tip">添加交互节点</span>
         </button>
+        <button class="tool-btn" onclick="addNode('minigame')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+          <span class="tool-tip">添加小游戏节点</span>
+        </button>
         <button class="tool-btn" id="tool-connect" onclick="setTool('connect')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           <span class="tool-tip">连接线 (C)</span>
@@ -2090,6 +2097,10 @@ body.immersive-mode #right-panel {
   <div class="ctx-item" onclick="addNode('ending'); hideCtxMenu()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
     添加结局节点
+  </div>
+  <div class="ctx-item" onclick="addNode('minigame'); hideCtxMenu()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+    添加小游戏节点
   </div>
   <div id="ctx-node-actions" style="display:none">
     <div class="ctx-divider"></div>
@@ -3082,8 +3093,8 @@ function addNode(type) {
   const id = nextNodeId();
   const newNode = {
     id, type,
-    title: type === 'ending' ? '新结局节点' : '新视频节点',
-    video_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    title: type === 'ending' ? '新结局节点' : type === 'minigame' ? '新小游戏节点' : '新视频节点',
+    video_url: type === 'minigame' ? '' : 'https://www.w3schools.com/html/mov_bbb.mp4',
     ...(type === 'branching' ? {
       branch_at_second: 5,
       choices: [
@@ -3092,6 +3103,24 @@ function addNode(type) {
       ]
     } : {}),
     ...(type === 'ending' ? { ending_tag: 'ENDING · NEW', description: '' } : {}),
+    ...(type === 'minigame' ? {
+      minigame_config: {
+        template_id: '',
+        template_version: '1.0',
+        category: '',
+        display_name: '',
+        description: '',
+        characters: {},
+        difficulty: { preset: 'medium', custom_params: {} },
+        rewards: {
+          win:     { story_unlock_node_id: null, item_rewards: [], variable_changes: [], unlock_message: '' },
+          perfect: { story_unlock_node_id: null, item_rewards: [], variable_changes: [], unlock_message: '' },
+          lose:    { story_unlock_node_id: null, item_rewards: [], variable_changes: [], unlock_message: '' }
+        },
+        in_game_shop: null,
+        theme: { base: 'neon_abyss', overrides: {} }
+      }
+    } : {}),
   };
   state.gameData.nodes[id] = newNode;
   // 更新序号映射
@@ -3223,6 +3252,10 @@ function openInspector(nodeId) {
         <input class="insp-input" id="insp-description" value="${escHtml(nodeData.description||'')}"/>
       </div>`;
   }
+  let minigameHtml = '';
+  if (nodeData.type === 'minigame') {
+    minigameHtml = buildMinigameInspectorHtml(nodeId, nodeData.minigame_config || {});
+  }
 
   // 全景图上传区域 HTML（panorama 和 3d_model 类型共用）
   const model3dUploadHtml = (nodeData.type === '3d_model' || nodeData.type === 'panorama') ? `
@@ -3274,7 +3307,7 @@ function openInspector(nodeId) {
       <div class="insp-label">标题</div>
       <input class="insp-input" id="insp-title-val" value="${escHtml(nodeData.title||'')}"/>
     </div>
-    ${(nodeData.type !== '3d_model' && nodeData.type !== 'panorama') ? `
+    ${(nodeData.type !== '3d_model' && nodeData.type !== 'panorama' && nodeData.type !== 'minigame') ? `
     <div class="insp-field">
       <div class="insp-label">视频文件</div>
       <div class="video-upload-zone" id="video-upload-zone" onclick="document.getElementById('video-file-input').click()">
@@ -3307,6 +3340,7 @@ function openInspector(nodeId) {
     ${model3dUploadHtml}
     ${choicesHtml}
     ${model3dChoicesHtml}
+    ${minigameHtml}
     <button class="insp-save-btn" onclick="applyInspector('${nodeId}')">应用更改</button>
   `;
 
@@ -3427,6 +3461,9 @@ function applyInspector(nodeId) {
   if (nodeData.type === 'ending') {
     nodeData.ending_tag  = document.getElementById('insp-ending-tag')?.value || '';
     nodeData.description = document.getElementById('insp-description')?.value || '';
+  }
+  if (nodeData.type === 'minigame') {
+    nodeData.minigame_config = collectMinigameConfig(nodeId);
   }
   const node = state.nodes[nodeId];
   if (node) { node.el.remove(); delete state.nodes[nodeId]; }
@@ -5977,11 +6014,19 @@ async function _doPublish(existingWorldId) {
   showToast(worldIdToSend ? '更新中...' : '发布中...', 'info');
 
   try {
+    let publishData;
+    try {
+      publishData = prepareGameDataForPublish(state.gameData);
+    } catch (validErr) {
+      showToast('发布校验失败：' + validErr.message, 'error');
+      if (btn) btn.style.opacity = '1';
+      return;
+    }
     const response = await _apiFetch('https://infidive.ai/api/v1/bridge/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        game_data: state.gameData,
+        game_data: publishData,
         project_id: _projectId || null,
         world_id: worldIdToSend
       })
@@ -6007,4 +6052,522 @@ async function _doPublish(existingWorldId) {
     if (btn) btn.style.opacity = '1';
   }
 }
+
+// ==================== 小游戏配置面板 T5-T8 ====================
+const MINIGAME_TEMPLATES_MOCK = [
+  {
+    template_id: 'catch-dragon',
+    category: 'reaction',
+    display_name: '驯龙高手',
+    description: '接住友好的龙，躲避炸弹',
+    character_slots: [
+      { slot: 'hero', label: '你的龙', role: 'friendly', placeholder_url: '/assets/placeholder.png' },
+      { slot: 'bomb', label: '炸弹',   role: 'enemy',    placeholder_url: '/assets/bomb_placeholder.png' }
+    ],
+    difficulty_presets: ['easy','medium','hard'],
+    thumbnail_url: null
+  },
+  {
+    template_id: 'flip-match',
+    category: 'memory',
+    display_name: '翻牌记忆',
+    description: '翻转配对相同的角色卡牌',
+    character_slots: [
+      { slot: 'card_a', label: '卡牌角色A', role: 'neutral', placeholder_url: '/assets/placeholder.png' },
+      { slot: 'card_b', label: '卡牌角色B', role: 'neutral', placeholder_url: '/assets/placeholder.png' }
+    ],
+    difficulty_presets: ['easy','medium','hard'],
+    thumbnail_url: null
+  },
+  {
+    template_id: 'dodge-arrows',
+    category: 'agility',
+    display_name: '躲避乱箭',
+    description: '拖动角色躲避飞来的箭矢',
+    character_slots: [
+      { slot: 'player', label: '玩家角色', role: 'friendly', placeholder_url: '/assets/placeholder.png' },
+      { slot: 'arrow',  label: '箭矢',     role: 'enemy',    placeholder_url: '/assets/arrow_placeholder.png' }
+    ],
+    difficulty_presets: ['easy','medium','hard'],
+    thumbnail_url: null
+  }
+];
+
+const MG_DIFFICULTY_PRESETS = {
+  easy:   { fall_speed_base: 2.0, spawn_interval_ms: 1400, bomb_ratio: 0.15, game_duration_s: 40, max_misses: 5 },
+  medium: { fall_speed_base: 3.5, spawn_interval_ms: 1000, bomb_ratio: 0.30, game_duration_s: 30, max_misses: 3 },
+  hard:   { fall_speed_base: 5.0, spawn_interval_ms:  700, bomb_ratio: 0.45, game_duration_s: 25, max_misses: 2 }
+};
+
+const MG_THEMES = [
+  { id: 'neon_abyss',    label: '霓虹深渊' },
+  { id: 'cherry_sakura', label: '樱花飞舞' },
+  { id: 'cyber_city',    label: '赛博都市' },
+  { id: 'ancient_ruins', label: '远古遗迹' },
+  { id: 'ocean_deep',    label: '深海秘境' },
+  { id: 'starfield',     label: '星际漫游' }
+];
+
+function buildMinigameInspectorHtml(nodeId, cfg) {
+  const selectedTpl = MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === cfg.template_id);
+  const tplOptions = MINIGAME_TEMPLATES_MOCK.map(t =>
+    `<option value="${t.template_id}" ${cfg.template_id === t.template_id ? 'selected' : ''}>${escHtml(t.display_name)}（${t.category}）</option>`
+  ).join('');
+  const charSlotsHtml = selectedTpl
+    ? buildMgCharSlotsHtml(nodeId, selectedTpl, cfg.characters || {})
+    : '<p style="color:var(--text-muted);font-size:12px;padding:6px 0">请先选择模板</p>';
+  const themeOptions = MG_THEMES.map(t =>
+    `<option value="${t.id}" ${cfg.theme && cfg.theme.base === t.id ? 'selected' : ''}>${t.label}</option>`
+  ).join('');
+  const preset = (cfg.difficulty && cfg.difficulty.preset) ? cfg.difficulty.preset : 'medium';
+  const presetBtns = ['easy','medium','hard'].map(p =>
+    `<button type="button" id="mg-preset-btn-${nodeId}-${p}" onclick="setMgDifficultyPreset('${nodeId}','${p}')"
+      style="flex:1;padding:4px;font-size:11px;border-radius:4px;border:1px solid var(--border);cursor:pointer;background:${p===preset?'var(--accent,#6366f1)':'var(--bg-secondary)'};color:${p===preset?'#fff':'var(--text-primary)'};">${{'easy':'简单','medium':'普通','hard':'困难'}[p]}</button>`
+  ).join('');
+  return `
+<div class="insp-section" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
+  <div style="font-size:11px;font-weight:600;color:var(--accent,#6366f1);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">小游戏配置</div>
+  <div class="insp-row" style="margin-bottom:7px;">
+    <label class="insp-label">模板</label>
+    <select id="mg-template-${nodeId}" onchange="onMinigameTemplateChange('${nodeId}',this.value)"
+      style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:4px 6px;font-size:12px;">
+      <option value="">请选择模板...</option>${tplOptions}
+    </select>
+  </div>
+  <div class="insp-row" style="margin-bottom:7px;">
+    <label class="insp-label">显示名</label>
+    <input id="mg-display-name-${nodeId}" type="text" value="${escHtml(cfg.display_name||'')}" placeholder="玩家看到的名称"
+      style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:4px 6px;font-size:12px;"/>
+  </div>
+  <div class="insp-row" style="margin-bottom:7px;">
+    <label class="insp-label">描述</label>
+    <input id="mg-description-${nodeId}" type="text" value="${escHtml(cfg.description||'')}" placeholder="简短说明"
+      style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:4px 6px;font-size:12px;"/>
+  </div>
+  <div style="margin-bottom:9px;">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">角色绑定</div>
+    <div id="mg-char-slots-${nodeId}">${charSlotsHtml}</div>
+  </div>
+  <div style="margin-bottom:9px;">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">难度设置</div>
+    <div style="display:flex;gap:5px;margin-bottom:6px;">${presetBtns}</div>
+    <div id="mg-custom-params-${nodeId}" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+      ${buildMgCustomParamsHtml(nodeId, cfg.difficulty)}
+    </div>
+  </div>
+  <div style="margin-bottom:9px;">
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">通关奖励</div>
+    ${buildMgRewardTabsHtml(nodeId, cfg.rewards||{})}
+  </div>
+  <div style="margin-bottom:9px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+      <div style="font-size:11px;color:var(--text-muted);font-weight:500;">游戏内商城</div>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;">
+        <input type="checkbox" id="mg-shop-enabled-${nodeId}" ${cfg.in_game_shop?'checked':''} onchange="toggleMgShop('${nodeId}',this.checked)"/>
+        启用
+      </label>
+    </div>
+    <div id="mg-shop-body-${nodeId}">${buildMgShopHtml(nodeId, cfg.in_game_shop)}</div>
+  </div>
+  <div class="insp-row" style="margin-bottom:7px;">
+    <label class="insp-label">主题</label>
+    <select id="mg-theme-${nodeId}" onchange="onMgThemeChange('${nodeId}',this.value)"
+      style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:4px 6px;font-size:12px;">
+      ${themeOptions}
+    </select>
+  </div>
+</div>`;
+}
+
+function buildMgCharSlotsHtml(nodeId, tpl, characters) {
+  const worldChars = Object.values((state.gameData && state.gameData.characters) || {});
+  const baseOpts = worldChars.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name||c.id)}</option>`).join('');
+  const roleMap = { friendly:'友方', enemy:'敌方', neutral:'中立' };
+  return tpl.character_slots.map(slot => {
+    const bound = characters[slot.slot] || {};
+    const selId = bound.injected_character_id || '';
+    const opts = '<option value="">（不绑定）</option>' + worldChars.map(c =>
+      `<option value="${escHtml(c.id)}" ${c.id===selId?'selected':''}>${escHtml(c.name||c.id)}</option>`
+    ).join('');
+    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+  <span style="font-size:11px;color:var(--text-muted);width:80px;flex-shrink:0;">${escHtml(slot.label)}<br><span style="opacity:.6;">${roleMap[slot.role]||slot.role}</span></span>
+  <select onchange="updateMgCharBinding('${nodeId}','${slot.slot}',this.value)"
+    style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;">${opts}</select>
+</div>`;
+  }).join('');
+}
+
+function buildMgCustomParamsHtml(nodeId, difficulty) {
+  const params = (difficulty && difficulty.custom_params) || {};
+  const fields = [
+    {key:'fall_speed_base',    label:'下落速度',    step:0.1},
+    {key:'spawn_interval_ms',  label:'生成间隔(ms)', step:50},
+    {key:'bomb_ratio',         label:'炸弹比率',    step:0.05},
+    {key:'game_duration_s',    label:'时长(秒)',     step:5},
+    {key:'max_misses',         label:'最大失误',    step:1}
+  ];
+  return fields.map(f => `
+<div style="display:flex;flex-direction:column;gap:2px;">
+  <label style="font-size:10px;color:var(--text-muted);">${f.label}</label>
+  <input id="mg-param-${nodeId}-${f.key}" type="number" step="${f.step}" value="${params[f.key]!==undefined?params[f.key]:''}" placeholder="-"
+    style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;width:100%;"/>
+</div>`).join('');
+}
+
+function buildMgRewardTabsHtml(nodeId, rewards) {
+  const outcomes = ['win','perfect','lose'];
+  const labels = {win:'胜利', perfect:'完美', lose:'失败'};
+  const tabBtns = outcomes.map((o,i) =>
+    `<button type="button" id="mg-tab-btn-${nodeId}-${o}" onclick="selectMgOutcomeTab('${nodeId}','${o}')"
+      style="flex:1;padding:5px;font-size:11px;border-radius:4px 4px 0 0;border:1px solid var(--border);border-bottom:none;cursor:pointer;background:${i===0?'var(--bg-secondary)':'var(--bg-primary,#1a1a2e)'};color:${i===0?'var(--text-primary)':'var(--text-muted)'};">${labels[o]}</button>`
+  ).join('');
+  const tabPanels = outcomes.map((o,i) => {
+    const r = (rewards&&rewards[o]) ? rewards[o] : {story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''};
+    const itemRowsHtml = (r.item_rewards||[]).map((item,idx) => buildMgRewardItemRow(nodeId,o,idx,item)).join('');
+    const vcRowsHtml   = (r.variable_changes||[]).map((vc,idx)  => buildMgVarChangeRow(nodeId,o,idx,vc)).join('');
+    return `
+<div id="mg-tab-panel-${nodeId}-${o}" style="display:${i===0?'block':'none'};padding:8px;border:1px solid var(--border);border-radius:0 0 4px 4px;background:var(--bg-secondary);">
+  <div class="insp-row" style="margin-bottom:5px;">
+    <label class="insp-label" style="font-size:10px;">解锁提示</label>
+    <input id="mg-unlock-msg-${nodeId}-${o}" type="text" value="${escHtml(r.unlock_message||'')}" placeholder="完成时提示文字"
+      style="flex:1;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;"/>
+  </div>
+  <div class="insp-row" style="margin-bottom:5px;">
+    <label class="insp-label" style="font-size:10px;">解锁节点</label>
+    <input id="mg-unlock-node-${nodeId}-${o}" type="text" value="${escHtml(r.story_unlock_node_id||'')}" placeholder="节点ID（留空不解锁）"
+      style="flex:1;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;"/>
+  </div>
+  <div style="margin-bottom:5px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+      <span style="font-size:10px;color:var(--text-muted);">道具奖励</span>
+      <button type="button" onclick="addMgRewardItem('${nodeId}','${o}')" style="font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:var(--bg-primary,#1a1a2e);color:var(--text-secondary);cursor:pointer;">+ 添加</button>
+    </div>
+    <div id="mg-item-rewards-${nodeId}-${o}">${itemRowsHtml}</div>
+  </div>
+  <div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+      <span style="font-size:10px;color:var(--text-muted);">变量变化</span>
+      <button type="button" onclick="addMgVarChange('${nodeId}','${o}')" style="font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:var(--bg-primary,#1a1a2e);color:var(--text-secondary);cursor:pointer;">+ 添加</button>
+    </div>
+    <div id="mg-var-changes-${nodeId}-${o}">${vcRowsHtml}</div>
+  </div>
+</div>`;
+  }).join('');
+  return `<div style="display:flex;gap:0;">${tabBtns}</div>${tabPanels}`;
+}
+
+function buildMgRewardItemRow(nodeId, outcome, idx, item) {
+  const items = Object.values((state.gameData && state.gameData.items) || {});
+  const opts = items.map(it =>
+    `<option value="${escHtml(it.id)}" ${item.item_id===it.id?'selected':''}>${escHtml(it.name||it.id)}</option>`
+  ).join('');
+  return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;">
+  <select id="mg-reward-item-id-${nodeId}-${outcome}-${idx}" style="flex:2;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;">
+    <option value="">道具...</option>${opts}
+  </select>
+  <input id="mg-reward-item-qty-${nodeId}-${outcome}-${idx}" type="number" min="1" value="${item.quantity||1}"
+    style="width:44px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+  <button type="button" onclick="removeMgRewardItem('${nodeId}','${outcome}',${idx})"
+    style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;">×</button>
+</div>`;
+}
+
+function buildMgVarChangeRow(nodeId, outcome, idx, vc) {
+  const vars = Object.values((state.gameData && state.gameData.variables) || {});
+  const varOpts = vars.map(v =>
+    `<option value="${escHtml(v.name)}" ${vc.variable_name===v.name?'selected':''}>${escHtml(v.name)}</option>`
+  ).join('');
+  const opOpts = ['set','add','subtract'].map(op =>
+    `<option value="${op}" ${vc.operation===op?'selected':''}>${{set:'设为',add:'增加',subtract:'减少'}[op]}</option>`
+  ).join('');
+  return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:3px;">
+  <select id="mg-vc-var-${nodeId}-${outcome}-${idx}" style="flex:2;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;">
+    <option value="">变量...</option>${varOpts}
+  </select>
+  <select id="mg-vc-op-${nodeId}-${outcome}-${idx}" style="width:45px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;">${opOpts}</select>
+  <input id="mg-vc-val-${nodeId}-${outcome}-${idx}" type="number" value="${vc.value||0}"
+    style="width:38px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+  <button type="button" onclick="removeMgVarChange('${nodeId}','${outcome}',${idx})"
+    style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;">×</button>
+</div>`;
+}
+
+function buildMgShopHtml(nodeId, shop) {
+  if (!shop) return '';
+  const revive = shop.revive || {cost_bubbles:2, max_per_game:3};
+  const powerUps = shop.power_ups || [];
+  const puRows = powerUps.map((pu,idx) => buildMgPowerUpRow(nodeId,idx,pu)).join('');
+  return `<div style="border:1px solid var(--border);border-radius:4px;padding:8px;background:var(--bg-secondary);">
+  <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:500;">复活选项</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;">
+    <div><label style="font-size:10px;color:var(--text-muted);">费用（泡泡 ≤10）</label>
+      <input id="mg-revive-cost-${nodeId}" type="number" min="1" max="10" value="${revive.cost_bubbles}"
+        style="width:100%;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:3px 5px;font-size:11px;"/></div>
+    <div><label style="font-size:10px;color:var(--text-muted);">每局上限</label>
+      <input id="mg-revive-max-${nodeId}" type="number" min="1" value="${revive.max_per_game}"
+        style="width:100%;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:3px 5px;font-size:11px;"/></div>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+    <span style="font-size:11px;color:var(--text-muted);font-weight:500;">道具增强</span>
+    <button type="button" onclick="addMgPowerUp('${nodeId}')" style="font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:var(--bg-primary,#1a1a2e);color:var(--text-secondary);cursor:pointer;">+ 添加</button>
+  </div>
+  <div id="mg-powerups-${nodeId}">${puRows}</div>
+</div>`;
+}
+
+function buildMgPowerUpRow(nodeId, idx, pu) {
+  return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+  <input id="mg-pu-desc-${nodeId}-${idx}" type="text" value="${escHtml(pu.description||'')}" placeholder="名称/描述"
+    style="flex:2;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 5px;font-size:10px;"/>
+  <input id="mg-pu-cost-${nodeId}-${idx}" type="number" min="1" max="10" value="${pu.cost_bubbles||1}" title="费用(≤10)"
+    style="width:48px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+  <input id="mg-pu-max-${nodeId}-${idx}" type="number" min="1" value="${pu.max_per_game||1}" title="每局上限"
+    style="width:38px;background:var(--bg-primary,#1a1a2e);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);padding:2px 4px;font-size:10px;"/>
+  <button type="button" onclick="removeMgPowerUp('${nodeId}',${idx})"
+    style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;">×</button>
+</div>`;
+}
+
+function onMinigameTemplateChange(nodeId, templateId) {
+  const tpl = MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === templateId);
+  const node = state.gameData.nodes[nodeId];
+  if (!node || !node.minigame_config) return;
+  node.minigame_config.template_id = templateId;
+  if (tpl) {
+    node.minigame_config.category = tpl.category;
+    const nameEl = document.getElementById('mg-display-name-' + nodeId);
+    if (nameEl && !nameEl.value) nameEl.value = tpl.display_name;
+    node.minigame_config.characters = {};
+    tpl.character_slots.forEach(slot => {
+      node.minigame_config.characters[slot.slot] = {
+        slot: slot.slot, label: slot.label,
+        placeholder_url: slot.placeholder_url,
+        injected_url: null, injected_character_id: null, role: slot.role
+      };
+    });
+  }
+  const slotsEl = document.getElementById('mg-char-slots-' + nodeId);
+  if (slotsEl) slotsEl.innerHTML = tpl
+    ? buildMgCharSlotsHtml(nodeId, tpl, node.minigame_config.characters)
+    : '<p style="color:var(--text-muted);font-size:12px;padding:6px 0">请先选择模板</p>';
+}
+
+function updateMgCharBinding(nodeId, slot, charId) {
+  const node = state.gameData.nodes[nodeId];
+  if (!node || !node.minigame_config) return;
+  if (!node.minigame_config.characters) node.minigame_config.characters = {};
+  if (!node.minigame_config.characters[slot]) node.minigame_config.characters[slot] = {};
+  const char = state.gameData.characters && state.gameData.characters[charId];
+  node.minigame_config.characters[slot].injected_character_id = charId || null;
+  node.minigame_config.characters[slot].injected_url = (char && char.confirmed_url) ? char.confirmed_url : null;
+}
+
+function setMgDifficultyPreset(nodeId, preset) {
+  const defaults = MG_DIFFICULTY_PRESETS[preset];
+  if (!defaults) return;
+  const node = state.gameData.nodes[nodeId];
+  if (node && node.minigame_config) {
+    if (!node.minigame_config.difficulty) node.minigame_config.difficulty = {};
+    node.minigame_config.difficulty.preset = preset;
+    node.minigame_config.difficulty.custom_params = Object.assign({}, defaults);
+  }
+  ['easy','medium','hard'].forEach(p => {
+    const btn = document.getElementById('mg-preset-btn-' + nodeId + '-' + p);
+    if (btn) {
+      btn.style.background = p === preset ? 'var(--accent,#6366f1)' : 'var(--bg-secondary)';
+      btn.style.color = p === preset ? '#fff' : 'var(--text-primary)';
+    }
+  });
+  const paramEl = document.getElementById('mg-custom-params-' + nodeId);
+  if (paramEl && node && node.minigame_config)
+    paramEl.innerHTML = buildMgCustomParamsHtml(nodeId, node.minigame_config.difficulty);
+}
+
+function selectMgOutcomeTab(nodeId, outcome) {
+  ['win','perfect','lose'].forEach(o => {
+    const panel = document.getElementById('mg-tab-panel-' + nodeId + '-' + o);
+    const btn   = document.getElementById('mg-tab-btn-'   + nodeId + '-' + o);
+    if (panel) panel.style.display = o === outcome ? 'block' : 'none';
+    if (btn) {
+      btn.style.background = o === outcome ? 'var(--bg-secondary)' : 'var(--bg-primary,#1a1a2e)';
+      btn.style.color      = o === outcome ? 'var(--text-primary)' : 'var(--text-muted)';
+    }
+  });
+}
+
+function addMgRewardItem(nodeId, outcome) {
+  const container = document.getElementById('mg-item-rewards-' + nodeId + '-' + outcome);
+  if (!container) return;
+  const idx = container.children.length;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = buildMgRewardItemRow(nodeId, outcome, idx, {item_id:'', quantity:1});
+  container.appendChild(tmp.firstElementChild);
+}
+
+function removeMgRewardItem(nodeId, outcome, idx) {
+  const c = document.getElementById('mg-item-rewards-' + nodeId + '-' + outcome);
+  if (c && c.children[idx]) c.children[idx].remove();
+}
+
+function addMgVarChange(nodeId, outcome) {
+  const container = document.getElementById('mg-var-changes-' + nodeId + '-' + outcome);
+  if (!container) return;
+  const idx = container.children.length;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = buildMgVarChangeRow(nodeId, outcome, idx, {variable_name:'', operation:'add', value:0});
+  container.appendChild(tmp.firstElementChild);
+}
+
+function removeMgVarChange(nodeId, outcome, idx) {
+  const c = document.getElementById('mg-var-changes-' + nodeId + '-' + outcome);
+  if (c && c.children[idx]) c.children[idx].remove();
+}
+
+function toggleMgShop(nodeId, enabled) {
+  const node = state.gameData.nodes[nodeId];
+  if (!node || !node.minigame_config) return;
+  node.minigame_config.in_game_shop = enabled
+    ? {revive:{cost_bubbles:2, max_per_game:3, description:'从失败处继续'}, power_ups:[]}
+    : null;
+  const body = document.getElementById('mg-shop-body-' + nodeId);
+  if (body) body.innerHTML = buildMgShopHtml(nodeId, node.minigame_config.in_game_shop);
+}
+
+function addMgPowerUp(nodeId) {
+  const container = document.getElementById('mg-powerups-' + nodeId);
+  if (!container) return;
+  const idx = container.children.length;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = buildMgPowerUpRow(nodeId, idx, {description:'', cost_bubbles:1, max_per_game:1});
+  container.appendChild(tmp.firstElementChild);
+}
+
+function removeMgPowerUp(nodeId, idx) {
+  const c = document.getElementById('mg-powerups-' + nodeId);
+  if (c && c.children[idx]) c.children[idx].remove();
+}
+
+function onMgThemeChange(nodeId, themeId) {
+  const node = state.gameData.nodes[nodeId];
+  if (!node || !node.minigame_config) return;
+  if (!node.minigame_config.theme) node.minigame_config.theme = {};
+  node.minigame_config.theme.base = themeId;
+}
+
+function collectMinigameConfig(nodeId) {
+  const node = state.gameData.nodes[nodeId];
+  const cfg = node.minigame_config || {};
+  const templateId = document.getElementById('mg-template-' + nodeId)?.value || cfg.template_id || '';
+  const tpl = MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === templateId);
+
+  // Custom params
+  const paramKeys = ['fall_speed_base','spawn_interval_ms','bomb_ratio','game_duration_s','max_misses'];
+  const customParams = {};
+  paramKeys.forEach(k => {
+    const el = document.getElementById('mg-param-' + nodeId + '-' + k);
+    if (el && el.value !== '') customParams[k] = parseFloat(el.value);
+  });
+
+  // Active preset
+  const presetActive = ['easy','medium','hard'].find(p => {
+    const btn = document.getElementById('mg-preset-btn-' + nodeId + '-' + p);
+    return btn && btn.style.background && btn.style.background.includes('accent');
+  }) || (cfg.difficulty && cfg.difficulty.preset) || 'medium';
+
+  // Rewards
+  const rewards = {};
+  ['win','perfect','lose'].forEach(o => {
+    const unlockMsg  = document.getElementById('mg-unlock-msg-'  + nodeId + '-' + o)?.value || '';
+    const unlockNode = document.getElementById('mg-unlock-node-' + nodeId + '-' + o)?.value || null;
+    const itemContainer = document.getElementById('mg-item-rewards-' + nodeId + '-' + o);
+    const itemRewards = [];
+    if (itemContainer) {
+      Array.from(itemContainer.children).forEach((row, idx) => {
+        const itemId = document.getElementById('mg-reward-item-id-' + nodeId + '-' + o + '-' + idx)?.value;
+        const qty    = parseInt(document.getElementById('mg-reward-item-qty-' + nodeId + '-' + o + '-' + idx)?.value) || 1;
+        if (itemId) itemRewards.push({item_id: itemId, quantity: qty});
+      });
+    }
+    const vcContainer = document.getElementById('mg-var-changes-' + nodeId + '-' + o);
+    const varChanges = [];
+    if (vcContainer) {
+      Array.from(vcContainer.children).forEach((row, idx) => {
+        const varName = document.getElementById('mg-vc-var-' + nodeId + '-' + o + '-' + idx)?.value;
+        const op      = document.getElementById('mg-vc-op-'  + nodeId + '-' + o + '-' + idx)?.value || 'add';
+        const val     = parseFloat(document.getElementById('mg-vc-val-' + nodeId + '-' + o + '-' + idx)?.value) || 0;
+        if (varName) varChanges.push({variable_name: varName, operation: op, value: val});
+      });
+    }
+    rewards[o] = {
+      story_unlock_node_id: unlockNode || null,
+      item_rewards: itemRewards,
+      variable_changes: varChanges,
+      unlock_message: unlockMsg
+    };
+  });
+
+  // Shop
+  let shop = null;
+  const shopEnabled = document.getElementById('mg-shop-enabled-' + nodeId)?.checked;
+  if (shopEnabled) {
+    const cost = parseInt(document.getElementById('mg-revive-cost-' + nodeId)?.value) || 2;
+    const max  = parseInt(document.getElementById('mg-revive-max-'  + nodeId)?.value) || 3;
+    const puContainer = document.getElementById('mg-powerups-' + nodeId);
+    const powerUps = [];
+    if (puContainer) {
+      Array.from(puContainer.children).forEach((row, idx) => {
+        const desc   = document.getElementById('mg-pu-desc-' + nodeId + '-' + idx)?.value || '';
+        const puCost = parseInt(document.getElementById('mg-pu-cost-' + nodeId + '-' + idx)?.value) || 1;
+        const puMax  = parseInt(document.getElementById('mg-pu-max-'  + nodeId + '-' + idx)?.value) || 1;
+        powerUps.push({description: desc, cost_bubbles: puCost, max_per_game: puMax});
+      });
+    }
+    shop = {revive:{cost_bubbles:cost, max_per_game:max, description:'从失败处继续'}, power_ups:powerUps};
+  }
+
+  const themeBase = document.getElementById('mg-theme-' + nodeId)?.value || 'neon_abyss';
+  return {
+    template_id:       templateId,
+    template_version:  cfg.template_version || '1.0',
+    category:          tpl ? tpl.category : (cfg.category || ''),
+    display_name:      document.getElementById('mg-display-name-'  + nodeId)?.value || cfg.display_name || '',
+    description:       document.getElementById('mg-description-'   + nodeId)?.value || cfg.description  || '',
+    characters:        cfg.characters || {},
+    difficulty:        {preset: presetActive, custom_params: customParams},
+    rewards:           rewards,
+    in_game_shop:      shop,
+    theme:             {base: themeBase, overrides: (cfg.theme && cfg.theme.overrides) || {}},
+    meta:              cfg.meta || {world_id:null, clip_id:null, tags:[]}
+  };
+}
+
+function prepareGameDataForPublish(gameData) {
+  const data = JSON.parse(JSON.stringify(gameData));
+  const errors = [];
+  Object.values(data.nodes || {}).forEach(node => {
+    if (node.type !== 'minigame') return;
+    const cfg = node.minigame_config;
+    if (!cfg) { errors.push('节点 "' + node.title + '"：缺少 minigame_config'); return; }
+    if (!cfg.template_id) { errors.push('节点 "' + node.title + '"：必须选择模板'); return; }
+    if (!cfg.rewards) { errors.push('节点 "' + node.title + '"：缺少奖励配置'); return; }
+    ['win','perfect','lose'].forEach(o => {
+      if (!cfg.rewards[o]) errors.push('节点 "' + node.title + '"：缺少 ' + o + ' 奖励配置');
+      else if (cfg.rewards[o].bubble_reward !== undefined) {
+        errors.push('节点 "' + node.title + '"：奖励中不允许 bubble_reward（经济铁律）');
+        delete cfg.rewards[o].bubble_reward;
+      }
+    });
+    if (cfg.in_game_shop) {
+      if (cfg.in_game_shop.revive && cfg.in_game_shop.revive.cost_bubbles > 10)
+        errors.push('节点 "' + node.title + '"：复活费用不能超过 10 泡泡');
+      (cfg.in_game_shop.power_ups || []).forEach((pu, i) => {
+        if (pu.cost_bubbles > 10) errors.push('节点 "' + node.title + '"：道具增强[' + i + '] 费用不能超过 10 泡泡');
+      });
+    }
+    cfg.meta = {world_id:null, clip_id:null, tags:(cfg.meta && cfg.meta.tags) ? cfg.meta.tags : []};
+  });
+  if (errors.length > 0) throw new Error(errors.join(', '));
+  return data;
+}
+// ==================== 小游戏配置面板结束 ====================
 </script>
