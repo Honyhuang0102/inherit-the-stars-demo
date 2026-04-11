@@ -5306,13 +5306,13 @@ function initCanvasZoomPan() {
 <!-- ═══════════════════════════════════════════════════════
      CHARACTER LIBRARY PANEL
 ═══════════════════════════════════════════════════════ -->
-<div id="char-lib-panel" style="display:none;flex-direction:column;position:fixed;top:60px;left:260px;width:340px;max-height:calc(100vh - 80px);background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:400;overflow:hidden;">
+<div id="char-lib-panel" style="display:none;flex-direction:column;position:fixed;top:60px;left:260px;width:340px;min-height:240px;max-height:calc(100vh - 80px);background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:400;">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0;">
     <span style="font-size:12px;font-weight:600;color:var(--text-primary);">👤 角色库</span>
     <div style="display:flex;align-items:center;gap:6px;">
       <div style="position:relative;">
         <button id="char-add-btn" onclick="toggleCharAddMenu()" style="padding:3px 10px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:3px;">+ 新增 ▾</button>
-        <div id="char-add-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:3px;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-lg);z-index:50;min-width:130px;overflow:hidden;">
+        <div id="char-add-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:3px;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-lg);z-index:500;min-width:130px;overflow:hidden;">
           <div onclick="showAddCharModal();document.getElementById('char-add-menu').style.display='none';" style="padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">✏️ 手动添加</div>
           <div onclick="showExtractCharModal();document.getElementById('char-add-menu').style.display='none';" style="padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">🎬 视频提取</div>
         </div>
