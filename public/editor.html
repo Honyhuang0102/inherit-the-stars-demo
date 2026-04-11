@@ -7999,7 +7999,7 @@ function deleteChar(charId) {
 function showExtractCharModal() {
   if (document.getElementById('char-extract-modal')) return;
   const allNodes = Object.values(state.gameData && state.gameData.nodes || {});
-  const videoNodes = allNodes.filter(nd => nd.video_url && nd.video_url.startsWith('http'));
+  const videoNodes = allNodes.filter(nd => nd.video_url && nd.video_url.trim() !== '');
   const nodeOpts = videoNodes.length
     ? videoNodes.map(nd => `<option value="${escHtml(nd.id)}">${escHtml(nd.title || nd.id)} (${escHtml(nd.video_url.split('/').pop().slice(0,30))})</option>`).join('')
     : '<option value="">（无视频节点）</option>';
@@ -8078,10 +8078,11 @@ async function startCharExtraction() {
   try {
     setStatus('提交提取任务…'); setBar(10);
     const worldId = state.gameData._infidive_world_id || null;
+    const absVideoUrl = nd.video_url.startsWith('http') ? nd.video_url : (window.location.origin + nd.video_url);
     const resp = await _apiFetch('https://infidive.ai/api/v1/characters/extract-from-video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ world_id: worldId, video_url: nd.video_url, clip_id: null })
+      body: JSON.stringify({ world_id: worldId, video_url: absVideoUrl, clip_id: null })
     });
 
     let characters = null;
