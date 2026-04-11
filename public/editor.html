@@ -5303,6 +5303,45 @@ function initCanvasZoomPan() {
   <div id="gp-body" style="overflow-y:auto;flex:1;padding:8px 10px;"></div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════
+     CHARACTER LIBRARY PANEL
+═══════════════════════════════════════════════════════ -->
+<div id="char-lib-panel" style="display:none;flex-direction:column;position:fixed;top:60px;left:260px;width:340px;max-height:calc(100vh - 80px);background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:400;overflow:hidden;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span style="font-size:12px;font-weight:600;color:var(--text-primary);">👤 角色库</span>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div style="position:relative;">
+        <button id="char-add-btn" onclick="toggleCharAddMenu()" style="padding:3px 10px;font-size:11px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:3px;">+ 新增 ▾</button>
+        <div id="char-add-menu" style="display:none;position:absolute;top:100%;right:0;margin-top:3px;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow-lg);z-index:50;min-width:130px;overflow:hidden;">
+          <div onclick="showAddCharModal();document.getElementById('char-add-menu').style.display='none';" style="padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">✏️ 手动添加</div>
+          <div onclick="showExtractCharModal();document.getElementById('char-add-menu').style.display='none';" style="padding:8px 12px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">🎬 视频提取</div>
+        </div>
+      </div>
+      <button onclick="document.getElementById('char-lib-panel').style.display='none'" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;line-height:1;">✕</button>
+    </div>
+  </div>
+  <div id="char-lib-list" style="overflow-y:auto;flex:1;padding:8px 10px;"></div>
+</div>
+
+<style>
+.char-row{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden;transition:border-color .15s;}
+.char-row:hover{border-color:var(--border-strong);}
+.char-row-header{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;user-select:none;}
+.char-avatar-thumb{width:32px;height:32px;border-radius:4px;object-fit:cover;background:var(--bg-canvas);flex-shrink:0;border:1px solid var(--border);}
+.char-avatar-placeholder{width:32px;height:32px;border-radius:4px;background:var(--bg-canvas);flex-shrink:0;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;}
+.char-row-name{flex:1;font-size:12px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.char-badge{font-size:9px;padding:1px 5px;border-radius:10px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border);white-space:nowrap;}
+.char-expand-arrow{font-size:10px;color:var(--text-muted);flex-shrink:0;}
+.char-row-detail{padding:10px 10px 8px;border-top:1px solid var(--border);background:var(--bg-canvas);}
+.char-img-block{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.char-img-block img{width:100%;max-height:80px;object-fit:contain;background:var(--bg-secondary);border-radius:4px;border:1px solid var(--border);}
+.char-img-placeholder{width:100%;height:60px;background:var(--bg-secondary);border-radius:4px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--text-muted);}
+.char-img-label{font-size:9px;color:var(--text-muted);text-align:center;}
+.char-replace-btn{font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid var(--border);background:none;color:var(--text-secondary);cursor:pointer;margin-top:2px;}
+.char-replace-btn:hover{border-color:var(--accent);color:var(--accent);}
+</style>
+
+
 <style>
 .gp-tab{background:none;border:none;padding:6px 11px;cursor:pointer;color:var(--text-tertiary);font-size:15px;white-space:nowrap;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;}
 .gp-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
@@ -6272,7 +6311,7 @@ function buildMgCharSlotsHtml(nodeId, tpl, characters) {
     const bound = characters[slot.slot] || {};
     const selId = bound.injected_character_id || '';
     const opts = '<option value="">（不绑定）</option>' + worldChars.map(c =>
-      `<option value="${escHtml(c.id)}" ${c.id===selId?'selected':''}>${escHtml(c.name||c.id)}</option>`
+      `<option value="${escHtml(c.id)}" ${c.id===selId?'selected':''}>${escHtml((c.name||c.id)+(c.extraction_method==='video_extraction'?' [提]':''))}</option>`
     ).join('');
     const spriteThumb = (bound.game_sprite_url)
       ? `<img src="${bound.game_sprite_url}" style="width:22px;height:22px;object-fit:contain;border-radius:3px;border:1px solid var(--border);flex-shrink:0;" title="当前精灵图"/>`
@@ -7067,7 +7106,7 @@ function buildMgTriggerCharSlotsHtml(nodeId, trigIdx, tpl, characters) {
     const bound = (characters && characters[slot.slot]) || {};
     const selId = bound.injected_character_id || '';
     const opts = '<option value="">（不绑定）</option>' + worldChars.map(c =>
-      `<option value="${escHtml(c.id)}" ${c.id===selId?'selected':''}>${escHtml(c.name||c.id)}</option>`
+      `<option value="${escHtml(c.id)}" ${c.id===selId?'selected':''}>${escHtml((c.name||c.id)+(c.extraction_method==='video_extraction'?' [提]':''))}</option>`
     ).join('');
     return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
   <span style="font-size:11px;color:var(--text-muted);width:70px;flex-shrink:0;">${escHtml(slot.label)}<br><span style="opacity:.6;">${roleMap[slot.role]||slot.role}</span></span>
@@ -7604,5 +7643,570 @@ function saveMgTrigger(nodeId, trigIdx) {
   showToast('触发点已保存', 'success');
 }
 // ==================== Phase 2 函数结束 ====================
+
+
+// ==================== 角色库 Character Library ====================
+
+// ── T1: 工具栏按钮 ─────────────────────────────────────────────────
+(function addCharLibBtn() {
+  const moreBtn = document.getElementById('tool-more-btn');
+  if (moreBtn && moreBtn.parentNode) {
+    const sep = document.createElement('div');
+    sep.className = 'tool-divider';
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn';
+    btn.title = '角色管理';
+    btn.innerHTML = '<span style="font-size:14px;">👤</span><span class="tool-tip">角色管理</span>';
+    btn.setAttribute('onclick', 'openCharLib()');
+    moreBtn.parentNode.insertBefore(btn, moreBtn);
+    moreBtn.parentNode.insertBefore(sep, btn);
+  }
+})();
+
+function toggleCharAddMenu() {
+  const m = document.getElementById('char-add-menu');
+  if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  const btn = document.getElementById('char-add-btn');
+  const menu = document.getElementById('char-add-menu');
+  if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
+
+// ── T2/T3: 面板打开 + 列表渲染 ─────────────────────────────────────
+function openCharLib() {
+  const panel = document.getElementById('char-lib-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+  if (panel.style.display === 'flex') renderCharLib();
+}
+
+function renderCharLib() {
+  const list = document.getElementById('char-lib-list');
+  if (!list) return;
+  const chars = Object.values((state.gameData && state.gameData.characters) || {});
+  if (chars.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:20px 8px;color:var(--text-muted);font-size:12px;">
+      <div style="font-size:28px;margin-bottom:8px;">👤</div>
+      <div>角色库为空</div>
+      <div style="font-size:11px;margin-top:4px;">点击「+ 新增」添加或提取角色</div>
+    </div>`;
+    return;
+  }
+  list.innerHTML = chars.map(c => buildCharRowHtml(c)).join('');
+}
+
+function buildCharRowHtml(c) {
+  const avatarHtml = c.avatar_url
+    ? `<img src="${escHtml(c.avatar_url)}" class="char-avatar-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/><div class="char-avatar-placeholder" style="display:none;">👤</div>`
+    : `<div class="char-avatar-placeholder">👤</div>`;
+  const badge = c.extraction_method === 'video_extraction'
+    ? `<span class="char-badge" style="background:#ecfdf5;color:#059669;border-color:#a7f3d0;">提取</span>`
+    : `<span class="char-badge">手动</span>`;
+  return `<div class="char-row" id="char-row-${escHtml(c.id)}">
+  <div class="char-row-header" onclick="toggleCharRow('${escHtml(c.id)}')">
+    ${avatarHtml}
+    <span class="char-row-name">${escHtml(c.name || '未命名角色')}</span>
+    ${badge}
+    <span class="char-expand-arrow" id="char-arrow-${escHtml(c.id)}">▶</span>
+  </div>
+  <div class="char-row-detail" id="char-detail-${escHtml(c.id)}" style="display:none;">
+    ${buildCharDetailHtml(c)}
+  </div>
+</div>`;
+}
+
+function toggleCharRow(charId) {
+  const detail = document.getElementById('char-detail-' + charId);
+  const arrow  = document.getElementById('char-arrow-' + charId);
+  if (!detail) return;
+  const open = detail.style.display !== 'none';
+  detail.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▶' : '▼';
+}
+
+function buildCharDetailHtml(c) {
+  const cid = escHtml(c.id);
+  const srcInfo = c.extraction_method === 'video_extraction'
+    ? `视频提取${c.source_clip_id ? '（节点 ' + c.source_clip_id.slice(-8) + '）' : ''}`
+    : '手动创建';
+  const imgBlock = (url, field, label, icon) => {
+    const img = url
+      ? `<img src="${escHtml(url)}" onerror="this.style.display='none'" />`
+      : `<div class="char-img-placeholder">${icon}</div>`;
+    return `<div class="char-img-block">
+  ${img}
+  <div class="char-img-label">${label}</div>
+  <label class="char-replace-btn" style="cursor:pointer;">更换<input type="file" accept="image/*" style="display:none" onchange="replaceCharImage('${cid}','${field}',this)"/></label>
+</div>`;
+  };
+  return `
+<div style="margin-bottom:8px;">
+  <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">角色名</div>
+  <input type="text" value="${escHtml(c.name||'')}" placeholder="角色名"
+    style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:4px 7px;font-size:12px;box-sizing:border-box;"
+    onblur="updateCharField('${cid}','name',this.value)" onkeydown="if(event.key==='Enter')this.blur()"/>
+</div>
+<div style="margin-bottom:8px;">
+  <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">描述</div>
+  <textarea rows="2" placeholder="角色特征描述"
+    style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:4px 7px;font-size:11px;resize:vertical;box-sizing:border-box;"
+    onblur="updateCharField('${cid}','description',this.value)">${escHtml(c.description||'')}</textarea>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
+  ${imgBlock(c.avatar_url, 'avatar_url', '头像', '🖼️')}
+  ${imgBlock(c.avatar_multiview_url, 'avatar_multiview_url', '头像三视图', '👁️')}
+  ${imgBlock(c.fullbody_multiview_url, 'fullbody_multiview_url', '全身三视图', '🧍')}
+</div>
+<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;">来源：${escHtml(srcInfo)}</div>
+<div style="display:flex;gap:6px;">
+  <button onclick="showSpriteStyleModal(null,'',${JSON.stringify(c.id)})"
+    style="padding:4px 10px;font-size:11px;border-radius:4px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;flex:1;">🎨 生成精灵图</button>
+  <button onclick="deleteChar('${cid}')"
+    style="padding:4px 10px;font-size:11px;border-radius:4px;border:1px solid var(--accent-red,#ef4444);background:none;color:var(--accent-red,#ef4444);cursor:pointer;">删除</button>
+</div>`;
+}
+
+// ── T8: 角色 slot select 中显示 avatar 缩略图（辅助函数，供绑定 select 用）
+// 现有 worldChars 下拉 select 已能工作，此处仅更新 option 文字含来源标签，不改 select DOM
+// ── 实际对接：现有 buildMgCharSlotsHtml / buildMgTriggerCharSlotsHtml 使用 worldChars 数组
+// 角色名中追加来源标签，方便创作者识别
+function _charDisplayName(c) {
+  const src = c.extraction_method === 'video_extraction' ? ' [提]' : '';
+  return (c.name || c.id) + src;
+}
+</script>
+<script>
+// ── T4: 手动添加弹窗 ─────────────────────────────────────────────
+function showAddCharModal() {
+  if (document.getElementById('char-add-modal')) return;
+  const html = `
+<div id="char-add-modal" style="position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;width:420px;max-width:96vw;max-height:88vh;overflow-y:auto;padding:20px 22px;box-shadow:0 16px 48px rgba(0,0,0,0.35);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span style="font-size:14px;font-weight:600;">✏️ 手动添加角色</span>
+      <button onclick="document.getElementById('char-add-modal').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;line-height:1;">×</button>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">角色名 *</label>
+      <input id="cmod-name" type="text" placeholder="例如：火龙" style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#111827;padding:6px 8px;font-size:12px;box-sizing:border-box;"/>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px;">描述</label>
+      <textarea id="cmod-desc" rows="2" placeholder="角色特征描述..." style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#111827;padding:6px 8px;font-size:12px;resize:vertical;box-sizing:border-box;"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div>
+        <label style="font-size:10px;color:var(--text-muted);display:block;margin-bottom:3px;">头像</label>
+        <label style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:70px;background:#f3f4f6;border:1px dashed #d1d5db;border-radius:5px;cursor:pointer;font-size:10px;color:var(--text-muted);">
+          <span id="cmod-av-prev" style="font-size:22px;">🖼️</span>
+          <span style="margin-top:2px;">点击上传</span>
+          <input type="file" accept="image/*" style="display:none" onchange="previewCharModalImg(this,'cmod-av-prev','cmod-avatar-file')"/>
+        </label>
+        <input type="hidden" id="cmod-avatar-file" data-file=""/>
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--text-muted);display:block;margin-bottom:3px;">头像三视图</label>
+        <label style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:70px;background:#f3f4f6;border:1px dashed #d1d5db;border-radius:5px;cursor:pointer;font-size:10px;color:var(--text-muted);">
+          <span id="cmod-mv-prev" style="font-size:22px;">👁️</span>
+          <span style="margin-top:2px;">点击上传</span>
+          <input type="file" accept="image/*" style="display:none" onchange="previewCharModalImg(this,'cmod-mv-prev','cmod-mv-file')"/>
+        </label>
+        <input type="hidden" id="cmod-mv-file" data-file=""/>
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--text-muted);display:block;margin-bottom:3px;">全身三视图</label>
+        <label style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:70px;background:#f3f4f6;border:1px dashed #d1d5db;border-radius:5px;cursor:pointer;font-size:10px;color:var(--text-muted);">
+          <span id="cmod-fb-prev" style="font-size:22px;">🧍</span>
+          <span style="margin-top:2px;">点击上传</span>
+          <input type="file" accept="image/*" style="display:none" onchange="previewCharModalImg(this,'cmod-fb-prev','cmod-fb-file')"/>
+        </label>
+        <input type="hidden" id="cmod-fb-file" data-file=""/>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="document.getElementById('char-add-modal').remove()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;cursor:pointer;">取消</button>
+      <button id="cmod-submit" onclick="submitAddCharModal()" style="padding:7px 18px;border-radius:5px;border:none;background:var(--accent,#6366f1);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">添加到角色库</button>
+    </div>
+  </div>
+</div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  // Store file refs on window
+  window._cmodFiles = { avatar: null, mv: null, fb: null };
+  document.querySelector('#char-add-modal input[onchange*="cmod-avatar-file"]').addEventListener('change', e => window._cmodFiles.avatar = e.target.files[0]);
+  document.querySelector('#char-add-modal input[onchange*="cmod-mv-file"]').addEventListener('change', e => window._cmodFiles.mv = e.target.files[0]);
+  document.querySelector('#char-add-modal input[onchange*="cmod-fb-file"]').addEventListener('change', e => window._cmodFiles.fb = e.target.files[0]);
+}
+
+function previewCharModalImg(input, previewId, hiddenId) {
+  const file = input.files[0];
+  if (!file) return;
+  const prev = document.getElementById(previewId);
+  if (prev) {
+    const url = URL.createObjectURL(file);
+    prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"/>`;
+    prev.style.fontSize = '0';
+  }
+}
+
+async function submitAddCharModal() {
+  const name = document.getElementById('cmod-name')?.value.trim();
+  if (!name) { showToast('请输入角色名', 'warning'); return; }
+  const btn = document.getElementById('cmod-submit');
+  if (btn) { btn.disabled = true; btn.textContent = '上传中…'; }
+  try {
+    const desc = document.getElementById('cmod-desc')?.value.trim() || '';
+    const [avatarUrl, mvUrl, fbUrl] = await Promise.all([
+      window._cmodFiles?.avatar ? uploadCharImageFile(window._cmodFiles.avatar) : Promise.resolve(null),
+      window._cmodFiles?.mv     ? uploadCharImageFile(window._cmodFiles.mv)     : Promise.resolve(null),
+      window._cmodFiles?.fb     ? uploadCharImageFile(window._cmodFiles.fb)     : Promise.resolve(null),
+    ]);
+    const charId = 'char_' + Date.now();
+    if (!state.gameData.characters) state.gameData.characters = {};
+    state.gameData.characters[charId] = {
+      id: charId, name, description: desc,
+      avatar_url: avatarUrl, avatar_multiview_url: mvUrl, fullbody_multiview_url: fbUrl,
+      appearance_timestamps: [], source_clip_id: null,
+      extraction_method: 'manual', video_style_description: null, video_style_keywords: [],
+      game_sprite_url: null, game_sprite_style: null, confirmed_url: null,
+      reference_images: avatarUrl ? [avatarUrl] : []
+    };
+    saveData();
+    document.getElementById('char-add-modal')?.remove();
+    renderCharLib();
+    showToast('角色已添加', 'success');
+  } catch(e) {
+    showToast('添加失败：' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '添加到角色库'; }
+  }
+}
+
+async function uploadCharImageFile(file) {
+  if (!file) return null;
+  const formData = new FormData();
+  formData.append('file', file);
+  const resp = await _apiFetch('https://infidive.ai/api/v1/upload', { method: 'POST', body: formData });
+  if (!resp || !resp.ok) throw new Error('图片上传失败');
+  const data = await resp.json();
+  return data.data?.url || data.url || null;
+}
+
+// ── T5: 图片更换 ─────────────────────────────────────────────────
+async function replaceCharImage(charId, field, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const char = state.gameData.characters && state.gameData.characters[charId];
+  if (!char) return;
+  showToast('上传中…', 'info');
+  try {
+    const url = await uploadCharImageFile(file);
+    if (!url) throw new Error('未获取到 URL');
+    char[field] = url;
+    if (field === 'avatar_url') {
+      char.reference_images = [url];
+    }
+    saveData();
+    // refresh the detail area
+    const detail = document.getElementById('char-detail-' + charId);
+    if (detail) detail.innerHTML = buildCharDetailHtml(char);
+    // refresh header avatar
+    const row = document.getElementById('char-row-' + charId);
+    if (row) {
+      const oldRow = document.createElement('div');
+      oldRow.innerHTML = buildCharRowHtml(char);
+      const newRowEl = oldRow.firstElementChild;
+      // keep expanded state
+      const expanded = detail && detail.style.display !== 'none';
+      row.parentNode.replaceChild(newRowEl, row);
+      if (expanded) toggleCharRow(charId);
+    }
+    showToast('图片已更新', 'success');
+  } catch(e) {
+    showToast('上传失败：' + e.message, 'error');
+  }
+}
+
+// ── updateCharField ─────────────────────────────────────────────
+function updateCharField(charId, field, value) {
+  const char = state.gameData.characters && state.gameData.characters[charId];
+  if (!char) return;
+  char[field] = value;
+  saveData();
+  // refresh name in header if name changed
+  if (field === 'name') {
+    const nameEl = document.querySelector('#char-row-' + charId + ' .char-row-name');
+    if (nameEl) nameEl.textContent = value || '未命名角色';
+  }
+}
+
+// ── T7: 删除角色 ─────────────────────────────────────────────────
+function deleteChar(charId) {
+  const char = state.gameData.characters && state.gameData.characters[charId];
+  if (!char) return;
+  // Find references in minigame nodes
+  const refs = [];
+  Object.values(state.gameData.nodes || {}).forEach(nd => {
+    if (nd.minigame_config && nd.minigame_config.characters) {
+      Object.values(nd.minigame_config.characters).forEach(slot => {
+        if (slot.injected_character_id === charId) refs.push(nd.title || nd.id);
+      });
+    }
+    (nd.minigame_triggers || []).forEach(trig => {
+      if (trig.minigame_config && trig.minigame_config.characters) {
+        Object.values(trig.minigame_config.characters).forEach(slot => {
+          if (slot.injected_character_id === charId) refs.push(nd.title || nd.id);
+        });
+      }
+    });
+  });
+  const msg = refs.length > 0
+    ? `此角色已绑定到 ${refs.length} 个游戏节点（${refs.slice(0,3).join('、')}），删除后将自动解绑。确认删除？`
+    : `确认删除角色「${char.name || '未命名'}」？`;
+  if (!confirm(msg)) return;
+  // Clear bindings
+  Object.values(state.gameData.nodes || {}).forEach(nd => {
+    if (nd.minigame_config && nd.minigame_config.characters) {
+      Object.entries(nd.minigame_config.characters).forEach(([slot, s]) => {
+        if (s.injected_character_id === charId) {
+          nd.minigame_config.characters[slot] = { slot, injected_character_id: null, injected_url: null };
+        }
+      });
+    }
+    (nd.minigame_triggers || []).forEach(trig => {
+      if (trig.minigame_config && trig.minigame_config.characters) {
+        Object.entries(trig.minigame_config.characters).forEach(([slot, s]) => {
+          if (s.injected_character_id === charId) {
+            trig.minigame_config.characters[slot] = { slot, injected_character_id: null, injected_url: null };
+          }
+        });
+      }
+    });
+  });
+  // Delete from infidive if published
+  const worldId = state.gameData._infidive_world_id;
+  if (worldId && char._infidive_id) {
+    _apiFetch(`https://infidive.ai/api/v1/characters/${char._infidive_id}`, { method: 'DELETE' }).catch(() => {});
+  }
+  delete state.gameData.characters[charId];
+  saveData();
+  renderCharLib();
+  showToast('角色已删除', 'success');
+}
+
+// ── T6: 视频提取弹窗 ─────────────────────────────────────────────
+function showExtractCharModal() {
+  if (document.getElementById('char-extract-modal')) return;
+  const allNodes = Object.values(state.gameData && state.gameData.nodes || {});
+  const videoNodes = allNodes.filter(nd => nd.video_url && nd.video_url.startsWith('http'));
+  const nodeOpts = videoNodes.length
+    ? videoNodes.map(nd => `<option value="${escHtml(nd.id)}">${escHtml(nd.title || nd.id)} (${escHtml(nd.video_url.split('/').pop().slice(0,30))})</option>`).join('')
+    : '<option value="">（无视频节点）</option>';
+  const html = `
+<div id="char-extract-modal" style="position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;width:440px;max-width:96vw;padding:20px 22px;box-shadow:0 16px 48px rgba(0,0,0,0.35);">
+    <div id="char-extract-step1">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <span style="font-size:14px;font-weight:600;">🎬 从视频中提取角色</span>
+        <button onclick="document.getElementById('char-extract-modal').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;line-height:1;">×</button>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">选择视频节点</label>
+        <select id="char-extract-node-sel" style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#111827;padding:6px 8px;font-size:12px;">
+          ${nodeOpts}
+        </select>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;padding:8px;background:var(--bg-canvas);border-radius:5px;line-height:1.6;">
+        💡 AI 将自动识别视频中的角色（最多 5 个）<br/>
+        ⏱ 约需 2-3 分钟，提取完成后可预览选择
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="document.getElementById('char-extract-modal').remove()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;cursor:pointer;">取消</button>
+        <button id="char-extract-start-btn" onclick="startCharExtraction()" style="padding:7px 18px;border-radius:5px;border:none;background:#059669;color:#fff;font-size:12px;font-weight:600;cursor:pointer;" ${videoNodes.length===0?'disabled':''}>开始提取</button>
+      </div>
+    </div>
+    <div id="char-extract-step2" style="display:none;text-align:center;padding:10px 0;">
+      <div style="font-size:32px;margin-bottom:10px;" id="char-extract-icon">⏳</div>
+      <div id="char-extract-status" style="font-size:13px;color:var(--text-primary);font-weight:600;margin-bottom:6px;">AI 识别中…</div>
+      <div id="char-extract-hint" style="font-size:11px;color:var(--text-muted);">约需 2-3 分钟，请稍候</div>
+      <div style="margin-top:12px;height:4px;background:var(--bg-canvas);border-radius:2px;overflow:hidden;">
+        <div id="char-extract-bar" style="height:100%;width:5%;background:#059669;border-radius:2px;transition:width 1s;"></div>
+      </div>
+    </div>
+    <div id="char-extract-step3" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span style="font-size:13px;font-weight:600;" id="char-extract-count-title">提取结果预览</span>
+        <button onclick="document.getElementById('char-extract-modal').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;line-height:1;">×</button>
+      </div>
+      <div id="char-extract-candidates" style="max-height:280px;overflow-y:auto;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="document.getElementById('char-extract-modal').remove()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;cursor:pointer;">取消</button>
+        <button onclick="confirmCharExtraction()" style="padding:7px 18px;border-radius:5px;border:none;background:#059669;color:#fff;font-size:12px;font-weight:600;cursor:pointer;">确认入库</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  window._charExtractData = [];
+}
+
+const CHAR_EXTRACT_MOCK = [
+  { character_id:'ce_01', label:'male',   name:'角色1', description:'白发老人，白色长袍，面容慈祥', avatar_url:'https://via.placeholder.com/80x80/6366f1/fff?text=A1', video_style_description:'写实动画风格' },
+  { character_id:'ce_02', label:'female', name:'角色2', description:'黑发少女，红色铠甲，眼神坚定', avatar_url:'https://via.placeholder.com/80x80/059669/fff?text=A2', video_style_description:'写实动画风格' },
+  { character_id:'ce_03', label:'beast',  name:'角色3', description:'机甲兽人，灰色金属外壳',         avatar_url:'https://via.placeholder.com/80x80/0ea5e9/fff?text=A3', video_style_description:'写实动画风格' },
+];
+
+async function startCharExtraction() {
+  const sel = document.getElementById('char-extract-node-sel');
+  if (!sel || !sel.value) { showToast('请选择视频节点', 'warning'); return; }
+  const nodeId = sel.value;
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.video_url) { showToast('节点无有效视频', 'error'); return; }
+
+  document.getElementById('char-extract-step1').style.display = 'none';
+  document.getElementById('char-extract-step2').style.display = 'block';
+
+  const setStatus = (txt, hint) => {
+    const s = document.getElementById('char-extract-status'); if (s) s.textContent = txt;
+    const h = document.getElementById('char-extract-hint');   if (h && hint) h.textContent = hint;
+  };
+  const setBar = pct => {
+    const b = document.getElementById('char-extract-bar'); if (b) b.style.width = pct + '%';
+  };
+
+  try {
+    setStatus('提交提取任务…'); setBar(10);
+    const worldId = state.gameData._infidive_world_id || null;
+    const resp = await _apiFetch('https://infidive.ai/api/v1/characters/extract-from-video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ world_id: worldId, video_url: nd.video_url, clip_id: null })
+    });
+
+    let characters = null;
+    if (resp && resp.ok) {
+      const data = await resp.json();
+      const jobId = data.data?.job_id;
+      if (jobId) {
+        setStatus('AI 识别中…', '约需 2-3 分钟'); setBar(20);
+        // 轮询最多 60 次（5分钟）
+        for (let i = 0; i < 60; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const pct = Math.min(20 + (i + 1) * 1.2, 90);
+          setBar(pct);
+          const poll = await _apiFetch(`https://infidive.ai/api/v1/jobs/${jobId}?type=character_extract`);
+          if (poll && poll.ok) {
+            const pd = await poll.json();
+            if (pd.data?.status === 'completed') { characters = pd.data.result?.characters || []; break; }
+            if (pd.data?.status === 'failed') throw new Error(pd.data.error || '提取失败');
+          }
+          if (i === 0) setStatus('识别人物中…', '正在分析视频帧');
+          if (i === 5) setStatus('生成角色图…', '构建三视图中');
+        }
+      }
+    }
+    // fallback mock
+    if (!characters) {
+      setStatus('使用预览数据…', '（API 未就绪，展示 Mock）'); setBar(90);
+      await new Promise(r => setTimeout(r, 600));
+      characters = CHAR_EXTRACT_MOCK.map(c => ({ ...c, source_clip_id: null }));
+    }
+    setBar(100);
+    _showExtractCandidates(characters, nodeId);
+  } catch(e) {
+    setStatus('提取出错：' + e.message, '');
+    document.getElementById('char-extract-icon').textContent = '❌';
+    await new Promise(r => setTimeout(r, 1500));
+    setStatus('使用预览数据（Mock）', '');
+    const chars = CHAR_EXTRACT_MOCK.map(c => ({ ...c, source_clip_id: null }));
+    setBar(100); await new Promise(r => setTimeout(r, 300));
+    _showExtractCandidates(chars, nodeId);
+  }
+}
+
+function _showExtractCandidates(characters, nodeId) {
+  window._charExtractData = characters.map((c, i) => ({ ...c, _checked: true, _nodeId: nodeId, _idx: i }));
+  document.getElementById('char-extract-step2').style.display = 'none';
+  document.getElementById('char-extract-step3').style.display = 'block';
+  const title = document.getElementById('char-extract-count-title');
+  if (title) title.textContent = `提取结果预览（共 ${characters.length} 个角色）`;
+  const container = document.getElementById('char-extract-candidates');
+  if (!container) return;
+  container.innerHTML = characters.map((c, i) => `
+<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 6px;border-bottom:1px solid var(--border);">
+  <input type="checkbox" id="char-cand-check-${i}" checked onchange="window._charExtractData[${i}]._checked=this.checked"
+    style="margin-top:4px;accent-color:#059669;flex-shrink:0;"/>
+  <img src="${escHtml(c.avatar_url||'')}" style="width:48px;height:48px;border-radius:5px;object-fit:cover;background:#f3f4f6;flex-shrink:0;"
+    onerror="this.src='data:image/svg+xml,<svg xmlns=http://www.w3.org/2000/svg/><text y=24 font-size=24>👤</text></svg>'"/>
+  <div style="flex:1;min-width:0;">
+    <input type="text" value="${escHtml(c.name||c.label||('角色'+(i+1)))}" placeholder="角色名"
+      onchange="window._charExtractData[${i}].name=this.value"
+      style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 6px;font-size:12px;margin-bottom:3px;box-sizing:border-box;"/>
+    <div style="font-size:10px;color:var(--text-muted);line-height:1.4;">${escHtml((c.description||'').slice(0,80))}</div>
+  </div>
+</div>`).join('');
+}
+
+async function confirmCharExtraction() {
+  const toAdd = (window._charExtractData || []).filter(c => c._checked);
+  if (toAdd.length === 0) { showToast('请至少勾选一个角色', 'warning'); return; }
+  const worldId = state.gameData._infidive_world_id || null;
+  if (!state.gameData.characters) state.gameData.characters = {};
+
+  let apiChars = null;
+  if (worldId && toAdd.length > 0) {
+    try {
+      const resp = await _apiFetch('https://infidive.ai/api/v1/characters/confirm-extraction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          world_id: worldId,
+          characters: toAdd.map(c => ({
+            name: c.name || c.label || '角色', description: c.description || '',
+            avatar_url: c.avatar_url || null,
+            avatar_multiview_url: c.face_turnaround_path || null,
+            fullbody_multiview_url: c.turnaround_path || null,
+            appearance_timestamps: c.appearance_timestamps || [],
+            video_style_description: c.video_style_description || null,
+            video_style_keywords: c.video_style_keywords || [],
+            source_clip_id: c.source_clip_id || null
+          }))
+        })
+      });
+      if (resp && resp.ok) {
+        const data = await resp.json();
+        apiChars = data.data?.characters;
+      }
+    } catch(e) { console.warn('[char-extract confirm]', e.message); }
+  }
+
+  toAdd.forEach((c, i) => {
+    const apiChar = apiChars && apiChars[i];
+    const charId = apiChar?.id || ('char_' + Date.now() + '_' + i);
+    state.gameData.characters[charId] = {
+      id: charId, _infidive_id: apiChar?.id || null,
+      name: c.name || c.label || '角色',
+      description: c.description || '',
+      avatar_url: c.avatar_url || null,
+      avatar_multiview_url: c.face_turnaround_path || null,
+      fullbody_multiview_url: c.turnaround_path || null,
+      appearance_timestamps: c.appearance_timestamps || [],
+      source_clip_id: c._nodeId || null,
+      extraction_method: 'video_extraction',
+      video_style_description: c.video_style_description || null,
+      video_style_keywords: c.video_style_keywords || [],
+      game_sprite_url: null, game_sprite_style: null,
+      confirmed_url: c.avatar_url || null,
+      reference_images: c.avatar_url ? [c.avatar_url] : []
+    };
+  });
+
+  saveData();
+  document.getElementById('char-extract-modal')?.remove();
+  renderCharLib();
+  showToast(`${toAdd.length} 个角色已入库`, 'success');
+}
+// ==================== 角色库结束 ====================
 
 </script>
