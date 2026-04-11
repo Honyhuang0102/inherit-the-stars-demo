@@ -8126,9 +8126,7 @@ async function startCharExtraction() {
       }
     }
     if (!characters) {
-      setStatus('使用预览数据…', '（API 未就绪，展示 Mock）'); setBar(90);
-      await new Promise(r => setTimeout(r, 600));
-      characters = CHAR_EXTRACT_MOCK.map(c => ({ ...c, source_clip_id: null }));
+      throw new Error('未能提取到角色，请检查视频后重试');
     }
     setBar(100);
     if (_charExtractBgMode) {
@@ -8149,7 +8147,7 @@ async function startCharExtraction() {
     if (step2 && !step2.querySelector('.retry-btn')) {
       const retryDiv = document.createElement('div');
       retryDiv.style.cssText = 'text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center;';
-      retryDiv.innerHTML = '<button class="retry-btn" onclick="document.getElementById(&#39;char-extract-modal&#39;).remove();showExtractCharModal();" style="padding:6px 14px;font-size:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#374151;cursor:pointer;">重新选择</button><button onclick="var chars=CHAR_EXTRACT_MOCK.map(function(c){return Object.assign({},c,{source_clip_id:null})});_showExtractCandidates(chars,&#39;' + nodeId + '&#39;);" style="padding:6px 14px;font-size:12px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);cursor:pointer;">查看示例数据</button>';
+      retryDiv.innerHTML = '<button class="retry-btn" onclick="document.getElementById(&#39;char-extract-modal&#39;).remove();showExtractCharModal();" style="padding:6px 14px;font-size:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#374151;cursor:pointer;">重新选择</button>';
       step2.appendChild(retryDiv);
     }
   }
@@ -8412,8 +8410,7 @@ async function _doNodeCharExtract(nodeId, startSec, endSec) {
     }
   } catch(e) {}
 
-  // API 未就绪时 fallback mock
-  if (!characters || characters.length === 0) characters = CHAR_EXTRACT_MOCK;
+  // 无结果时不使用 mock，直接提示失败
 
   if (characters && characters.length > 0) {
     if (!state.gameData.characters) state.gameData.characters = {};
