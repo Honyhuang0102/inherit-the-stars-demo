@@ -8035,6 +8035,7 @@ function showExtractCharModal() {
       <div style="margin-top:12px;height:4px;background:var(--bg-canvas);border-radius:2px;overflow:hidden;">
         <div id="char-extract-bar" style="height:100%;width:5%;background:#059669;border-radius:2px;transition:width 1s;"></div>
       </div>
+      <button id="char-extract-bg-btn" onclick="_charExtractGoBackground()" style="margin-top:14px;padding:6px 18px;font-size:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:5px;color:var(--text-primary);cursor:pointer;">后台提取</button>
     </div>
     <div id="char-extract-step3" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
@@ -8059,6 +8060,17 @@ const CHAR_EXTRACT_MOCK = [
   { character_id:'ce_03', label:'beast',  name:'角色3', description:'机甲兽人，灰色金属外壳',         avatar_url:'https://via.placeholder.com/80x80/0ea5e9/fff?text=A3', video_style_description:'写实动画风格' },
 ];
 
+// 后台提取状态
+let _charExtractBgMode = false;
+let _charExtractNodeId = null;
+
+function _charExtractGoBackground() {
+  _charExtractBgMode = true;
+  const modal = document.getElementById('char-extract-modal');
+  if (modal) modal.remove();
+  showToast('角色提取已转入后台，完成后将通知您', 'info');
+}
+
 async function startCharExtraction() {
   const sel = document.getElementById('char-extract-node-sel');
   if (!sel || !sel.value) { showToast('请选择视频节点', 'warning'); return; }
@@ -8066,14 +8078,19 @@ async function startCharExtraction() {
   const nd = state.gameData.nodes[nodeId];
   if (!nd || !nd.video_url) { showToast('节点无有效视频', 'error'); return; }
 
+  _charExtractBgMode = false;
+  _charExtractNodeId = nodeId;
+
   document.getElementById('char-extract-step1').style.display = 'none';
   document.getElementById('char-extract-step2').style.display = 'block';
 
   const setStatus = (txt, hint) => {
+    if (_charExtractBgMode) return;
     const s = document.getElementById('char-extract-status'); if (s) s.textContent = txt;
     const h = document.getElementById('char-extract-hint');   if (h && hint) h.textContent = hint;
   };
   const setBar = pct => {
+    if (_charExtractBgMode) return;
     const b = document.getElementById('char-extract-bar'); if (b) b.style.width = pct + '%';
   };
 
@@ -8093,7 +8110,6 @@ async function startCharExtraction() {
       const jobId = data.data?.job_id;
       if (jobId) {
         setStatus('AI 识别中…', '约需 2-3 分钟'); setBar(20);
-        // 轮询最多 60 次（5分钟）
         for (let i = 0; i < 60; i++) {
           await new Promise(r => setTimeout(r, 5000));
           const pct = Math.min(20 + (i + 1) * 1.2, 90);
@@ -8109,19 +8125,26 @@ async function startCharExtraction() {
         }
       }
     }
-    // fallback mock
     if (!characters) {
       setStatus('使用预览数据…', '（API 未就绪，展示 Mock）'); setBar(90);
       await new Promise(r => setTimeout(r, 600));
       characters = CHAR_EXTRACT_MOCK.map(c => ({ ...c, source_clip_id: null }));
     }
     setBar(100);
+    if (_charExtractBgMode) {
+      _handleBgExtractComplete(characters, nodeId);
+      return;
+    }
     _showExtractCandidates(characters, nodeId);
   } catch(e) {
     setStatus(e.message || '提取出错', '如需继续，请重试或手动添加角色');
     document.getElementById('char-extract-icon').textContent = '❌';
     setBar(0);
     // 在加载区显示重试按钮，不自动走 mock
+    if (_charExtractBgMode) {
+      showToast('后台角色提取失败: ' + (e.message || '未知错误'), 'error');
+      return;
+    }
     const step2 = document.getElementById('char-extract-step2');
     if (step2 && !step2.querySelector('.retry-btn')) {
       const retryDiv = document.createElement('div');
@@ -8130,6 +8153,38 @@ async function startCharExtraction() {
       step2.appendChild(retryDiv);
     }
   }
+}
+
+function _handleBgExtractComplete(characters, nodeId) {
+  if (!characters || characters.length === 0) {
+    showToast('后台提取完成，但未识别到角色', 'warning');
+    return;
+  }
+  // 直接写入角色库
+  if (!state.gameData.characters) state.gameData.characters = {};
+  const added = [];
+  characters.forEach(c => {
+    const id = 'char_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    state.gameData.characters[id] = {
+      id, name: c.name || '未命名',
+      description: c.description || '',
+      avatar_url: c.avatar_url || '',
+      avatar_multiview_url: c.avatar_multiview_url || '',
+      fullbody_multiview_url: c.fullbody_multiview_url || '',
+      reference_images: [], appearance_timestamps: c.appearance_timestamps || [],
+      source_clip_id: c.source_clip_id || null,
+      extraction_method: 'video_extraction',
+      game_sprite_url: null, game_sprite_style: null, confirmed_url: null
+    };
+    added.push(id);
+  });
+  saveData();
+  if (typeof _newCharIds !== 'undefined' && _newCharIds instanceof Set) {
+    added.forEach(id => _newCharIds.add(id));
+  }
+  if (typeof _updateCharLibBadge === 'function') _updateCharLibBadge();
+  if (typeof renderCharLib === 'function') renderCharLib();
+  showToast('后台提取完成！已添加 ' + added.length + ' 个角色到角色库', 'success');
 }
 
 function _showExtractCandidates(characters, nodeId) {
