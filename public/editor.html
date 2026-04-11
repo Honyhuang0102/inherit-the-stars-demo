@@ -8126,7 +8126,7 @@ async function startCharExtraction() {
     if (step2 && !step2.querySelector('.retry-btn')) {
       const retryDiv = document.createElement('div');
       retryDiv.style.cssText = 'text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center;';
-      retryDiv.innerHTML = '<button class="retry-btn" onclick="document.getElementById('char-extract-modal').remove();showExtractCharModal();" style="padding:6px 14px;font-size:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#374151;cursor:pointer;">重新选择</button><button onclick="const chars=CHAR_EXTRACT_MOCK.map(c=>({...c,source_clip_id:null}));_showExtractCandidates(chars,'' + nodeId + '');" style="padding:6px 14px;font-size:12px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);cursor:pointer;">查看示例数据</button>';
+      retryDiv.innerHTML = '<button class="retry-btn" onclick="document.getElementById(&#39;char-extract-modal&#39;).remove();showExtractCharModal();" style="padding:6px 14px;font-size:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#374151;cursor:pointer;">重新选择</button><button onclick="var chars=CHAR_EXTRACT_MOCK.map(function(c){return Object.assign({},c,{source_clip_id:null})});_showExtractCandidates(chars,&#39;' + nodeId + '&#39;);" style="padding:6px 14px;font-size:12px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);cursor:pointer;">查看示例数据</button>';
       step2.appendChild(retryDiv);
     }
   }
@@ -8401,7 +8401,7 @@ async function _doNodeCharExtract(nodeId, startSec, endSec) {
   menu.style.cssText = 'display:none;position:fixed;background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:9100;min-width:150px;overflow:hidden;';
   menu.innerHTML = `
     <div onclick="showAddCharModal();closeCharAddMenu();" style="padding:9px 14px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">\u270f\ufe0f \u624b\u52a8\u6dfb\u52a0</div>
-    <div onclick="showExtractCharModal();closeCharAddMenu();" style="padding:9px 14px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">\U0001f3ac \u89c6\u9891\u63d0\u53d6</div>
+    <div onclick="showExtractCharModal();closeCharAddMenu();" style="padding:9px 14px;font-size:12px;cursor:pointer;color:var(--text-primary);" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''">🎬 \u89c6\u9891\u63d0\u53d6</div>
   `;
   document.body.appendChild(menu);
 })();
