@@ -5731,6 +5731,7 @@ openInspector = function(nodeId) {
     saveBtn.parentNode.insertBefore(div,saveBtn);
     // Inject timeline events section
     _injectTimelineSection(nodeId);
+    _injectMgTriggersSection(nodeId);
   }, 50);
 };
 
@@ -6669,6 +6670,22 @@ function prepareGameDataForPublish(gameData) {
     }
     cfg.meta = {world_id:null, clip_id:null, tags:(cfg.meta && cfg.meta.tags) ? cfg.meta.tags : []};
   });
+  // Validate minigame_triggers on branching nodes (Phase 2)
+  Object.values(data.nodes || {}).forEach(node => {
+    if (!node.minigame_triggers || node.minigame_triggers.length === 0) return;
+    node.minigame_triggers.forEach((trig, i) => {
+      const cfg = trig.minigame_config;
+      if (!cfg || !cfg.template_id) {
+        errors.push('节点 "' + (node.title||node.id) + '" 触发点' + (i+1) + '：必须选择模板');
+        return;
+      }
+      if (cfg.in_game_shop && cfg.in_game_shop.revive && cfg.in_game_shop.revive.cost_bubbles > 10)
+        errors.push('节点 "' + (node.title||node.id) + '" 触发点' + (i+1) + '：复活费用不能超过 10');
+      const jumps = trig.conditional_jumps || [];
+      if (jumps.length > 0 && !jumps.find(j => !j.condition))
+        errors.push('节点 "' + (node.title||node.id) + '" 触发点' + (i+1) + '：条件跳转缺少默认分支');
+    });
+  });
   if (errors.length > 0) throw new Error(errors.join(', '));
   return data;
 }
@@ -7040,4 +7057,552 @@ async function confirmSpriteSelection() {
   showToast('精灵图已绑定', 'success');
 }
 // ==================== AI Agent 结束 ====================
+
+// ==================== Phase 2: 视频节点小游戏触发点 ====================
+
+function buildMgTriggerCharSlotsHtml(nodeId, trigIdx, tpl, characters) {
+  const worldChars = Object.values((state.gameData && state.gameData.characters) || {});
+  const roleMap = { friendly:'友方', enemy:'敌方', neutral:'中立' };
+  return tpl.character_slots.map(slot => {
+    const bound = (characters && characters[slot.slot]) || {};
+    const selId = bound.injected_character_id || '';
+    const opts = '<option value="">（不绑定）</option>' + worldChars.map(c =>
+      `<option value="${escHtml(c.id)}" ${c.id===selId?'selected':''}>${escHtml(c.name||c.id)}</option>`
+    ).join('');
+    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+  <span style="font-size:11px;color:var(--text-muted);width:70px;flex-shrink:0;">${escHtml(slot.label)}<br><span style="opacity:.6;">${roleMap[slot.role]||slot.role}</span></span>
+  <select onchange="updateMgtCharBinding('${nodeId}',${trigIdx},'${slot.slot}',this.value)"
+    style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;">${opts}</select>
+</div>`;
+  }).join('');
+}
+
+function buildMgTriggerCustomParamsHtml(nodeId, trigIdx, difficulty) {
+  const params = (difficulty && difficulty.custom_params) || {};
+  const presetKey = (difficulty && difficulty.preset) || 'medium';
+  const presetDefaults = MG_DIFFICULTY_PRESETS[presetKey] || MG_DIFFICULTY_PRESETS.medium;
+  const fields = [
+    {key:'fall_speed_base',   label:'下落速度',    step:0.1},
+    {key:'spawn_interval_ms', label:'生成间隔(ms)', step:50},
+    {key:'bomb_ratio',        label:'炸弹比率',    step:0.05},
+    {key:'game_duration_s',   label:'时长(秒)',     step:5},
+    {key:'max_misses',        label:'最大失误',    step:1}
+  ];
+  return fields.map(f => {
+    const val = params[f.key] !== undefined ? params[f.key] : presetDefaults[f.key];
+    return `<div style="display:flex;flex-direction:column;gap:2px;">
+  <label style="font-size:10px;color:var(--text-muted);">${f.label}</label>
+  <input id="mgt-param-${nodeId}-${trigIdx}-${f.key}" type="number" step="${f.step}" value="${val}"
+    style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 5px;font-size:11px;width:100%;"/>
+</div>`;
+  }).join('');
+}
+
+function buildMgVarMappingHtml(nodeId, trigIdx, mappings) {
+  const vars = (state.gameData.game_settings && state.gameData.game_settings.variables) || [];
+  const emptyHint = vars.length === 0
+    ? '<div style="font-size:10px;color:var(--text-muted);padding:4px 0;">请先在游戏设置中定义变量</div>' : '';
+  const rowsHtml = (mappings||[]).map((m, idx) => {
+    const varOpts = vars.map(v => {
+      const vn = escHtml(v.name||v.id||'');
+      return `<option value="${vn}" ${(v.name||v.id)===m.target_var?'selected':''}>${vn}</option>`;
+    }).join('');
+    return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+  <input id="mgt-vmap-src-${nodeId}-${trigIdx}-${idx}" type="text" value="${escHtml(m.source||'')}"
+    placeholder="score / outcome / stats.health"
+    style="flex:3;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 5px;font-size:11px;"/>
+  <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">→</span>
+  <select id="mgt-vmap-tgt-${nodeId}-${trigIdx}-${idx}"
+    style="flex:3;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:11px;">
+    <option value="">变量...</option>${varOpts}
+  </select>
+  <button type="button" onclick="removeMgVarMapping('${nodeId}',${trigIdx},${idx})"
+    style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0;">×</button>
+</div>`;
+  }).join('');
+  return `<div style="margin-bottom:8px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+    <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">📊 结果 → 变量映射</span>
+    <button type="button" onclick="addMgVarMapping('${nodeId}',${trigIdx})"
+      style="font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;">+ 添加</button>
+  </div>
+  ${emptyHint}<div id="mgt-vmaps-${nodeId}-${trigIdx}">${rowsHtml}</div>
+</div>`;
+}
+
+function buildMgCondJumpsHtml(nodeId, trigIdx, jumps) {
+  const trig = state.gameData.nodes[nodeId] && state.gameData.nodes[nodeId].minigame_triggers &&
+               state.gameData.nodes[nodeId].minigame_triggers[trigIdx];
+  const mappings = (trig && trig.result_to_variables) || [];
+  const mappedVars = mappings.map(m => m.target_var).filter(Boolean);
+  const allNodes = state.gameData && state.gameData.nodes ? Object.values(state.gameData.nodes) : [];
+  const operators = ['==','!=','>','>=','<','<='];
+  const rowsHtml = (jumps||[]).map((j, idx) => {
+    const isDefault = !j.condition;
+    const condVar = j.condition ? (j.condition.variable||'') : '';
+    const condOp  = j.condition ? (j.condition.operator||'>=') : '>=';
+    const condVal = j.condition ? String(j.condition.value !== undefined ? j.condition.value : 0) : '0';
+    const tgtClip = j.target_clip_id || '';
+    const tgtTs   = j.target_timestamp_s !== undefined ? j.target_timestamp_s : 0;
+    const varOpts  = mappedVars.map(v => `<option value="${escHtml(v)}" ${v===condVar?'selected':''}>${escHtml(v)}</option>`).join('');
+    const opOpts   = operators.map(op => `<option value="${op}" ${op===condOp?'selected':''}>${op}</option>`).join('');
+    const nodeOpts = allNodes.map(n => `<option value="${escHtml(n.id)}" ${n.id===tgtClip?'selected':''}>${escHtml(n.title||n.id)}</option>`).join('');
+    const condHtml = isDefault
+      ? `<span style="font-size:11px;color:var(--accent,#6366f1);font-weight:600;">默认（兜底）</span>`
+      : `<select id="mgt-cj-var-${nodeId}-${trigIdx}-${idx}"
+           style="flex:2;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;">
+           <option value="">变量...</option>${varOpts}
+         </select>
+         <select id="mgt-cj-op-${nodeId}-${trigIdx}-${idx}"
+           style="width:44px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 3px;font-size:10px;">${opOpts}</select>
+         <input id="mgt-cj-val-${nodeId}-${trigIdx}-${idx}" type="text" value="${escHtml(condVal)}"
+           style="width:46px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;"/>`;
+    return `<div data-jump-idx="${idx}" style="background:var(--bg-canvas);border:1px solid var(--border);border-radius:4px;padding:5px 7px;margin-bottom:5px;">
+  <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">
+    <span style="font-size:10px;color:var(--text-muted);flex-shrink:0;">${isDefault?'':'如果'}</span>
+    ${condHtml}
+  </div>
+  <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+    <span style="font-size:10px;color:var(--text-muted);flex-shrink:0;">→ 跳至</span>
+    <select id="mgt-cj-clip-${nodeId}-${trigIdx}-${idx}"
+      style="flex:2;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;">
+      <option value="">本视频</option>${nodeOpts}
+    </select>
+    <span style="font-size:10px;color:var(--text-muted);">第</span>
+    <input id="mgt-cj-ts-${nodeId}-${trigIdx}-${idx}" type="number" min="0" step="0.5" value="${tgtTs}"
+      style="width:52px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;"/>
+    <span style="font-size:10px;color:var(--text-muted);">秒</span>
+    <input id="mgt-cj-label-${nodeId}-${trigIdx}-${idx}" type="text" value="${escHtml(j.label||'')}" placeholder="标签"
+      style="flex:1;min-width:48px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:10px;"/>
+    <button type="button" onclick="removeMgCondJump('${nodeId}',${trigIdx},${idx})"
+      style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0;">×</button>
+  </div>
+</div>`;
+  }).join('');
+  return `<div style="margin-bottom:6px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+    <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">🔀 条件跳转</span>
+    <div style="display:flex;gap:4px;">
+      <button type="button" onclick="addMgCondJump('${nodeId}',${trigIdx})"
+        style="font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;">+ 条件</button>
+      <button type="button" onclick="addMgCondJumpDefault('${nodeId}',${trigIdx})"
+        style="font-size:10px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;">+ 默认</button>
+    </div>
+  </div>
+  <div id="mgt-jumps-${nodeId}-${trigIdx}">${rowsHtml}</div>
+</div>`;
+}
+
+
+function buildMgTriggerGameCfgHtml(nodeId, trigIdx, cfg) {
+  const selectedTpl = cfg.template_id ? MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === cfg.template_id) : null;
+  const tplOptions = MINIGAME_TEMPLATES_MOCK.map(t =>
+    `<option value="${t.template_id}" ${cfg.template_id===t.template_id?'selected':''}>${escHtml(t.display_name)}（${t.category}）</option>`
+  ).join('');
+  const themeOptions = MG_THEMES.map(t =>
+    `<option value="${t.id}" ${cfg.theme&&cfg.theme.base===t.id?'selected':''}>${t.label}</option>`
+  ).join('');
+  const preset = (cfg.difficulty && cfg.difficulty.preset) || 'medium';
+  const presetLabels = {easy:'简单', medium:'普通', hard:'困难'};
+  const presetBtns = ['easy','medium','hard'].map(p =>
+    `<button type="button" id="mgt-preset-btn-${nodeId}-${trigIdx}-${p}"
+      onclick="setMgtDifficultyPreset('${nodeId}',${trigIdx},'${p}')"
+      style="flex:1;padding:4px;font-size:11px;border-radius:4px;cursor:pointer;
+        border:1px solid ${p===preset?'#9ca3af':'var(--border)'};
+        background:${p===preset?'#e5e7eb':'var(--bg-secondary)'};
+        color:${p===preset?'#111827':'var(--text-primary)'};
+        font-weight:${p===preset?'600':'400'};">${presetLabels[p]}</button>`
+  ).join('');
+  const charSlotsHtml = selectedTpl
+    ? buildMgTriggerCharSlotsHtml(nodeId, trigIdx, selectedTpl, cfg.characters||{})
+    : '<p style="font-size:11px;color:var(--text-muted);padding:4px 0;">请先选择模板</p>';
+  const tplLabel = escHtml(cfg.display_name || cfg.template_id || '');
+  return `<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+  <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';"
+    style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:3px 0;user-select:none;">
+    <span style="color:#059669;font-size:12px;">⚙️</span>
+    <span style="font-size:11px;font-weight:600;color:var(--text-secondary);">游戏配置</span>
+    <span id="mgt-cfg-tpl-label-${nodeId}-${trigIdx}" style="font-size:10px;color:var(--text-muted);margin-left:auto;">${tplLabel}</span>
+    <span style="font-size:9px;color:var(--text-muted);">▾</span>
+  </div>
+  <div style="display:none;margin-top:6px;">
+    <div class="insp-row" style="margin-bottom:6px;">
+      <label class="insp-label" style="font-size:10px;">模板</label>
+      <select id="mgt-template-${nodeId}-${trigIdx}" onchange="onMgtTemplateChange('${nodeId}',${trigIdx},this.value)"
+        style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;">
+        <option value="">请选择...</option>${tplOptions}
+      </select>
+    </div>
+    <div class="insp-row" style="margin-bottom:6px;">
+      <label class="insp-label" style="font-size:10px;">显示名</label>
+      <input id="mgt-display-name-${nodeId}-${trigIdx}" type="text" value="${escHtml(cfg.display_name||'')}" placeholder="游戏标题"
+        style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;"/>
+    </div>
+    <div style="margin-bottom:7px;">
+      <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">角色绑定</div>
+      <div id="mgt-char-slots-${nodeId}-${trigIdx}">${charSlotsHtml}</div>
+    </div>
+    <div style="margin-bottom:7px;">
+      <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">难度</div>
+      <div style="display:flex;gap:4px;margin-bottom:5px;">${presetBtns}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+        ${buildMgTriggerCustomParamsHtml(nodeId, trigIdx, cfg.difficulty)}
+      </div>
+    </div>
+    <div class="insp-row" style="margin-bottom:4px;">
+      <label class="insp-label" style="font-size:10px;">主题</label>
+      <select id="mgt-theme-${nodeId}-${trigIdx}"
+        style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;">
+        ${themeOptions}
+      </select>
+    </div>
+  </div>
+</div>`;
+}
+
+function buildMgTriggerCardHtml(nodeId, trigIdx, trig) {
+  const nd = state.gameData.nodes[nodeId];
+  const maxSec = nd ? (nd._sliderMaxSec || nd.branch_at_second || null) : null;
+  const t = trig.time;
+  const isStart = t === 'start';
+  const timeVal = typeof t === 'number' ? t : 0;
+  const maxHint = maxSec ? `<span style="font-size:10px;color:var(--text-muted);">最大 ${Math.ceil(maxSec)}s</span>` : '';
+  return `<div id="mgt-card-${nodeId}-${trigIdx}" style="background:var(--bg-canvas);border:1px solid #059669;border-radius:6px;padding:8px 10px;margin-bottom:8px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <span style="font-size:11px;font-weight:600;color:#059669;">🎮 触发点 ${trigIdx+1}</span>
+    <button type="button" onclick="removeMgTrigger('${nodeId}',${trigIdx})"
+      style="font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid var(--border);background:none;color:var(--text-muted);cursor:pointer;">删除</button>
+  </div>
+  <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">⏱ 触发时机</div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap;">
+    <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-secondary);white-space:nowrap;">
+      <input type="radio" name="mgt_time_${nodeId}_${trigIdx}" value="start" ${isStart?'checked':''}
+        onchange="updateMgTriggerTime('${nodeId}',${trigIdx},'start')"/> 片头
+    </label>
+    <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+      <input type="radio" name="mgt_time_${nodeId}_${trigIdx}" value="custom" ${!isStart?'checked':''}
+        onchange="updateMgTriggerTime('${nodeId}',${trigIdx},'custom')"/> 指定：
+    </label>
+    <input type="number" id="mgt-time-${nodeId}-${trigIdx}" min="0" step="0.5" value="${timeVal}"
+      onchange="updateMgTriggerCustomTime('${nodeId}',${trigIdx},this.value)"
+      style="width:65px;padding:2px 5px;font-size:11px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;${isStart?'display:none;':''}" />
+    ${maxHint}
+  </div>
+  ${buildMgTriggerGameCfgHtml(nodeId, trigIdx, trig.minigame_config||{})}
+  <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
+    ${buildMgVarMappingHtml(nodeId, trigIdx, trig.result_to_variables||[])}
+    ${buildMgCondJumpsHtml(nodeId, trigIdx, trig.conditional_jumps||[])}
+  </div>
+  <div style="text-align:right;margin-top:6px;">
+    <button type="button" onclick="saveMgTrigger('${nodeId}',${trigIdx})"
+      style="padding:4px 14px;border-radius:4px;border:1px solid #059669;background:#059669;color:#fff;font-size:11px;font-weight:600;cursor:pointer;">💾 保存触发点</button>
+  </div>
+</div>`;
+}
+
+function renderMgTriggersSection(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || nd.type !== 'branching') return null;
+  const triggers = nd.minigame_triggers || [];
+  const wrap = document.createElement('div');
+  wrap.className = 'mg-triggers-section insp-field';
+  wrap.style.cssText = 'margin-top:8px;';
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;';
+  header.innerHTML = `<span style="font-size:11px;font-weight:600;color:#059669;">🎮 小游戏触发点</span><button class="gp-micro-btn" style="border-color:#059669;color:#059669;" onclick="addMgTrigger('${nodeId}')">+ 添加</button>`;
+  wrap.appendChild(header);
+  if (triggers.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:10px;color:var(--text-tertiary);padding:8px;text-align:center;background:var(--bg-canvas);border-radius:4px;border:1px dashed #059669;';
+    empty.textContent = '暂无小游戏触发点。点击「+ 添加」在视频时间线上添加。';
+    wrap.appendChild(empty);
+  } else {
+    const cardsWrap = document.createElement('div');
+    cardsWrap.innerHTML = triggers.map((trig,i) => buildMgTriggerCardHtml(nodeId, i, trig)).join('');
+    wrap.appendChild(cardsWrap);
+  }
+  return wrap;
+}
+
+
+// ── Inject + CRUD ─────────────────────────────────────────────────────
+
+function _injectMgTriggersSection(nodeId) {
+  setTimeout(() => {
+    const nd = state.gameData.nodes[nodeId];
+    if (!nd || nd.type !== 'branching') return;
+    if (document.querySelector('.mg-triggers-section')) return;
+    const saveBtn = document.querySelector('#insp-body .insp-save-btn');
+    if (!saveBtn) return;
+    const section = renderMgTriggersSection(nodeId);
+    if (section) saveBtn.parentNode.insertBefore(section, saveBtn);
+  }, 70);
+}
+
+function _refreshMgTriggersSection(nodeId) {
+  const curNodeId = document.getElementById('inspector')?.dataset?.nodeId;
+  if (curNodeId !== nodeId) return;
+  const old = document.querySelector('.mg-triggers-section');
+  if (old) old.remove();
+  const saveBtn = document.querySelector('#insp-body .insp-save-btn');
+  if (!saveBtn) return;
+  const section = renderMgTriggersSection(nodeId);
+  if (section) saveBtn.parentNode.insertBefore(section, saveBtn);
+}
+
+function addMgTrigger(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd) return;
+  if (!nd.minigame_triggers) nd.minigame_triggers = [];
+  nd.minigame_triggers.push({
+    id: 'mgt_' + Date.now(), time: 0,
+    minigame_config: {
+      template_id:'', template_version:'1.0', category:'', display_name:'', description:'',
+      characters:{}, difficulty:{preset:'medium', custom_params:{}},
+      rewards:{
+        win:    {story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''},
+        perfect:{story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''},
+        lose:   {story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''}
+      },
+      in_game_shop:null, theme:{base:'neon_abyss',overrides:{}}, meta:{world_id:null,clip_id:null,tags:[]}
+    },
+    result_to_variables: [], conditional_jumps: []
+  });
+  saveData(); _refreshMgTriggersSection(nodeId);
+}
+
+function removeMgTrigger(nodeId, trigIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers) return;
+  nd.minigame_triggers.splice(trigIdx, 1);
+  saveData(); _refreshMgTriggersSection(nodeId);
+}
+
+function updateMgTriggerTime(nodeId, trigIdx, type) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  const inp = document.getElementById(`mgt-time-${nodeId}-${trigIdx}`);
+  if (type === 'start') {
+    nd.minigame_triggers[trigIdx].time = 'start';
+    if (inp) inp.style.display = 'none';
+  } else {
+    nd.minigame_triggers[trigIdx].time = parseFloat(inp?.value) || 0;
+    if (inp) inp.style.display = '';
+  }
+  saveData();
+}
+
+function updateMgTriggerCustomTime(nodeId, trigIdx, val) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  let t = parseFloat(val) || 0;
+  const maxSec = nd._sliderMaxSec || nd.branch_at_second || null;
+  if (maxSec && t > maxSec) {
+    t = maxSec;
+    const inp = document.getElementById(`mgt-time-${nodeId}-${trigIdx}`);
+    if (inp) inp.value = maxSec;
+    showToast('已修正为最大值 ' + Math.ceil(maxSec) + 's', 'warning');
+  }
+  nd.minigame_triggers[trigIdx].time = t;
+  saveData();
+}
+
+function onMgtTemplateChange(nodeId, trigIdx, templateId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  const tpl = MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === templateId);
+  const trig = nd.minigame_triggers[trigIdx];
+  if (!trig.minigame_config) trig.minigame_config = {};
+  trig.minigame_config.template_id = templateId;
+  trig.minigame_config.category = tpl ? tpl.category : '';
+  if (tpl) trig.minigame_config.characters = {};
+  const lbl = document.getElementById(`mgt-cfg-tpl-label-${nodeId}-${trigIdx}`);
+  if (lbl) lbl.textContent = tpl ? tpl.display_name : '';
+  const slotsEl = document.getElementById(`mgt-char-slots-${nodeId}-${trigIdx}`);
+  if (slotsEl) slotsEl.innerHTML = tpl
+    ? buildMgTriggerCharSlotsHtml(nodeId, trigIdx, tpl, {})
+    : '<p style="font-size:11px;color:var(--text-muted);">请先选择模板</p>';
+  saveData();
+}
+
+function setMgtDifficultyPreset(nodeId, trigIdx, preset) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  const defaults = MG_DIFFICULTY_PRESETS[preset];
+  if (!defaults) return;
+  const trig = nd.minigame_triggers[trigIdx];
+  if (!trig.minigame_config) trig.minigame_config = {};
+  if (!trig.minigame_config.difficulty) trig.minigame_config.difficulty = {};
+  trig.minigame_config.difficulty.preset = preset;
+  trig.minigame_config.difficulty.custom_params = Object.assign({}, defaults);
+  ['easy','medium','hard'].forEach(p => {
+    const btn = document.getElementById(`mgt-preset-btn-${nodeId}-${trigIdx}-${p}`);
+    if (!btn) return;
+    const a = p === preset;
+    btn.style.background  = a ? '#e5e7eb' : 'var(--bg-secondary)';
+    btn.style.color       = a ? '#111827'  : 'var(--text-primary)';
+    btn.style.fontWeight  = a ? '600' : '400';
+    btn.style.borderColor = a ? '#9ca3af' : '';
+  });
+  const paramKeys = ['fall_speed_base','spawn_interval_ms','bomb_ratio','game_duration_s','max_misses'];
+  paramKeys.forEach(k => {
+    const el = document.getElementById(`mgt-param-${nodeId}-${trigIdx}-${k}`);
+    if (el && defaults[k] !== undefined) el.value = defaults[k];
+  });
+  saveData();
+}
+
+function updateMgtCharBinding(nodeId, trigIdx, slot, charId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  const trig = nd.minigame_triggers[trigIdx];
+  if (!trig.minigame_config) trig.minigame_config = {};
+  if (!trig.minigame_config.characters) trig.minigame_config.characters = {};
+  const char = charId ? Object.values((state.gameData && state.gameData.characters)||{}).find(c => c.id===charId) : null;
+  trig.minigame_config.characters[slot] = {
+    slot, injected_character_id: charId||null,
+    injected_url: char ? (char.reference_image_url||null) : null
+  };
+  saveData();
+}
+
+function addMgVarMapping(nodeId, trigIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  _collectMgTriggerToState(nodeId, trigIdx);
+  nd.minigame_triggers[trigIdx].result_to_variables.push({source:'score', target_var:'', type:'number'});
+  saveData(); _refreshMgTriggersSection(nodeId);
+}
+
+function removeMgVarMapping(nodeId, trigIdx, mapIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  _collectMgTriggerToState(nodeId, trigIdx);
+  nd.minigame_triggers[trigIdx].result_to_variables.splice(mapIdx, 1);
+  saveData(); _refreshMgTriggersSection(nodeId);
+}
+
+function addMgCondJump(nodeId, trigIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  _collectMgTriggerToState(nodeId, trigIdx);
+  nd.minigame_triggers[trigIdx].conditional_jumps.push(
+    {condition:{variable:'',operator:'>=',value:0}, target_clip_id:null, target_timestamp_s:0, label:''}
+  );
+  saveData(); _refreshMgTriggersSection(nodeId);
+}
+
+function addMgCondJumpDefault(nodeId, trigIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  _collectMgTriggerToState(nodeId, trigIdx);
+  const jumps = nd.minigame_triggers[trigIdx].conditional_jumps;
+  if (jumps.find(j => !j.condition)) { showToast('已有默认分支', 'warning'); return; }
+  jumps.push({condition:null, target_clip_id:null, target_timestamp_s:0, label:'默认'});
+  saveData(); _refreshMgTriggersSection(nodeId);
+}
+
+function removeMgCondJump(nodeId, trigIdx, jumpIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  _collectMgTriggerToState(nodeId, trigIdx);
+  nd.minigame_triggers[trigIdx].conditional_jumps.splice(jumpIdx, 1);
+  saveData(); _refreshMgTriggersSection(nodeId);
+}
+
+// ── Collect & Save ────────────────────────────────────────────────────
+
+function collectMgTriggerGameCfg(nodeId, trigIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return {};
+  const trig = nd.minigame_triggers[trigIdx];
+  const cfg = trig.minigame_config || {};
+  const templateId = document.getElementById(`mgt-template-${nodeId}-${trigIdx}`)?.value || cfg.template_id || '';
+  const tpl = MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === templateId);
+  const preset = ['easy','medium','hard'].find(p => {
+    const btn = document.getElementById(`mgt-preset-btn-${nodeId}-${trigIdx}-${p}`);
+    return btn && btn.style.background && btn.style.background.includes('#e5e7eb');
+  }) || (cfg.difficulty && cfg.difficulty.preset) || 'medium';
+  const paramKeys = ['fall_speed_base','spawn_interval_ms','bomb_ratio','game_duration_s','max_misses'];
+  const customParams = {};
+  paramKeys.forEach(k => {
+    const el = document.getElementById(`mgt-param-${nodeId}-${trigIdx}-${k}`);
+    if (el && el.value !== '') customParams[k] = parseFloat(el.value);
+  });
+  return {
+    template_id:     templateId,
+    template_version: cfg.template_version || '1.0',
+    category:        tpl ? tpl.category : (cfg.category||''),
+    display_name:    document.getElementById(`mgt-display-name-${nodeId}-${trigIdx}`)?.value || cfg.display_name||'',
+    description:     cfg.description||'',
+    characters:      cfg.characters||{},
+    difficulty:      {preset, custom_params:customParams},
+    rewards:         cfg.rewards || {
+      win:{story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''},
+      perfect:{story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''},
+      lose:{story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''}
+    },
+    in_game_shop:    null,
+    theme:           {base: document.getElementById(`mgt-theme-${nodeId}-${trigIdx}`)?.value||'neon_abyss', overrides:(cfg.theme&&cfg.theme.overrides)||{}},
+    meta:            cfg.meta || {world_id:null, clip_id:null, tags:[]}
+  };
+}
+
+function collectMgTriggerVarMappings(nodeId, trigIdx) {
+  const container = document.getElementById(`mgt-vmaps-${nodeId}-${trigIdx}`);
+  const trig = state.gameData.nodes[nodeId]?.minigame_triggers?.[trigIdx];
+  if (!container) return (trig && trig.result_to_variables) || [];
+  const result = [];
+  Array.from(container.children).forEach((row, idx) => {
+    const src = document.getElementById(`mgt-vmap-src-${nodeId}-${trigIdx}-${idx}`)?.value || '';
+    const tgt = document.getElementById(`mgt-vmap-tgt-${nodeId}-${trigIdx}-${idx}`)?.value || '';
+    const type = src === 'outcome' ? 'string' : 'number';
+    if (src || tgt) result.push({source:src, target_var:tgt, type});
+  });
+  return result;
+}
+
+function collectMgTriggerCondJumps(nodeId, trigIdx) {
+  const container = document.getElementById(`mgt-jumps-${nodeId}-${trigIdx}`);
+  const trig = state.gameData.nodes[nodeId]?.minigame_triggers?.[trigIdx];
+  if (!container) return (trig && trig.conditional_jumps) || [];
+  const result = [];
+  Array.from(container.children).forEach((row, idx) => {
+    const varEl  = document.getElementById(`mgt-cj-var-${nodeId}-${trigIdx}-${idx}`);
+    const opEl   = document.getElementById(`mgt-cj-op-${nodeId}-${trigIdx}-${idx}`);
+    const valEl  = document.getElementById(`mgt-cj-val-${nodeId}-${trigIdx}-${idx}`);
+    const clipEl = document.getElementById(`mgt-cj-clip-${nodeId}-${trigIdx}-${idx}`);
+    const tsEl   = document.getElementById(`mgt-cj-ts-${nodeId}-${trigIdx}-${idx}`);
+    const lblEl  = document.getElementById(`mgt-cj-label-${nodeId}-${trigIdx}-${idx}`);
+    const isDefault = !varEl;
+    const rawVal = valEl?.value || '0';
+    const numVal = parseFloat(rawVal);
+    result.push({
+      condition: isDefault ? null : {
+        variable: varEl?.value||'', operator: opEl?.value||'>=',
+        value: isNaN(numVal) ? rawVal : numVal
+      },
+      target_clip_id:    clipEl?.value || null,
+      target_timestamp_s: parseFloat(tsEl?.value)||0,
+      label: lblEl?.value || (isDefault ? '默认' : '')
+    });
+  });
+  return result;
+}
+
+function _collectMgTriggerToState(nodeId, trigIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
+  nd.minigame_triggers[trigIdx].minigame_config     = collectMgTriggerGameCfg(nodeId, trigIdx);
+  nd.minigame_triggers[trigIdx].result_to_variables = collectMgTriggerVarMappings(nodeId, trigIdx);
+  nd.minigame_triggers[trigIdx].conditional_jumps   = collectMgTriggerCondJumps(nodeId, trigIdx);
+}
+
+function saveMgTrigger(nodeId, trigIdx) {
+  _collectMgTriggerToState(nodeId, trigIdx);
+  saveData();
+  showToast('触发点已保存', 'success');
+}
+// ==================== Phase 2 函数结束 ====================
+
 </script>
