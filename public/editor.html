@@ -8015,7 +8015,7 @@ function showExtractCharModal() {
   const allNodes = Object.values(state.gameData && state.gameData.nodes || {});
   const videoNodes = allNodes.filter(nd => nd.video_url && nd.video_url.trim() !== '');
   const nodeOpts = videoNodes.length
-    ? videoNodes.map(nd => `<option value="${escHtml(nd.id)}">${escHtml(nd.title || nd.id)} (${escHtml(nd.video_url.split('/').pop().slice(0,30))})</option>`).join('')
+    ? videoNodes.map(nd => `<option value="${escHtml(nd.id)}">节点${escHtml(nd.id)}: ${escHtml(nd.title || nd.id)}</option>`).join('')
     : '<option value="">（无视频节点）</option>';
   const html = `
 <div id="char-extract-modal" style="position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);">
@@ -8114,7 +8114,7 @@ async function startCharExtraction() {
           if (poll && poll.ok) {
             const pd = await poll.json();
             if (pd.data?.status === 'completed') { characters = pd.data.result?.characters || []; break; }
-            if (pd.data?.status === 'failed') throw new Error(pd.data.error || '提取失败');
+            if (pd.data?.status === 'failed') throw new Error('⚠️ AI 提取失败（' + (pd.data.error || '服务异常') + '）');
           }
           if (i === 0) setStatus('识别人物中…', '正在分析视频帧');
           if (i === 5) setStatus('生成角色图…', '构建三视图中');
@@ -8130,13 +8130,17 @@ async function startCharExtraction() {
     setBar(100);
     _showExtractCandidates(characters, nodeId);
   } catch(e) {
-    setStatus('提取出错：' + e.message, '');
+    setStatus(e.message || '提取出错', '如需继续，请重试或手动添加角色');
     document.getElementById('char-extract-icon').textContent = '❌';
-    await new Promise(r => setTimeout(r, 1500));
-    setStatus('使用预览数据（Mock）', '');
-    const chars = CHAR_EXTRACT_MOCK.map(c => ({ ...c, source_clip_id: null }));
-    setBar(100); await new Promise(r => setTimeout(r, 300));
-    _showExtractCandidates(chars, nodeId);
+    setBar(0);
+    // 在加载区显示重试按钮，不自动走 mock
+    const step2 = document.getElementById('char-extract-step2');
+    if (step2 && !step2.querySelector('.retry-btn')) {
+      const retryDiv = document.createElement('div');
+      retryDiv.style.cssText = 'text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center;';
+      retryDiv.innerHTML = '<button class="retry-btn" onclick="document.getElementById('char-extract-modal').remove();showExtractCharModal();" style="padding:6px 14px;font-size:12px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;color:#374151;cursor:pointer;">重新选择</button><button onclick="const chars=CHAR_EXTRACT_MOCK.map(c=>({...c,source_clip_id:null}));_showExtractCandidates(chars,'' + nodeId + '');" style="padding:6px 14px;font-size:12px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text-muted);cursor:pointer;">查看示例数据</button>';
+      step2.appendChild(retryDiv);
+    }
   }
 }
 
