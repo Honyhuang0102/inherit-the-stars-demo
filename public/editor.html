@@ -1953,7 +1953,7 @@ body.immersive-mode #right-panel {
           <span class="tool-tip">添加交互节点</span>
         </button>
         <button class="tool-btn" onclick="addNode('minigame')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4"/><circle cx="15" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg>
           <span class="tool-tip">添加小游戏节点</span>
         </button>
         <button class="tool-btn" id="tool-connect" onclick="setTool('connect')">
@@ -2099,7 +2099,7 @@ body.immersive-mode #right-panel {
     添加结局节点
   </div>
   <div class="ctx-item" onclick="addNode('minigame'); hideCtxMenu()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4"/><circle cx="15" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg>
     添加小游戏节点
   </div>
   <div id="ctx-node-actions" style="display:none">
@@ -3714,11 +3714,13 @@ function updatePreviewPanel(nodeData) {
   const placeholder = document.getElementById('screen-placeholder');
   const screenContent = document.getElementById('screen-content');
 
-  // 移除旧的 video 元素和全景图元素
+  // 移除旧的 video / 全景图 / 小游戏 元素
   const oldVideo = screenContent.querySelector('.preview-video-el');
   if (oldVideo) oldVideo.remove();
   const oldPano = screenContent.querySelector('.preview-pano-el');
   if (oldPano) oldPano.remove();
+  const oldMg = screenContent.querySelector('.preview-mg-el');
+  if (oldMg) oldMg.remove();
 
   if (nodeData.type === 'panorama' && nodeData.panorama_url) {
     // 全景图节点：显示全景图预览（简单图片展示）
@@ -3753,6 +3755,43 @@ function updatePreviewPanel(nodeData) {
     panoWrap.appendChild(panoLabel);
     const choicesLayer = document.getElementById('screen-choices');
     screenContent.insertBefore(panoWrap, choicesLayer);
+  } else if (nodeData.type === 'minigame') {
+    placeholder.style.display = 'none';
+    // 清空旧热点，防止遮挡 iframe（Fix #1）
+    const choicesEl2 = document.getElementById('screen-choices');
+    if (choicesEl2) choicesEl2.innerHTML = '';
+    const cfg = nodeData.minigame_config || {};
+    const mgWrap = document.createElement('div');
+    mgWrap.className = 'preview-mg-el';
+    mgWrap.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;background:#0f0f1a;overflow:hidden;';
+    if (cfg.template_id) {
+      const iframeUrl = 'https://infidive.ai/minigame-templates/' + cfg.template_id + '/index.html';
+      const iframe = document.createElement('iframe');
+      iframe.src = iframeUrl;
+      iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+      iframe.allow = 'autoplay';
+      iframe.setAttribute('scrolling', 'no');
+      mgWrap.appendChild(iframe);
+      // 左下角操作条（避开右上角 btn-immersive）（Fix #3）
+      const bar = document.createElement('div');
+      bar.style.cssText = 'position:absolute;bottom:6px;left:6px;z-index:15;display:flex;align-items:center;gap:4px;pointer-events:none;';
+      const label = document.createElement('span');
+      label.style.cssText = 'font-size:9px;color:rgba(255,255,255,0.55);letter-spacing:.05em;background:rgba(0,0,0,0.4);padding:2px 5px;border-radius:3px;';
+      label.textContent = (cfg.display_name || cfg.template_id).toUpperCase();
+      const reloadBtn = document.createElement('button');
+      reloadBtn.title = '重新载入';
+      reloadBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+      reloadBtn.style.cssText = 'padding:2px 4px;border-radius:3px;border:none;background:rgba(0,0,0,0.4);color:rgba(255,255,255,0.7);cursor:pointer;display:flex;align-items:center;pointer-events:all;';
+      reloadBtn.onclick = (e) => { e.stopPropagation(); iframe.src = iframeUrl; };
+      bar.appendChild(label);
+      bar.appendChild(reloadBtn);
+      mgWrap.appendChild(bar);
+    } else {
+      mgWrap.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:#6b7280;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4"/><circle cx="15" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg><div style="text-align:center;"><div style="font-size:12px;font-weight:500;color:#9ca3af;">小游戏节点</div><div style="font-size:10px;color:#6b7280;margin-top:4px;">请在左侧选择游戏模板</div></div></div>';
+    }
+    const choicesLayer = document.getElementById('screen-choices');
+    screenContent.insertBefore(mgWrap, choicesLayer);
+    return;
   } else if (nodeData.video_url) {
     // 隐藏占位符，显示视频
     placeholder.style.display = 'none';
@@ -4287,6 +4326,45 @@ function loadImmersiveNode(nodeData) {
     }
 
     renderImmersiveChoices(nodeData);
+  } else if (nodeData.type === 'minigame') {
+    // ── 小游戏 iframe 模式 ──（Fix #2）
+    screen.classList.remove('model3d-active', 'model3d-picking', 'panorama-active');
+    model3dPickMode = false;
+    destroy3DModelViewer();
+    const placeholder = document.getElementById('imm-placeholder');
+    screen.querySelectorAll('.imm-video-el, .imm-pano-el, .imm-mg-el').forEach(el => el.remove());
+    placeholder.style.display = 'none';
+    const cfg = nodeData.minigame_config || {};
+    const screenContent2 = screen.querySelector('.imm-screen-content');
+    const choicesLayer2 = document.getElementById('immersive-choices');
+    const mgWrap2 = document.createElement('div');
+    mgWrap2.className = 'imm-mg-el';
+    mgWrap2.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;background:#0f0f1a;overflow:hidden;border-radius:inherit;';
+    if (cfg.template_id) {
+      const iframeUrl2 = 'https://infidive.ai/minigame-templates/' + cfg.template_id + '/index.html';
+      const iframe2 = document.createElement('iframe');
+      iframe2.src = iframeUrl2;
+      iframe2.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+      iframe2.allow = 'autoplay';
+      iframe2.setAttribute('scrolling', 'no');
+      mgWrap2.appendChild(iframe2);
+      // 左下角：游戏名 + 重载按钮
+      const bar2 = document.createElement('div');
+      bar2.style.cssText = 'position:absolute;bottom:10px;left:10px;z-index:15;display:flex;align-items:center;gap:5px;pointer-events:none;';
+      const lbl2 = document.createElement('span');
+      lbl2.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.55);letter-spacing:.05em;background:rgba(0,0,0,0.4);padding:2px 7px;border-radius:4px;';
+      lbl2.textContent = (cfg.display_name || cfg.template_id).toUpperCase();
+      const rb2 = document.createElement('button');
+      rb2.title = '重新载入';
+      rb2.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+      rb2.style.cssText = 'padding:3px 5px;border-radius:3px;border:none;background:rgba(0,0,0,0.4);color:rgba(255,255,255,0.7);cursor:pointer;display:flex;align-items:center;pointer-events:all;';
+      rb2.onclick = (e) => { e.stopPropagation(); iframe2.src = iframeUrl2; };
+      bar2.appendChild(lbl2); bar2.appendChild(rb2);
+      mgWrap2.appendChild(bar2);
+    } else {
+      mgWrap2.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:#6b7280;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4"/><circle cx="15" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg><div style="font-size:14px;color:#9ca3af;">请先在右侧面板选择游戏模板</div></div>';
+    }
+    screenContent2.insertBefore(mgWrap2, choicesLayer2);
   } else {
     // ── 2D 视频模式 ──
     screen.classList.remove('model3d-active', 'model3d-picking', 'panorama-active');
@@ -6122,11 +6200,16 @@ function buildMinigameInspectorHtml(nodeId, cfg) {
   const preset = (cfg.difficulty && cfg.difficulty.preset) ? cfg.difficulty.preset : 'medium';
   const presetBtns = ['easy','medium','hard'].map(p =>
     `<button type="button" id="mg-preset-btn-${nodeId}-${p}" onclick="setMgDifficultyPreset('${nodeId}','${p}')"
-      style="flex:1;padding:4px;font-size:11px;border-radius:4px;border:1px solid var(--border);cursor:pointer;background:${p===preset?'var(--accent,#6366f1)':'var(--bg-secondary)'};color:${p===preset?'#fff':'var(--text-primary)'};">${{'easy':'简单','medium':'普通','hard':'困难'}[p]}</button>`
+      style="flex:1;padding:4px;font-size:11px;border-radius:4px;border:1px solid ${p===preset?'#9ca3af':'var(--border)'};cursor:pointer;background:${p===preset?'#e5e7eb':'var(--bg-secondary)'};color:${p===preset?'#111827':'var(--text-primary)'};font-weight:${p===preset?'600':'400'};">${{'easy':'简单','medium':'普通','hard':'困难'}[p]}</button>`
   ).join('');
   return `
 <div class="insp-section" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
   <div style="font-size:11px;font-weight:600;color:var(--accent,#6366f1);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">小游戏配置</div>
+  <button type="button" onclick="showAiMinigameModal('${nodeId}')"
+    style="width:100%;padding:7px 0;margin-bottom:10px;border-radius:5px;border:none;cursor:pointer;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(90deg,#059669,#0ea5e9);display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.02em;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+    AI 生成配置
+  </button>
   <div class="insp-row" style="margin-bottom:7px;">
     <label class="insp-label">模板</label>
     <select id="mg-template-${nodeId}" onchange="onMinigameTemplateChange('${nodeId}',this.value)"
@@ -6189,16 +6272,26 @@ function buildMgCharSlotsHtml(nodeId, tpl, characters) {
     const opts = '<option value="">（不绑定）</option>' + worldChars.map(c =>
       `<option value="${escHtml(c.id)}" ${c.id===selId?'selected':''}>${escHtml(c.name||c.id)}</option>`
     ).join('');
-    return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-  <span style="font-size:11px;color:var(--text-muted);width:80px;flex-shrink:0;">${escHtml(slot.label)}<br><span style="opacity:.6;">${roleMap[slot.role]||slot.role}</span></span>
+    const spriteThumb = (bound.game_sprite_url)
+      ? `<img src="${bound.game_sprite_url}" style="width:22px;height:22px;object-fit:contain;border-radius:3px;border:1px solid var(--border);flex-shrink:0;" title="当前精灵图"/>`
+      : '';
+    const spriteBtn = selId
+      ? `<button type="button" title="生成精灵图" onclick="showSpriteStyleModal('${nodeId}','${slot.slot}','${selId}')"
+          style="padding:2px 5px;border-radius:3px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;font-size:10px;flex-shrink:0;white-space:nowrap;">🎨</button>`
+      : '';
+    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">
+  <span style="font-size:11px;color:var(--text-muted);width:70px;flex-shrink:0;">${escHtml(slot.label)}<br><span style="opacity:.6;">${roleMap[slot.role]||slot.role}</span></span>
   <select onchange="updateMgCharBinding('${nodeId}','${slot.slot}',this.value)"
     style="flex:1;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;">${opts}</select>
+  ${spriteThumb}${spriteBtn}
 </div>`;
   }).join('');
 }
 
 function buildMgCustomParamsHtml(nodeId, difficulty) {
   const params = (difficulty && difficulty.custom_params) || {};
+  const presetKey = (difficulty && difficulty.preset) || 'medium';
+  const presetDefaults = MG_DIFFICULTY_PRESETS[presetKey] || MG_DIFFICULTY_PRESETS.medium;
   const fields = [
     {key:'fall_speed_base',    label:'下落速度',    step:0.1},
     {key:'spawn_interval_ms',  label:'生成间隔(ms)', step:50},
@@ -6206,12 +6299,15 @@ function buildMgCustomParamsHtml(nodeId, difficulty) {
     {key:'game_duration_s',    label:'时长(秒)',     step:5},
     {key:'max_misses',         label:'最大失误',    step:1}
   ];
-  return fields.map(f => `
+  return fields.map(f => {
+    const val = params[f.key] !== undefined ? params[f.key] : presetDefaults[f.key];
+    return `
 <div style="display:flex;flex-direction:column;gap:2px;">
   <label style="font-size:10px;color:var(--text-muted);">${f.label}</label>
-  <input id="mg-param-${nodeId}-${f.key}" type="number" step="${f.step}" value="${params[f.key]!==undefined?params[f.key]:''}" placeholder="-"
+  <input id="mg-param-${nodeId}-${f.key}" type="number" step="${f.step}" value="${val}"
     style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);padding:3px 5px;font-size:11px;width:100%;"/>
-</div>`).join('');
+</div>`;
+  }).join('');
 }
 
 function buildMgRewardTabsHtml(nodeId, rewards) {
@@ -6350,6 +6446,8 @@ function onMinigameTemplateChange(nodeId, templateId) {
   if (slotsEl) slotsEl.innerHTML = tpl
     ? buildMgCharSlotsHtml(nodeId, tpl, node.minigame_config.characters)
     : '<p style="color:var(--text-muted);font-size:12px;padding:6px 0">请先选择模板</p>';
+  // 同步刷新右侧预览
+  if (state.selectedNode === nodeId) updatePreviewPanel(node);
 }
 
 function updateMgCharBinding(nodeId, slot, charId) {
@@ -6374,8 +6472,10 @@ function setMgDifficultyPreset(nodeId, preset) {
   ['easy','medium','hard'].forEach(p => {
     const btn = document.getElementById('mg-preset-btn-' + nodeId + '-' + p);
     if (btn) {
-      btn.style.background = p === preset ? 'var(--accent,#6366f1)' : 'var(--bg-secondary)';
-      btn.style.color = p === preset ? '#fff' : 'var(--text-primary)';
+      btn.style.background = p === preset ? '#e5e7eb' : 'var(--bg-secondary)';
+      btn.style.color = p === preset ? '#111827' : 'var(--text-primary)';
+      btn.style.fontWeight = p === preset ? '600' : '400';
+      btn.style.borderColor = p === preset ? '#9ca3af' : '';
     }
   });
   const paramEl = document.getElementById('mg-custom-params-' + nodeId);
@@ -6570,4 +6670,375 @@ function prepareGameDataForPublish(gameData) {
   return data;
 }
 // ==================== 小游戏配置面板结束 ====================
+
+// ==================== AI Agent 对接 T2-T9 ====================
+
+const MG_SUGGEST_MOCK = {
+  game_config: {
+    template_id: 'catch-dragon', template_version: '1.0', category: 'reaction',
+    display_name: 'AI 生成：驯龙高手', description: 'AI 根据剧情自动配置',
+    characters: {
+      hero: { slot:'hero', label:'你的龙',   placeholder_url:'/assets/placeholder.png',      injected_url:null, injected_character_id:null, role:'friendly' },
+      bomb: { slot:'bomb', label:'炸弹',     placeholder_url:'/assets/bomb_placeholder.png', injected_url:null, injected_character_id:null, role:'enemy' }
+    },
+    difficulty: { preset:'medium', custom_params:{ fall_speed_base:3.5, spawn_interval_ms:1000, bomb_ratio:0.3, game_duration_s:30, max_misses:3 } },
+    rewards: {
+      win:     { story_unlock_node_id:null, item_rewards:[], variable_changes:[], unlock_message:'你驯服了火龙！' },
+      perfect: { story_unlock_node_id:null, item_rewards:[], variable_changes:[], unlock_message:'完美驯服！' },
+      lose:    { story_unlock_node_id:null, item_rewards:[], variable_changes:[], unlock_message:'再试一次？' }
+    },
+    in_game_shop: { revive:{ cost_bubbles:2, max_per_game:3, description:'从失败处继续' }, power_ups:[] },
+    theme: { base:'neon_abyss', overrides:{} },
+    meta: { world_id:null, clip_id:null, tags:[] }
+  },
+  reasoning: '（Mock）剧情含追逐场景，推荐反应类模板 catch-dragon，中等难度，已按奖励意图填充。'
+};
+
+// T2 — 弹出 AI 生成面板
+function showAiMinigameModal(nodeId) {
+  const node = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (!node) return;
+  const storyCtx = node.description || '';
+  const worldChars = Object.values((state.gameData && state.gameData.characters) || {});
+  const charCheckboxes = worldChars.length
+    ? worldChars.map(c => `
+      <label style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;">
+        <input type="checkbox" value="${escHtml(c.id)}" class="mg-ai-char-check" style="accent-color:var(--accent,#6366f1);">
+        <span style="font-size:12px;">${escHtml(c.name||c.id)}</span>
+      </label>`).join('')
+    : '<span style="font-size:11px;color:var(--text-muted);">（本项目暂无角色）</span>';
+
+  const modalHtml = `
+<div id="mg-ai-modal" style="position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;width:460px;max-width:96vw;max-height:88vh;overflow-y:auto;padding:22px 24px;box-shadow:0 16px 48px rgba(0,0,0,0.35);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:600;">✨ AI 生成小游戏配置</div>
+      <button onclick="document.getElementById('mg-ai-modal').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;line-height:1;">×</button>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:var(--text-muted);font-weight:500;display:block;margin-bottom:4px;">剧情上下文</label>
+      <textarea id="mg-ai-story" rows="3" placeholder="描述当前剧情场景，例如：主角在暗夜森林追踪火龙..."
+        style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:5px;color:var(--text-primary);padding:7px 9px;font-size:12px;resize:vertical;box-sizing:border-box;">${escHtml(storyCtx)}</textarea>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:var(--text-muted);font-weight:500;display:block;margin-bottom:4px;">选择角色（可多选）</label>
+      <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:5px;padding:6px 10px;max-height:110px;overflow-y:auto;">${charCheckboxes}</div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:var(--text-muted);font-weight:500;display:block;margin-bottom:4px;">奖励意图</label>
+      <input id="mg-ai-reward" type="text" placeholder="例如：赢了获得龙鳞碎片，解锁秘密洞穴分支"
+        style="width:100%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:5px;color:var(--text-primary);padding:7px 9px;font-size:12px;box-sizing:border-box;"/>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;color:var(--text-muted);font-weight:500;display:block;margin-bottom:6px;">消费偏好</label>
+      <div style="display:flex;gap:10px;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+          <input type="radio" name="mg-ai-spend" value="revive" checked style="accent-color:var(--accent,#6366f1);"> 允许复活
+        </label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;">
+          <input type="radio" name="mg-ai-spend" value="none"> 无消费
+        </label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="document.getElementById('mg-ai-modal').remove()"
+        style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;cursor:pointer;">取消</button>
+      <button id="mg-ai-submit-btn" onclick="callMinigameSuggestApi('${nodeId}')"
+        style="padding:7px 18px;border-radius:5px;border:none;background:linear-gradient(90deg,#059669,#0ea5e9);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">生成</button>
+    </div>
+  </div>
+</div>`;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = modalHtml;
+  document.body.appendChild(tmp.firstElementChild);
+}
+
+// T3 — 调用 AI API（含 mock fallback）
+async function callMinigameSuggestApi(nodeId) {
+  const node = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (!node) return;
+
+  const storyCtx = document.getElementById('mg-ai-story')?.value?.trim() || '';
+  const rewardIntent = document.getElementById('mg-ai-reward')?.value?.trim() || '';
+  const spendPref = document.querySelector('input[name="mg-ai-spend"]:checked')?.value || 'revive';
+  const selectedCharIds = Array.from(document.querySelectorAll('.mg-ai-char-check:checked')).map(el => el.value);
+  const characters = selectedCharIds.map(id => {
+    const c = state.gameData.characters && state.gameData.characters[id];
+    return c ? { id: c.id, name: c.name || c.id, description: c.description || '', reference_image_url: c.confirmed_url || null } : null;
+  }).filter(Boolean);
+
+  // 关闭弹窗，显示 loading
+  document.getElementById('mg-ai-modal')?.remove();
+  const typingEl = document.createElement('div');
+  typingEl.className = 'ai-msg bot';
+  typingEl.innerHTML = '<div class="ai-avatar bot">AI</div><div class="ai-bubble"><div class="ai-typing"><span></span><span></span><span></span></div></div>';
+  const aiMsgs = document.getElementById('ai-messages');
+  if (aiMsgs) { aiMsgs.appendChild(typingEl); aiMsgs.scrollTop = aiMsgs.scrollHeight; }
+  showToast('AI 分析中…', 'info');
+
+  try {
+    let gameConfig, reasoning;
+    const resp = await _apiFetch('https://infidive.ai/api/v1/ai/minigame-suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ story_context: storyCtx, characters, reward_intent: rewardIntent, spend_preference: spendPref, locale: 'zh' })
+    });
+
+    if (resp && resp.ok) {
+      const data = await resp.json();
+      gameConfig = data.data?.game_config;
+      reasoning = data.data?.reasoning || 'AI 配置生成完成';
+    } else {
+      // mock fallback
+      await new Promise(r => setTimeout(r, 800));
+      gameConfig = MG_SUGGEST_MOCK.game_config;
+      reasoning = MG_SUGGEST_MOCK.reasoning;
+    }
+
+    if (typingEl.parentNode) typingEl.remove();
+    fillMinigameConfigFromAi(nodeId, gameConfig, reasoning);
+  } catch (e) {
+    if (typingEl.parentNode) typingEl.remove();
+    await new Promise(r => setTimeout(r, 800));
+    fillMinigameConfigFromAi(nodeId, MG_SUGGEST_MOCK.game_config, MG_SUGGEST_MOCK.reasoning + '（网络异常，已使用 Mock 数据）');
+  }
+}
+
+// T4 — 将 AI 返回结果填入配置面板
+function fillMinigameConfigFromAi(nodeId, gameConfig, reasoning) {
+  const node = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (!node || !gameConfig) { showToast('AI 返回数据异常', 'error'); return; }
+
+  // 先保存当前 Inspector 表单值（防止覆盖用户已填内容）
+  if (document.getElementById('mg-template-' + nodeId)) {
+    try { node.minigame_config = collectMinigameConfig(nodeId); } catch(e) {}
+  }
+
+  // Deep merge AI 结果到节点
+  node.minigame_config = Object.assign({}, node.minigame_config, gameConfig);
+  node.minigame_config.meta = { world_id: null, clip_id: null, tags: [] };
+
+  // 重新渲染 Inspector
+  openInspector(nodeId);
+
+  // 刷新预览
+  updatePreviewPanel(node);
+  saveData();
+
+  // AI 对话窗口追加 reasoning
+  const botMsg = '✨ 小游戏配置已生成！
+
+模板：' + (gameConfig.display_name || gameConfig.template_id) + '
+
+' + reasoning;
+  if (typeof appendAiMsg === 'function') appendAiMsg(botMsg, 'bot');
+
+  showToast('AI 配置已填入，可手动微调', 'success');
+}
+
+// T7 — 精灵风格选择弹窗
+function showSpriteStyleModal(nodeId, slot, charId) {
+  const char = state.gameData && state.gameData.characters && state.gameData.characters[charId];
+  const charName = char ? (char.name || charId) : charId;
+
+  const styles = [
+    { id:'chibi',     label:'Q版',   desc:'大头可爱风，适合反应类',   emoji:'🐣' },
+    { id:'cartoon',   label:'卡通',  desc:'欧美卡通，线条清晰',       emoji:'🎨' },
+    { id:'pixel',     label:'像素',  desc:'复古像素风，策略类首选',   emoji:'🕹️' },
+    { id:'flat',      label:'扁平',  desc:'矢量简洁，适合解谜类',     emoji:'◼' },
+    { id:'anime',     label:'动漫',  desc:'日系风格，通用性强',       emoji:'⭐' },
+    { id:'painterly', label:'手绘',  desc:'水彩质感，奇幻/古风',      emoji:'🎭' }
+  ];
+
+  const cards = styles.map(s => `
+<div class="sprite-style-card" data-style="${s.id}" onclick="selectSpriteStyle(this)"
+  style="padding:10px 8px;border:1.5px solid var(--border);border-radius:6px;cursor:pointer;text-align:center;transition:all .15s;background:var(--bg-secondary);">
+  <div style="font-size:20px;margin-bottom:4px;">${s.emoji}</div>
+  <div style="font-size:11px;font-weight:600;color:var(--text-primary);margin-bottom:2px;">${s.label}</div>
+  <div style="font-size:10px;color:var(--text-muted);">${s.desc}</div>
+</div>`).join('');
+
+  const modalHtml = `
+<div id="sprite-modal" data-nodeid="${escHtml(nodeId)}" data-slot="${escHtml(slot)}" data-charid="${escHtml(charId)}"
+  style="position:fixed;inset:0;z-index:9100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;width:420px;max-width:96vw;padding:22px 24px;box-shadow:0 16px 48px rgba(0,0,0,0.35);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div style="font-size:14px;font-weight:600;">🎨 生成精灵图</div>
+      <button onclick="document.getElementById('sprite-modal').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;line-height:1;">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;">角色：${escHtml(charName)}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;" id="sprite-style-grid">${cards}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="document.getElementById('sprite-modal').remove()"
+        style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;cursor:pointer;">取消</button>
+      <button id="sprite-gen-btn" onclick="callGenerateSpriteApi()"
+        style="padding:7px 18px;border-radius:5px;border:none;background:var(--accent,#6366f1);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">生成精灵图</button>
+    </div>
+  </div>
+</div>`;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = modalHtml;
+  document.body.appendChild(tmp.firstElementChild);
+  // 默认选中 chibi
+  const firstCard = document.querySelector('.sprite-style-card[data-style="chibi"]');
+  if (firstCard) selectSpriteStyle(firstCard);
+}
+
+function selectSpriteStyle(el) {
+  document.querySelectorAll('.sprite-style-card').forEach(c => {
+    c.style.borderColor = 'var(--border)';
+    c.style.background = 'var(--bg-secondary)';
+  });
+  el.style.borderColor = 'var(--accent,#6366f1)';
+  el.style.background = 'rgba(99,102,241,0.08)';
+}
+
+// T8 — 调用精灵化 API + 轮询 + 3选1
+async function callGenerateSpriteApi() {
+  const modal = document.getElementById('sprite-modal');
+  if (!modal) return;
+  const nodeId = modal.dataset.nodeid;
+  const slot   = modal.dataset.slot;
+  const charId = modal.dataset.charid;
+  const selectedCard = document.querySelector('.sprite-style-card[style*="accent"]') || document.querySelector('.sprite-style-card');
+  const spriteStyle = selectedCard ? selectedCard.dataset.style : 'chibi';
+
+  modal.remove();
+  showToast('精灵图生成中，请稍候…', 'info');
+
+  const MOCK_SPRITE_URLS = [
+    'https://via.placeholder.com/128x128/6366f1/fff?text=Sprite+A',
+    'https://via.placeholder.com/128x128/059669/fff?text=Sprite+B',
+    'https://via.placeholder.com/128x128/0ea5e9/fff?text=Sprite+C'
+  ];
+
+  try {
+    let spriteUrls = null;
+    const resp = await _apiFetch(`https://infidive.ai/api/v1/characters/${charId}/generate-sprite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sprite_style: spriteStyle })
+    });
+
+    if (resp && resp.ok) {
+      const data = await resp.json();
+      const jobId = data.data?.job_id;
+      if (jobId) {
+        // 轮询，最多 20 次（60s）
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 3000));
+          const poll = await _apiFetch(`https://infidive.ai/api/v1/jobs/${jobId}?type=sprite`);
+          if (poll && poll.ok) {
+            const pdata = await poll.json();
+            if (pdata.data?.status === 'completed' && pdata.data?.sprite_urls) {
+              spriteUrls = pdata.data.sprite_urls;
+              break;
+            }
+            if (pdata.data?.status === 'failed') break;
+          }
+        }
+      }
+    }
+
+    // fallback to mock
+    if (!spriteUrls) {
+      await new Promise(r => setTimeout(r, 1000));
+      spriteUrls = MOCK_SPRITE_URLS;
+    }
+
+    showSpriteCandidates(nodeId, slot, charId, spriteUrls);
+  } catch (e) {
+    await new Promise(r => setTimeout(r, 800));
+    showSpriteCandidates(nodeId, slot, charId, MOCK_SPRITE_URLS);
+  }
+}
+
+function showSpriteCandidates(nodeId, slot, charId, spriteUrls) {
+  const imgCards = spriteUrls.map((url, i) => `
+<div class="sprite-candidate" data-url="${escHtml(url)}" data-idx="${i}" onclick="selectSpriteCandidate(this)"
+  style="border:2px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;transition:border-color .15s;background:var(--bg-secondary);padding:4px;">
+  <img src="${escHtml(url)}" style="width:100%;aspect-ratio:1;object-fit:contain;display:block;border-radius:4px;" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'128\' height=\'128\'><rect fill=\'%23374151\' width=\'128\' height=\'128\'/><text y=\'70\' x=\'64\' text-anchor=\'middle\' fill=\'white\' font-size=\'11\'>图片</text></svg>'"/>
+</div>`).join('');
+
+  const modalHtml = `
+<div id="sprite-pick-modal" data-nodeid="${escHtml(nodeId)}" data-slot="${escHtml(slot)}" data-charid="${escHtml(charId)}"
+  style="position:fixed;inset:0;z-index:9200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);">
+  <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;width:400px;max-width:96vw;padding:22px 24px;box-shadow:0 16px 48px rgba(0,0,0,0.35);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div style="font-size:14px;font-weight:600;">选择精灵图</div>
+      <button onclick="document.getElementById('sprite-pick-modal').remove()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;line-height:1;">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;">点击选择一张精灵图</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">${imgCards}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="document.getElementById('sprite-pick-modal').remove()"
+        style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;cursor:pointer;">取消</button>
+      <button onclick="confirmSpriteSelection()"
+        style="padding:7px 18px;border-radius:5px;border:none;background:var(--accent,#6366f1);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">使用此精灵</button>
+    </div>
+  </div>
+</div>`;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = modalHtml;
+  document.body.appendChild(tmp.firstElementChild);
+  // 默认选第一张
+  const first = document.querySelector('.sprite-candidate');
+  if (first) selectSpriteCandidate(first);
+}
+
+function selectSpriteCandidate(el) {
+  document.querySelectorAll('.sprite-candidate').forEach(c => { c.style.borderColor = 'var(--border)'; });
+  el.style.borderColor = 'var(--accent,#6366f1)';
+}
+
+// T9 — 确认精灵图
+async function confirmSpriteSelection() {
+  const modal = document.getElementById('sprite-pick-modal');
+  if (!modal) return;
+  const nodeId = modal.dataset.nodeid;
+  const slot   = modal.dataset.slot;
+  const charId = modal.dataset.charid;
+  const selected = modal.querySelector('.sprite-candidate[style*="accent"]');
+  if (!selected) { showToast('请先选择一张精灵图', 'warning'); return; }
+  const spriteUrl = selected.dataset.url;
+  modal.remove();
+
+  // 调 confirm-sprite API（静默失败）
+  try {
+    await _apiFetch(`https://infidive.ai/api/v1/characters/${charId}/confirm-sprite`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sprite_url: spriteUrl })
+    });
+  } catch(e) {}
+
+  // 更新本地 state
+  if (state.gameData.characters && state.gameData.characters[charId]) {
+    state.gameData.characters[charId].game_sprite_url = spriteUrl;
+  }
+  const node = state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (node && node.minigame_config && node.minigame_config.characters && node.minigame_config.characters[slot]) {
+    node.minigame_config.characters[slot].injected_url = spriteUrl;
+  }
+
+  // 刷新角色绑定区 DOM
+  const tplId = node && node.minigame_config && node.minigame_config.template_id;
+  const tpl = tplId && MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === tplId);
+  const slotsEl = document.getElementById('mg-char-slots-' + nodeId);
+  if (slotsEl && tpl && node) {
+    slotsEl.innerHTML = buildMgCharSlotsHtml(nodeId, tpl, node.minigame_config.characters || {});
+  }
+
+  saveData();
+  showToast('精灵图已绑定', 'success');
+}
+// ==================== AI Agent 结束 ====================
 </script>
