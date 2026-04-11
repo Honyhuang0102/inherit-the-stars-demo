@@ -6832,11 +6832,7 @@ function fillMinigameConfigFromAi(nodeId, gameConfig, reasoning) {
   saveData();
 
   // AI 对话窗口追加 reasoning
-  const botMsg = '✨ 小游戏配置已生成！
-
-模板：' + (gameConfig.display_name || gameConfig.template_id) + '
-
-' + reasoning;
+  const botMsg = `✨ 小游戏配置已生成！\n\n模板：${gameConfig.display_name || gameConfig.template_id}\n\n${reasoning}`;
   if (typeof appendAiMsg === 'function') appendAiMsg(botMsg, 'bot');
 
   showToast('AI 配置已填入，可手动微调', 'success');
