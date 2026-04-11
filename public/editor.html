@@ -5771,6 +5771,7 @@ openInspector = function(nodeId) {
     // Inject timeline events section
     _injectTimelineSection(nodeId);
     _injectMgTriggersSection(nodeId);
+    _injectCharExtractSection(nodeId);
   }, 50);
 };
 
@@ -7651,15 +7652,14 @@ function saveMgTrigger(nodeId, trigIdx) {
 (function addCharLibBtn() {
   const moreBtn = document.getElementById('tool-more-btn');
   if (moreBtn && moreBtn.parentNode) {
-    const sep = document.createElement('div');
-    sep.className = 'tool-divider';
     const btn = document.createElement('button');
+    btn.id = 'char-lib-toolbar-btn';
     btn.className = 'tool-btn';
     btn.title = '角色管理';
+    btn.style.position = 'relative';
     btn.innerHTML = '<span style="font-size:14px;">👤</span><span class="tool-tip">角色管理</span>';
     btn.setAttribute('onclick', 'openCharLib()');
     moreBtn.parentNode.insertBefore(btn, moreBtn);
-    moreBtn.parentNode.insertBefore(sep, btn);
   }
 })();
 
@@ -7680,7 +7680,13 @@ function openCharLib() {
   const panel = document.getElementById('char-lib-panel');
   if (!panel) return;
   panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
-  if (panel.style.display === 'flex') renderCharLib();
+  if (panel.style.display === 'flex') {
+    renderCharLib();
+    // 打开面板时不清除角色级红点，只清除工具栏红点（鼓励用户点开各角色查看）
+    // 工具栏红点在 renderCharLib 后清除
+    const btn = document.getElementById('char-lib-toolbar-btn');
+    if (btn) { const d = btn.querySelector('.char-lib-red-dot'); if (d) d.remove(); }
+  }
 }
 
 function renderCharLib() {
@@ -7711,6 +7717,7 @@ function buildCharRowHtml(c) {
     <span class="char-row-name">${escHtml(c.name || '未命名角色')}</span>
     ${badge}
     <span class="char-expand-arrow" id="char-arrow-${escHtml(c.id)}">▶</span>
+    ${_newCharIds.has(c.id) ? '<span class="char-new-dot" style="width:8px;height:8px;background:#ef4444;border-radius:50%;display:inline-block;flex-shrink:0;"></span>' : ''}
   </div>
   <div class="char-row-detail" id="char-detail-${escHtml(c.id)}" style="display:none;">
     ${buildCharDetailHtml(c)}
@@ -7725,6 +7732,13 @@ function toggleCharRow(charId) {
   const open = detail.style.display !== 'none';
   detail.style.display = open ? 'none' : 'block';
   if (arrow) arrow.textContent = open ? '▶' : '▼';
+  // 展开时清除该角色的红点
+  if (!open && _newCharIds.has(charId)) {
+    _newCharIds.delete(charId);
+    const row = document.getElementById('char-row-' + charId);
+    if (row) { const dot = row.querySelector('.char-new-dot'); if (dot) dot.remove(); }
+    if (_newCharIds.size === 0) _updateCharLibBadge();
+  }
 }
 
 function buildCharDetailHtml(c) {
@@ -8209,5 +8223,182 @@ async function confirmCharExtraction() {
   showToast(`${toAdd.length} 个角色已入库`, 'success');
 }
 // ==================== 角色库结束 ====================
+
+
+// ─────────────────────────────────────────────────────────────
+// 角色提取红点通知系统
+// _newCharIds: 本 session 新提取的角色 ID 集合
+// ─────────────────────────────────────────────────────────────
+const _newCharIds = new Set();
+
+function _updateCharLibBadge() {
+  const btn = document.getElementById('char-lib-toolbar-btn');
+  if (!btn) return;
+  let dot = btn.querySelector('.char-lib-red-dot');
+  if (_newCharIds.size > 0) {
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.className = 'char-lib-red-dot';
+      dot.style.cssText = 'position:absolute;top:2px;right:2px;width:8px;height:8px;background:#ef4444;border-radius:50%;pointer-events:none;display:block;';
+      btn.appendChild(dot);
+    }
+  } else {
+    if (dot) dot.remove();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Inspector 角色提取区域注入（branching 节点专用）
+// ─────────────────────────────────────────────────────────────
+function _injectCharExtractSection(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || nd.type !== 'branching' || !nd.video_url) return;
+  const inspector = document.getElementById('inspector');
+  if (!inspector || inspector.dataset.nodeId !== nodeId) return;
+  if (document.getElementById('char-extract-insp-section')) return;
+  const saveBtn = document.querySelector('#insp-body .insp-save-btn');
+  if (!saveBtn) return;
+
+  const sec = document.createElement('div');
+  sec.id = 'char-extract-insp-section';
+  sec.style.cssText = 'margin-top:10px;padding:10px 12px;background:var(--bg-canvas);border-radius:6px;border:1px solid var(--border);';
+  sec.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;font-weight:600;color:var(--text-primary);">\u{1F3AD} \u89d2\u8272\u63d0\u53d6</span>
+      <button onclick="nodeCharExtract('${nodeId}')" style="padding:4px 10px;font-size:11px;background:#059669;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:600;">\u4ece\u6b64\u89c6\u9891\u63d0\u53d6</button>
+    </div>
+    <div id="char-extract-insp-form" style="display:none;margin-top:8px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">\u89c6\u9891\u8d85\u8fc7 30 \u79d2\uff0c\u8bf7\u6307\u5b9a\u63d0\u53d6\u65f6\u95f4\u6bb5\uff08\u79d2\uff09\uff1a</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--text-secondary);">\u5f00\u59cb</span>
+        <input id="char-extract-insp-start" type="number" min="0" value="0" style="width:58px;padding:3px 6px;font-size:11px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;">
+        <span style="font-size:11px;color:var(--text-secondary);">\u7ed3\u675f</span>
+        <input id="char-extract-insp-end" type="number" min="0" value="30" style="width:58px;padding:3px 6px;font-size:11px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;">
+        <span style="font-size:11px;color:var(--text-muted);">\u79d2</span>
+        <button onclick="nodeCharExtractConfirm('${nodeId}')" style="padding:3px 10px;font-size:11px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;">\u5f00\u59cb\u63d0\u53d6</button>
+      </div>
+    </div>
+    <div id="char-extract-insp-status" style="display:none;font-size:11px;color:var(--text-muted);margin-top:6px;"></div>
+  `;
+  saveBtn.parentNode.insertBefore(sec, saveBtn);
+}
+
+async function nodeCharExtract(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.video_url) return;
+  const videoUrl = nd.video_url.startsWith('http') ? nd.video_url : (window.location.origin + nd.video_url);
+  const statusEl = document.getElementById('char-extract-insp-status');
+  const form     = document.getElementById('char-extract-insp-form');
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '\u68c0\u6d4b\u89c6\u9891\u65f6\u957f\u2026'; }
+
+  // 优先用已存的 branch_time（上传时设置），否则动态探测
+  let duration = nd.branch_time || 0;
+  if (!duration) {
+    try {
+      duration = await new Promise(res => {
+        const v = document.createElement('video');
+        v.preload = 'metadata';
+        v.onloadedmetadata = () => res(isFinite(v.duration) ? v.duration : 0);
+        v.onerror = () => res(0);
+        setTimeout(() => res(0), 6000);
+        v.src = videoUrl;
+      });
+    } catch(e) { duration = 0; }
+  }
+
+  if (statusEl) statusEl.style.display = 'none';
+
+  if (duration > 30) {
+    // 显示时间段输入框
+    if (form) {
+      const endInput = document.getElementById('char-extract-insp-end');
+      if (endInput) endInput.value = Math.min(30, Math.round(duration));
+      form.style.display = 'block';
+    }
+  } else {
+    // 直接提取
+    await _doNodeCharExtract(nodeId, null, null);
+  }
+}
+
+async function nodeCharExtractConfirm(nodeId) {
+  const start = parseFloat(document.getElementById('char-extract-insp-start')?.value) || 0;
+  const end   = parseFloat(document.getElementById('char-extract-insp-end')?.value)   || 30;
+  await _doNodeCharExtract(nodeId, start, end);
+}
+
+async function _doNodeCharExtract(nodeId, startSec, endSec) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.video_url) return;
+  const absUrl   = nd.video_url.startsWith('http') ? nd.video_url : (window.location.origin + nd.video_url);
+  const statusEl = document.getElementById('char-extract-insp-status');
+  const form     = document.getElementById('char-extract-insp-form');
+  if (form)     form.style.display = 'none';
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '\ud83d\udd04 AI \u63d0\u53d6\u4e2d\uff0c\u8bf7\u7a0d\u5019\u2026'; }
+
+  const worldId = state.gameData._infidive_world_id || null;
+  const body    = { world_id: worldId, video_url: absUrl, clip_id: null };
+  if (startSec !== null) body.start_time = startSec;
+  if (endSec   !== null) body.end_time   = endSec;
+
+  let characters = null;
+  try {
+    const resp = await _apiFetch('https://infidive.ai/api/v1/characters/extract-from-video', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (resp && resp.ok) {
+      const data = await resp.json();
+      const jobId = data.data?.job_id;
+      if (jobId) {
+        if (statusEl) statusEl.textContent = '\u23f3 AI \u8bc6\u522b\u4e2d\uff08\u7ea6 2-3 \u5206\u949f\uff09\u2026';
+        for (let polls = 0; polls < 60; polls++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const jr = await _apiFetch('https://infidive.ai/api/v1/jobs/' + jobId + '?type=character_extract');
+          if (!jr || !jr.ok) continue;
+          const jd = await jr.json();
+          const st = jd.data?.status;
+          if (st === 'completed') { characters = jd.data?.result?.characters || []; break; }
+          if (st === 'failed')   break;
+        }
+      }
+    }
+  } catch(e) {}
+
+  // API 未就绪时 fallback mock
+  if (!characters || characters.length === 0) characters = CHAR_EXTRACT_MOCK;
+
+  if (characters && characters.length > 0) {
+    if (!state.gameData.characters) state.gameData.characters = {};
+    characters.forEach(c => {
+      const id = c.id || ('char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+      state.gameData.characters[id] = {
+        id, name: c.name || '\u672a\u547d\u540d\u89d2\u8272',
+        description: c.description || '',
+        avatar_url: c.avatar_url || null,
+        avatar_multiview_url: c.avatar_multiview_url || null,
+        fullbody_multiview_url: c.fullbody_multiview_url || null,
+        extraction_method: 'video_extraction',
+        source_clip_id: nodeId,
+        appearance_timestamps: c.appearance_timestamps || [],
+        confirmed_url: null, game_sprite_url: null
+      };
+      _newCharIds.add(id);
+    });
+    await saveData();
+    if (statusEl) {
+      statusEl.textContent = '\u2705 \u6210\u529f\u63d0\u53d6 ' + characters.length + ' \u4e2a\u89d2\u8272\uff01';
+      setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+    }
+    _updateCharLibBadge();
+    showToast('\u63d0\u53d6\u4e86 ' + characters.length + ' \u4e2a\u89d2\u8272\uff0c\u5df2\u6dfb\u52a0\u5230\u89d2\u8272\u5e93', 'success');
+  } else {
+    if (statusEl) {
+      statusEl.textContent = '\u274c \u63d0\u53d6\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5';
+      setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+    }
+    showToast('\u63d0\u53d6\u5931\u8d25', 'error');
+  }
+}
 
 </script>
