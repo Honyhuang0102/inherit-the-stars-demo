@@ -8387,37 +8387,49 @@ async function _doNodeCharExtract(nodeId, startSec, endSec) {
   if (endSec   !== null) body.end_time   = endSec;
 
   let characters = null;
+  let failMsg = '';
   try {
     const resp = await _apiFetch('https://infidive.ai/api/v1/characters/extract-from-video', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    if (resp && resp.ok) {
+    if (!resp) { failMsg = 'API 认证失败，请先登录 infidive'; }
+    else if (!resp.ok) {
+      const errData = await resp.json().catch(() => null);
+      failMsg = 'API 返回错误: ' + (errData?.error || resp.status);
+    } else {
       const data = await resp.json();
       const jobId = data.data?.job_id;
-      if (jobId) {
-        if (statusEl) statusEl.textContent = '\u23f3 AI \u8bc6\u522b\u4e2d\uff08\u7ea6 2-3 \u5206\u949f\uff09\u2026';
+      if (!jobId) { failMsg = 'API 未返回任务ID'; }
+      else {
+        if (statusEl) statusEl.textContent = '⏳ AI 识别中（约 2-3 分钟）…';
         for (let polls = 0; polls < 60; polls++) {
           await new Promise(r => setTimeout(r, 5000));
+          if (statusEl) {
+            const mins = Math.floor((polls + 1) * 5 / 60);
+            const secs = ((polls + 1) * 5) % 60;
+            statusEl.textContent = '⏳ AI 识别中… 已等待 ' + (mins > 0 ? mins + '分' : '') + secs + '秒';
+          }
           const jr = await _apiFetch('https://infidive.ai/api/v1/jobs/' + jobId + '?type=character_extract');
           if (!jr || !jr.ok) continue;
           const jd = await jr.json();
           const st = jd.data?.status;
           if (st === 'completed') { characters = jd.data?.result?.characters || []; break; }
-          if (st === 'failed')   break;
+          if (st === 'failed') { failMsg = '后端处理失败: ' + (jd.data?.error || 'Pipeline 异常'); break; }
         }
+        if (!characters && !failMsg) failMsg = '轮询超时（5分钟）';
       }
     }
-  } catch(e) {}
-
-  // 无结果时不使用 mock，直接提示失败
+  } catch(e) {
+    failMsg = '请求异常: ' + (e.message || '网络错误');
+  }
 
   if (characters && characters.length > 0) {
     if (!state.gameData.characters) state.gameData.characters = {};
     characters.forEach(c => {
       const id = c.id || ('char_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
       state.gameData.characters[id] = {
-        id, name: c.name || '\u672a\u547d\u540d\u89d2\u8272',
+        id, name: c.name || '未命名角色',
         description: c.description || '',
         avatar_url: c.avatar_url || null,
         avatar_multiview_url: c.avatar_multiview_url || null,
@@ -8431,17 +8443,17 @@ async function _doNodeCharExtract(nodeId, startSec, endSec) {
     });
     await saveData();
     if (statusEl) {
-      statusEl.textContent = '\u2705 \u6210\u529f\u63d0\u53d6 ' + characters.length + ' \u4e2a\u89d2\u8272\uff01';
-      setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+      statusEl.textContent = '✅ 成功提取 ' + characters.length + ' 个角色！';
+      setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 5000);
     }
     _updateCharLibBadge();
-    showToast('\u63d0\u53d6\u4e86 ' + characters.length + ' \u4e2a\u89d2\u8272\uff0c\u5df2\u6dfb\u52a0\u5230\u89d2\u8272\u5e93', 'success');
+    showToast('提取了 ' + characters.length + ' 个角色，已添加到角色库', 'success');
   } else {
     if (statusEl) {
-      statusEl.textContent = '\u274c \u63d0\u53d6\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5';
-      setTimeout(() => { if (statusEl) statusEl.style.display = 'none'; }, 3000);
+      statusEl.innerHTML = '❌ ' + (failMsg || '提取失败') + ' <button onclick="nodeCharExtract(\'' + nodeId + '\')" style="margin-left:6px;padding:2px 8px;font-size:10px;background:#059669;color:#fff;border:none;border-radius:3px;cursor:pointer;">重试</button>';
+      statusEl.style.display = 'block';
     }
-    showToast('\u63d0\u53d6\u5931\u8d25', 'error');
+    showToast(failMsg || '提取失败', 'error');
   }
 }
 
