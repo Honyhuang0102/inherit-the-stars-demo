@@ -5299,6 +5299,7 @@ function initCanvasZoomPan() {
     <button class="gp-tab" data-tab="shop" onclick="renderGamePanelTab('shop')" title="商城">🛒</button>
     <button class="gp-tab" data-tab="respawn" onclick="renderGamePanelTab('respawn')" title="重生">💀</button>
     <button class="gp-tab" data-tab="endings" onclick="renderGamePanelTab('endings')" title="结局">🏆</button>
+    <button class="gp-tab" data-tab="info" onclick="renderGamePanelTab('info')" title="基本信息">📋</button>
   </div>
   <div id="gp-body" style="overflow-y:auto;flex:1;padding:8px 10px;"></div>
 </div>
@@ -5409,6 +5410,7 @@ function renderGamePanelTab(tab) {
   else if (tab === 'shop') body.innerHTML = renderShopTab();
   else if (tab === 'respawn') body.innerHTML = renderRespawnTab();
   else if (tab === 'endings') body.innerHTML = renderEndingsTab();
+  else if (tab === 'info') body.innerHTML = renderInfoTab();
 }
 
 // ── VARIABLES TAB ────────────────────────────────────────────────
@@ -5739,6 +5741,81 @@ function saveEnding() {
 function deleteEnding(i) { state.gameData.game_settings.endings.splice(i,1); saveData(); renderGamePanelTab('endings'); }
 function setShowEndingsProgress(v) { state.gameData.game_settings.show_endings_progress=v; saveData(); }
 
+// ── INFO TAB (基本信息) ──────────────────────────────────────────
+function renderInfoTab() {
+  const title = state.gameData.title || '';
+  const desc = state.gameData.description || '';
+  const coverUrl = state.gameData.cover_url || '';
+  return `
+    <div class="gp-section" style="margin-bottom:10px;">
+      <div class="gp-label" style="margin-bottom:3px;">游戏名称 <span style="color:#ef4444">*</span></div>
+      <input class="gp-input" id="info-tab-name" value="${escHtml(title)}" placeholder="请输入游戏名称" oninput="saveInfoFieldsDebounced()"/>
+    </div>
+    <div class="gp-section" style="margin-bottom:10px;">
+      <div class="gp-label" style="margin-bottom:3px;">游戏描述 <span style="color:#ef4444">*</span></div>
+      <textarea class="gp-input" id="info-tab-desc" rows="3" placeholder="请输入游戏描述" style="resize:vertical;font-family:inherit;" oninput="saveInfoFieldsDebounced()">${escHtml(desc)}</textarea>
+    </div>
+    <div class="gp-section">
+      <div class="gp-label" style="margin-bottom:3px;">游戏封面 <span style="color:#ef4444">*</span></div>
+      <div id="info-tab-cover-preview" style="width:100%;height:90px;border-radius:6px;background:var(--bg-canvas);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:6px;cursor:pointer;" onclick="document.getElementById('info-tab-cover-input').click()">
+        ${coverUrl ? `<img src="${escHtml(coverUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>` : '<span style="font-size:11px;color:var(--text-muted);">点击上传封面图片</span>'}
+      </div>
+      <input type="file" id="info-tab-cover-input" accept="image/*" style="display:none" onchange="uploadInfoTabCover(this)"/>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <button class="gp-micro-btn" onclick="document.getElementById('info-tab-cover-input').click()">📷 选择图片</button>
+        ${coverUrl ? `<button class="gp-micro-btn danger" onclick="clearInfoTabCover()">✕ 移除</button>` : ''}
+        <span id="info-tab-cover-status" style="font-size:10px;color:var(--text-tertiary);margin-left:4px;"></span>
+      </div>
+    </div>
+  `;
+}
+
+let _infoSaveTimer = null;
+function saveInfoFieldsDebounced() {
+  clearTimeout(_infoSaveTimer);
+  _infoSaveTimer = setTimeout(() => {
+    const name = document.getElementById('info-tab-name')?.value || '';
+    const desc = document.getElementById('info-tab-desc')?.value || '';
+    state.gameData.title = name;
+    state.gameData.description = desc;
+    saveData();
+  }, 600);
+}
+
+async function uploadInfoTabCover(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const preview = document.getElementById('info-tab-cover-preview');
+  const status = document.getElementById('info-tab-cover-status');
+  if (preview) preview.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">上传中...</span>';
+  if (status) status.textContent = '';
+  try {
+    const token = localStorage.getItem('dd_token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await fetch('https://infidive.ai/api/v1/upload/file', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: formData
+    });
+    if (!resp.ok) { const err = await resp.json().catch(()=>({})); throw new Error(err.error || 'Upload failed'); }
+    const data = await resp.json();
+    state.gameData.cover_url = data.file_url;
+    saveData();
+    renderGamePanelTab('info');
+    showToast('封面上传成功', 'success');
+  } catch(e) {
+    if (preview) preview.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">点击重新上传</span>';
+    showToast('封面上传失败：' + e.message, 'error');
+  }
+}
+
+function clearInfoTabCover() {
+  state.gameData.cover_url = null;
+  saveData();
+  renderGamePanelTab('info');
+}
+
 // ── INSPECTOR EXTENSIONS ─────────────────────────────────────────
 // Wrap openInspector to inject Effects/Conditions/Style sections per choice
 const _origOpenInspector = openInspector;
@@ -6066,16 +6143,42 @@ function _showPublishModal(existingWorldId) {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
   const nodeCount = Object.keys(state.gameData.nodes || {}).length;
-  const title = state.gameData.title || 'Untitled';
+  const name = escHtml(state.gameData.title || '');
+  const desc = escHtml(state.gameData.description || '');
+  const coverUrl = state.gameData.cover_url || '';
 
   modal.innerHTML = `
-    <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:24px 28px;width:360px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
-      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">发布到 infidive</div>
-      <div style="font-size:12px;color:var(--text-tertiary);margin-bottom:18px;">${nodeCount} 个节点 · ${escHtml(title)}</div>
+    <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:24px 28px;width:420px;max-width:92vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">发布到 infidive</div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:18px;">${nodeCount} 个节点</div>
 
+      <!-- 基本信息 -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--text-tertiary);font-weight:500;letter-spacing:.05em;margin-bottom:3px;">游戏名称 <span style="color:#ef4444">*</span></div>
+        <input id="_pub_name" class="gp-input" value="${name}" placeholder="请输入游戏名称"/>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:10px;color:var(--text-tertiary);font-weight:500;letter-spacing:.05em;margin-bottom:3px;">游戏描述 <span style="color:#ef4444">*</span></div>
+        <textarea id="_pub_desc" class="gp-input" rows="2" placeholder="请输入游戏描述" style="resize:vertical;font-family:inherit;">${desc}</textarea>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:10px;color:var(--text-tertiary);font-weight:500;letter-spacing:.05em;margin-bottom:3px;">游戏封面 <span style="color:#ef4444">*</span></div>
+        <div id="_pub_cover_preview" style="width:100%;height:80px;border-radius:6px;background:var(--bg-canvas);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;margin-bottom:5px;" onclick="document.getElementById('_pub_cover_input').click()">
+          ${coverUrl ? `<img src="${escHtml(coverUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>` : '<span style="font-size:11px;color:var(--text-muted);">点击上传封面图片</span>'}
+        </div>
+        <input type="file" id="_pub_cover_input" accept="image/*" style="display:none" onchange="_pubUploadCover(this)"/>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="gp-micro-btn" onclick="document.getElementById('_pub_cover_input').click()">📷 选择图片</button>
+          ${coverUrl ? `<button class="gp-micro-btn danger" onclick="_pubClearCover()">✕ 移除</button>` : ''}
+          <span id="_pub_cover_status" style="font-size:10px;color:var(--text-tertiary);margin-left:2px;"></span>
+        </div>
+      </div>
+
+      <!-- 发布方式（仅更新时显示） -->
       ${existingWorldId ? `
       <div style="margin-bottom:14px;">
-        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:6px;border:2px solid var(--accent,#6366f1);background:rgba(99,102,241,0.08);cursor:pointer;margin-bottom:8px;">
+        <div style="font-size:10px;color:var(--text-tertiary);font-weight:500;letter-spacing:.05em;margin-bottom:6px;">发布方式</div>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:6px;border:2px solid var(--accent,#6366f1);background:rgba(99,102,241,0.08);cursor:pointer;margin-bottom:6px;">
           <input type="radio" name="_pub_mode" value="update" checked style="margin-top:2px;accent-color:var(--accent,#6366f1);">
           <div>
             <div style="font-size:13px;font-weight:500;color:var(--text-primary);">更新现有内容</div>
@@ -6090,11 +6193,7 @@ function _showPublishModal(existingWorldId) {
           </div>
         </label>
       </div>
-      ` : `
-      <div style="margin-bottom:14px;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-canvas);">
-        <div style="font-size:12px;color:var(--text-secondary);">将在 Oasis Feed 中发布这个项目，观看者可以互动并选择剧情分支。</div>
-      </div>
-      `}
+      ` : ''}
 
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
         <button onclick="document.getElementById('_publish_modal').remove()" style="padding:7px 16px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer;">取消</button>
@@ -6103,7 +6202,7 @@ function _showPublishModal(existingWorldId) {
     </div>
   `;
 
-  // Highlight selected radio border
+  // Highlight selected radio border on change
   modal.querySelectorAll('input[name="_pub_mode"]').forEach(radio => {
     radio.addEventListener('change', () => {
       modal.querySelectorAll('label').forEach(l => {
@@ -6118,8 +6217,85 @@ function _showPublishModal(existingWorldId) {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 }
 
+// Cover upload helpers for publish modal
+async function _pubUploadCover(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const preview = document.getElementById('_pub_cover_preview');
+  const status = document.getElementById('_pub_cover_status');
+  if (preview) preview.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">上传中...</span>';
+  if (status) status.textContent = '上传中...';
+  try {
+    const token = localStorage.getItem('dd_token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await fetch('https://infidive.ai/api/v1/upload/file', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+      body: formData
+    });
+    if (!resp.ok) { const err = await resp.json().catch(()=>({})); throw new Error(err.error || 'Upload failed'); }
+    const data = await resp.json();
+    state.gameData.cover_url = data.file_url;
+    saveData();
+    if (preview) preview.innerHTML = `<img src="${escHtml(data.file_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>`;
+    if (status) status.textContent = '✅ 已上传';
+    showToast('封面上传成功', 'success');
+  } catch(e) {
+    if (preview) preview.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">上传失败，点击重试</span>';
+    if (status) status.textContent = '';
+    showToast('封面上传失败：' + e.message, 'error');
+  }
+}
+
+function _pubClearCover() {
+  state.gameData.cover_url = null;
+  saveData();
+  const preview = document.getElementById('_pub_cover_preview');
+  if (preview) preview.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">点击上传封面图片</span>';
+  const status = document.getElementById('_pub_cover_status');
+  if (status) status.textContent = '';
+  // Remove the clear button
+  const modal = document.getElementById('_publish_modal');
+  if (modal) { const btn = modal.querySelector('.gp-micro-btn.danger'); if (btn) btn.remove(); }
+}
+
 async function _doPublish(existingWorldId) {
   const modal = document.getElementById('_publish_modal');
+
+  // ── Collect & validate info fields ────────────────────────
+  const pubName = (document.getElementById('_pub_name')?.value || '').trim();
+  const pubDesc = (document.getElementById('_pub_desc')?.value || '').trim();
+  const pubCover = state.gameData.cover_url || '';
+
+  const missing = [];
+  if (!pubName) missing.push('游戏名称');
+  if (!pubDesc) missing.push('游戏描述');
+  if (!pubCover) missing.push('游戏封面');
+
+  if (missing.length > 0) {
+    showToast('请完善内容信息：' + missing.join('、'), 'error');
+    // Red-border highlight on missing fields
+    if (!pubName) {
+      const el = document.getElementById('_pub_name');
+      if (el) { el.style.borderColor = '#ef4444'; setTimeout(() => el.style.borderColor = '', 2500); }
+    }
+    if (!pubDesc) {
+      const el = document.getElementById('_pub_desc');
+      if (el) { el.style.borderColor = '#ef4444'; setTimeout(() => el.style.borderColor = '', 2500); }
+    }
+    if (!pubCover) {
+      const el = document.getElementById('_pub_cover_preview');
+      if (el) { el.style.borderColor = '#ef4444'; el.style.borderStyle = 'solid'; setTimeout(() => { el.style.borderColor = ''; el.style.borderStyle = 'dashed'; }, 2500); }
+    }
+    return; // keep modal open
+  }
+
+  // Save name & description back to state
+  state.gameData.title = pubName;
+  state.gameData.description = pubDesc;
+  saveData();
+
   const modeRadio = modal ? modal.querySelector('input[name="_pub_mode"]:checked') : null;
   const mode = modeRadio ? modeRadio.value : 'new';
   const worldIdToSend = (mode === 'update' && existingWorldId) ? existingWorldId : null;
@@ -6145,7 +6321,8 @@ async function _doPublish(existingWorldId) {
       body: JSON.stringify({
         game_data: publishData,
         project_id: _projectId || null,
-        world_id: worldIdToSend
+        world_id: worldIdToSend,
+        cover_url: pubCover || null
       })
     });
     if (!response) return; // _apiFetch redirected to /login (token expired)
