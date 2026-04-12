@@ -6724,6 +6724,20 @@ function prepareGameDataForPublish(gameData) {
     });
   });
   if (errors.length > 0) throw new Error(errors.join(', '));
+  // Collect chat_triggers from all nodes into top-level array for Bridge API
+  data.chat_triggers = [];
+  Object.values(data.nodes || {}).forEach(node => {
+    if (!node.chat_triggers || node.chat_triggers.length === 0) return;
+    node.chat_triggers.forEach(trig => {
+      if (!trig.message && !trig.character_id) return; // skip empty entries
+      data.chat_triggers.push({
+        node_id: node.id,
+        character_id: trig.character_id || '',
+        conditions: trig.conditions || [],
+        message: trig.message || ''
+      });
+    });
+  });
   return data;
 }
 // ==================== 小游戏配置面板结束 ====================
@@ -7643,7 +7657,215 @@ function saveMgTrigger(nodeId, trigIdx) {
 // ==================== Phase 2 函数结束 ====================
 
 
-// ==================== 角色库 Character Library ====================
+// ==================== Chat 消息配置 ====================
+
+function buildChatTriggerCardHtml(nodeId, idx, trig) {
+  const worldChars = Object.values((state.gameData && state.gameData.characters) || {});
+  const vars = (state.gameData.game_settings && state.gameData.game_settings.variables) || [];
+  const charId = trig.character_id || '';
+  const message = trig.message || '';
+  const conditions = trig.conditions || [];
+
+  const charOpts = '<option value="">\uff08\u9009\u62e9\u89d2\u8272\uff09</option>' + worldChars.map(c =>
+    `<option value="${escHtml(c.id)}" ${c.id === charId ? 'selected' : ''}>${escHtml(c.name || c.id)}</option>`
+  ).join('');
+
+  const noCharHint = worldChars.length === 0
+    ? '<div style="font-size:10px;color:var(--text-muted);padding:3px 0;">\u8bf7\u5148\u5728\u89d2\u8272\u7ba1\u7406\u4e2d\u6dfb\u52a0\u89d2\u8272</div>'
+    : '';
+
+  const noVarHint = vars.length === 0
+    ? '<div style="font-size:10px;color:var(--text-muted);">\u8bf7\u5148\u5728\u6e38\u620f\u8bbe\u7f6e\u4e2d\u5b9a\u4e49\u53d8\u91cf</div>'
+    : '';
+
+  const condsHtml = conditions.map((cond, ci) => {
+    const varOpts = vars.map(v =>
+      `<option value="${escHtml(v.id)}" ${v.id === cond.var ? 'selected' : ''}>${escHtml(v.name || v.id)}</option>`
+    ).join('');
+    const ops = ['>=', '<=', '==', '!=', '>', '<'].map(op =>
+      `<option value="${op}" ${cond.op === op ? 'selected' : ''}>${op}</option>`
+    ).join('');
+    return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+  <select id="ct-cond-var-${nodeId}-${idx}-${ci}"
+    style="flex:3;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:11px;">
+    <option value="">\u53d8\u91cf...</option>${varOpts}
+  </select>
+  <select id="ct-cond-op-${nodeId}-${idx}-${ci}"
+    style="width:44px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 3px;font-size:11px;">${ops}</select>
+  <input id="ct-cond-val-${nodeId}-${idx}-${ci}" type="text" value="${escHtml(String(cond.value !== undefined ? cond.value : 0))}"
+    style="width:50px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 4px;font-size:11px;"/>
+  <button type="button" onclick="removeChatCondition('${nodeId}',${idx},${ci})"
+    style="color:var(--text-muted);background:none;border:none;cursor:pointer;font-size:14px;line-height:1;flex-shrink:0;">\u00d7</button>
+</div>`;
+  }).join('');
+
+  return `<div id="ct-card-${nodeId}-${idx}" style="background:var(--bg-canvas);border:1px solid #6366f1;border-radius:6px;padding:8px 10px;margin-bottom:8px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <span style="font-size:11px;font-weight:600;color:#6366f1;">\u6d88\u606f ${idx + 1}</span>
+    <button type="button" onclick="removeChatTrigger('${nodeId}',${idx})"
+      style="font-size:10px;padding:1px 6px;border:1px solid var(--accent-red,#ef4444);border-radius:3px;background:transparent;color:var(--accent-red,#ef4444);cursor:pointer;">\u2715 \u5220\u9664</button>
+  </div>
+
+  <div style="margin-bottom:6px;">
+    <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">\u89d2\u8272</div>
+    ${noCharHint}
+    <select id="ct-char-${nodeId}-${idx}"
+      style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 5px;font-size:11px;">
+      ${charOpts}
+    </select>
+  </div>
+
+  <div style="margin-bottom:6px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+      <span style="font-size:10px;color:var(--text-muted);">\u53d8\u91cf\u6761\u4ef6\uff08\u7559\u7a7a=\u65e0\u6761\u4ef6\u89e6\u53d1\uff09</span>
+      <button type="button" onclick="addChatCondition('${nodeId}',${idx})"
+        style="font-size:10px;padding:1px 6px;border:1px solid var(--border);border-radius:3px;background:var(--bg-secondary);color:var(--text-secondary);cursor:pointer;">+ \u6761\u4ef6</button>
+    </div>
+    ${noVarHint}
+    <div id="ct-conds-${nodeId}-${idx}">${condsHtml}</div>
+  </div>
+
+  <div style="margin-bottom:6px;">
+    <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px;">\u6d88\u606f\u6587\u6848</div>
+    <textarea id="ct-msg-${nodeId}-${idx}" rows="2"
+      placeholder="\u89d2\u8272\u8981\u8bf4\u7684\u8bdd..."
+      style="width:100%;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:4px 6px;font-size:11px;resize:vertical;box-sizing:border-box;">${escHtml(message)}</textarea>
+  </div>
+
+  <div style="text-align:right;">
+    <button type="button" onclick="saveChatTrigger('${nodeId}',${idx})"
+      style="font-size:11px;padding:3px 10px;background:#6366f1;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:500;">\ud83d\udcbe \u4fdd\u5b58</button>
+  </div>
+</div>`;
+}
+
+function renderChatTriggersSection(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd) return null;
+  const triggers = nd.chat_triggers || [];
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-triggers-section insp-field';
+  wrap.style.cssText = 'margin-top:8px;';
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;';
+  header.innerHTML = `<span style="font-size:11px;font-weight:600;color:#6366f1;">\ud83d\udcac \u89d2\u8272\u6d88\u606f</span><button class="gp-micro-btn" style="border-color:#6366f1;color:#6366f1;" onclick="addChatTrigger('${nodeId}')">+ \u6dfb\u52a0</button>`;
+  wrap.appendChild(header);
+  if (triggers.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:10px;color:var(--text-tertiary);padding:8px;text-align:center;background:var(--bg-canvas);border-radius:4px;border:1px dashed #6366f1;';
+    empty.textContent = '\u6682\u65e0\u89d2\u8272\u6d88\u606f\u3002\u70b9\u51fb\u300c+ \u6dfb\u52a0\u300d\u914d\u7f6e\u5f53\u7528\u6237\u5230\u8fbe\u6b64\u8282\u70b9\u65f6\u89d2\u8272\u53d1\u9001\u7684\u6d88\u606f\u3002';
+    wrap.appendChild(empty);
+  } else {
+    const cardsWrap = document.createElement('div');
+    cardsWrap.innerHTML = triggers.map((trig, i) => buildChatTriggerCardHtml(nodeId, i, trig)).join('');
+    wrap.appendChild(cardsWrap);
+  }
+  return wrap;
+}
+
+function _injectChatTriggersSection(nodeId) {
+  setTimeout(() => {
+    const nd = state.gameData.nodes[nodeId];
+    if (!nd) return;
+    const inspector = document.getElementById('inspector');
+    if (!inspector || inspector.dataset.nodeId !== nodeId) return;
+    if (document.querySelector('.chat-triggers-section')) return;
+    const saveBtn = document.querySelector('#insp-body .insp-save-btn');
+    if (!saveBtn) return;
+    const section = renderChatTriggersSection(nodeId);
+    if (section) saveBtn.parentNode.insertBefore(section, saveBtn);
+  }, 70);
+}
+
+function _refreshChatTriggersSection(nodeId) {
+  const curNodeId = document.getElementById('inspector')?.dataset?.nodeId;
+  if (curNodeId !== nodeId) return;
+  const old = document.querySelector('.chat-triggers-section');
+  if (old) old.remove();
+  const saveBtn = document.querySelector('#insp-body .insp-save-btn');
+  if (!saveBtn) return;
+  const section = renderChatTriggersSection(nodeId);
+  if (section) saveBtn.parentNode.insertBefore(section, saveBtn);
+}
+
+function addChatTrigger(nodeId) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd) return;
+  if (!nd.chat_triggers) nd.chat_triggers = [];
+  nd.chat_triggers.push({ id: 'ct_' + Date.now(), character_id: '', conditions: [], message: '' });
+  saveData();
+  _refreshChatTriggersSection(nodeId);
+}
+
+function removeChatTrigger(nodeId, idx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.chat_triggers) return;
+  nd.chat_triggers.splice(idx, 1);
+  saveData();
+  _refreshChatTriggersSection(nodeId);
+}
+
+function addChatCondition(nodeId, idx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.chat_triggers || !nd.chat_triggers[idx]) return;
+  if (!nd.chat_triggers[idx].conditions) nd.chat_triggers[idx].conditions = [];
+  nd.chat_triggers[idx].conditions.push({ var: '', op: '>=', value: 0 });
+  saveData();
+  _refreshChatTriggersSection(nodeId);
+}
+
+function removeChatCondition(nodeId, idx, condIdx) {
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.chat_triggers || !nd.chat_triggers[idx]) return;
+  nd.chat_triggers[idx].conditions.splice(condIdx, 1);
+  saveData();
+  _refreshChatTriggersSection(nodeId);
+}
+
+function collectChatTriggerFromDom(nodeId, idx) {
+  const charEl  = document.getElementById(`ct-char-${nodeId}-${idx}`);
+  const msgEl   = document.getElementById(`ct-msg-${nodeId}-${idx}`);
+  const condsEl = document.getElementById(`ct-conds-${nodeId}-${idx}`);
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd || !nd.chat_triggers || !nd.chat_triggers[idx]) return;
+  const trig = nd.chat_triggers[idx];
+  if (charEl) trig.character_id = charEl.value || '';
+  if (msgEl)  trig.message      = msgEl.value  || '';
+  const condRows = condsEl ? condsEl.querySelectorAll('select[id^="ct-cond-var-"]') : [];
+  trig.conditions = [];
+  condRows.forEach((_, ci) => {
+    const varEl = document.getElementById(`ct-cond-var-${nodeId}-${idx}-${ci}`);
+    const opEl  = document.getElementById(`ct-cond-op-${nodeId}-${idx}-${ci}`);
+    const valEl = document.getElementById(`ct-cond-val-${nodeId}-${idx}-${ci}`);
+    if (varEl && opEl && valEl) {
+      const rawVal = valEl.value.trim();
+      const parsedVal = rawVal !== '' && !isNaN(rawVal) ? Number(rawVal) : rawVal;
+      trig.conditions.push({ var: varEl.value || '', op: opEl.value || '>=', value: parsedVal });
+    }
+  });
+}
+
+function saveChatTrigger(nodeId, idx) {
+  collectChatTriggerFromDom(nodeId, idx);
+  saveData();
+  showToast('\u89d2\u8272\u6d88\u606f\u5df2\u4fdd\u5b58', 'success');
+}
+
+// openInspector \u4e8c\u6b21 wrap \u2014 \u4e3a\u6240\u6709\u8282\u70b9\u7c7b\u578b\u6ce8\u5165 Chat \u6d88\u606f\u914d\u7f6e\u533a\u5757
+(function _wrapOpenInspectorForChat() {
+  const _origForChat = openInspector;
+  openInspector = function(nodeId) {
+    _origForChat(nodeId);
+    setTimeout(function() {
+      _injectChatTriggersSection(nodeId);
+    }, 150);
+  };
+})();
+
+// ==================== Chat \u6d88\u606f\u914d\u7f6e\u7ed3\u675f ====================
+
+
+// ==================== \u89d2\u8272\u5e93 Character Library ====================
 
 // ── T1: 工具栏按钮 ─────────────────────────────────────────────────
 (function addCharLibBtn() {
