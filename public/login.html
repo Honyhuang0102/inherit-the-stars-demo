@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeepDivers Studio — Sign In</title>
+  <title>DeepDivers Studio — 登录</title>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -27,7 +29,6 @@
       justify-content: center;
       padding: 20px;
     }
-    /* Background gradient */
     body::before {
       content: '';
       position: fixed; inset: 0;
@@ -43,28 +44,52 @@
       max-width: 400px;
       position: relative;
     }
-    .logo {
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo-icon { font-size: 40px; margin-bottom: 12px; display: block; }
+    .logo-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .logo-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* Google button wrapper */
+    .google-btn-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 8px;
+      min-height: 44px;
+    }
+
+    /* Email fallback */
+    .email-toggle {
       text-align: center;
-      margin-bottom: 32px;
-    }
-    .logo-icon {
-      font-size: 40px;
-      margin-bottom: 12px;
-      display: block;
-    }
-    .logo-title {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-    .logo-sub {
+      margin-top: 18px;
       font-size: 13px;
       color: var(--text-secondary);
-      margin-top: 4px;
     }
-    .form-group {
-      margin-bottom: 16px;
+    .email-toggle a {
+      color: var(--accent-hover);
+      text-decoration: none;
+      cursor: pointer;
     }
+    .email-toggle a:hover { text-decoration: underline; }
+
+    .email-form { display: none; margin-top: 4px; }
+    .email-form.visible { display: block; }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0 16px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .form-group { margin-bottom: 16px; }
     label {
       display: block;
       font-size: 12px;
@@ -87,6 +112,7 @@
     }
     input:focus { border-color: var(--accent); }
     input::placeholder { color: rgba(255,255,255,0.2); }
+
     .btn-primary {
       width: 100%;
       background: var(--accent);
@@ -97,12 +123,13 @@
       font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 4px;
       transition: background 0.2s, transform 0.1s;
     }
     .btn-primary:hover { background: var(--accent-hover); }
     .btn-primary:active { transform: scale(0.99); }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
     .error-msg {
       background: rgba(248,113,113,0.1);
       border: 1px solid rgba(248,113,113,0.3);
@@ -113,64 +140,131 @@
       margin-bottom: 16px;
       display: none;
     }
-    .footer-note {
-      text-align: center;
-      margin-top: 24px;
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-    .footer-note a {
-      color: var(--accent-hover);
-      text-decoration: none;
-    }
-    .divider {
-      display: flex;
+
+    /* Invite code modal */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 999;
       align-items: center;
-      gap: 12px;
-      margin: 20px 0;
-      color: var(--text-secondary);
-      font-size: 12px;
+      justify-content: center;
     }
-    .divider::before, .divider::after {
-      content: '';
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      width: 340px;
+      max-width: 90vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .modal-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .btn-cancel {
       flex: 1;
-      height: 1px;
-      background: var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 14px;
+      cursor: pointer;
     }
+    .btn-cancel:hover { border-color: rgba(255,255,255,0.2); }
+    .btn-confirm {
+      flex: 2;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-confirm:hover { background: var(--accent-hover); }
+    .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
+
+  <!-- Invite code modal -->
+  <div class="modal-overlay" id="invite-modal">
+    <div class="modal-box">
+      <div class="modal-title">输入邀请码</div>
+      <div class="modal-sub">你的 Google 账号尚未注册。请输入邀请码完成注册，注册后即可继续使用 DeepDivers Studio。</div>
+      <div class="error-msg" id="invite-error"></div>
+      <div class="form-group">
+        <label>邀请码</label>
+        <input type="text" id="invite-code-input" placeholder="INF-XXXXXXXX" autocomplete="off"
+               style="text-transform:uppercase;letter-spacing:1px;"
+               oninput="this.value=this.value.toUpperCase()"
+               onkeydown="if(event.key==='Enter')submitInviteCode()"/>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeInviteModal()">取消</button>
+        <button class="btn-confirm" id="invite-confirm-btn" onclick="submitInviteCode()">注册并登录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main card -->
   <div class="card">
     <div class="logo">
       <span class="logo-icon">🌊</span>
       <div class="logo-title">DeepDivers Studio</div>
-      <div class="logo-sub">Creator Platform</div>
+      <div class="logo-sub">创作者平台</div>
     </div>
 
     <div class="error-msg" id="error-msg"></div>
 
-    <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="your@email.com" autocomplete="email" />
+    <!-- Google login (primary) -->
+    <div class="google-btn-wrap" id="google-btn-container">
+      <div id="g_id_signin"
+           data-client_id="350929786254-uaa2fa7scmii70a16o10c0mhjjbojo80.apps.googleusercontent.com"
+           data-callback="onGoogleCredential"
+           data-auto_prompt="false">
+      </div>
     </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+
+    <!-- Email login (fallback) -->
+    <div class="email-toggle">
+      <a onclick="toggleEmailForm()" id="email-toggle-link">使用邮箱密码登录</a>
     </div>
 
-    <button class="btn-primary" id="login-btn" onclick="doLogin()">Dive In →</button>
-
-    <div class="divider">or</div>
-
-    <div class="footer-note">
-      Don't have an account?<br>
-      <a href="https://infidive.ai" target="_blank">Sign up on the infidive app</a>
+    <div class="email-form" id="email-form">
+      <div class="divider">邮箱登录</div>
+      <div class="form-group">
+        <label>邮箱</label>
+        <input type="email" id="email" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn-primary" id="login-btn" onclick="doLogin()">登录 →</button>
     </div>
   </div>
 
   <script>
     const INFIDIVE_API = 'https://infidive.ai/api/v1';
+    const GOOGLE_CLIENT_ID = '350929786254-uaa2fa7scmii70a16o10c0mhjjbojo80.apps.googleusercontent.com';
 
     // Already logged in?
     (function() {
@@ -178,31 +272,162 @@
       if (token) location.href = '/dashboard';
     })();
 
-    document.getElementById('password').addEventListener('keydown', e => {
-      if (e.key === 'Enter') doLogin();
-    });
-    document.getElementById('email').addEventListener('keydown', e => {
-      if (e.key === 'Enter') document.getElementById('password').focus();
-    });
+    // ── GIS initialization ─────────────────────────────────────────
+    function initGoogleSignIn() {
+      if (!window.google || !window.google.accounts) return;
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: onGoogleCredential,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+      const cardWidth = document.querySelector('.card').offsetWidth;
+      google.accounts.id.renderButton(
+        document.getElementById('g_id_signin'),
+        {
+          theme: 'filled_black',
+          size: 'large',
+          shape: 'rectangular',
+          text: 'signin_with',
+          locale: 'zh_CN',
+          width: Math.min(cardWidth - 80, 320)
+        }
+      );
+    }
 
-    function showError(msg) {
-      const el = document.getElementById('error-msg');
-      el.textContent = msg;
-      el.style.display = 'block';
+    // GIS script is async — runs via onload attribute or load event
+    window.addEventListener('load', initGoogleSignIn);
+    // Also handle case where script loads after window load
+    (function waitForGIS() {
+      if (window.google && window.google.accounts) { initGoogleSignIn(); }
+      else { setTimeout(waitForGIS, 100); }
+    })();
+
+    // ── Pending idToken (held while user fills invite code) ────────
+    let _pendingIdToken = null;
+
+    // ── Google callback ────────────────────────────────────────────
+    async function onGoogleCredential(response) {
+      const idToken = response.credential;
+      hideError();
+      showMainLoading(true);
+
+      try {
+        const res = await fetch(INFIDIVE_API + '/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken })
+        });
+        const body = await res.json();
+
+        if (res.ok && body.needs_registration) {
+          _pendingIdToken = idToken;
+          showMainLoading(false);
+          openInviteModal();
+          return;
+        }
+
+        if (!res.ok) {
+          showError(body.error || '登录失败，请重试');
+          return;
+        }
+
+        saveAndRedirect(body);
+      } catch(e) {
+        showError('网络错误，请检查连接后重试');
+      } finally {
+        showMainLoading(false);
+      }
     }
-    function hideError() {
-      document.getElementById('error-msg').style.display = 'none';
+
+    // ── Invite code flow ───────────────────────────────────────────
+    function openInviteModal() {
+      document.getElementById('invite-modal').classList.add('visible');
+      setTimeout(() => document.getElementById('invite-code-input').focus(), 100);
     }
+    function closeInviteModal() {
+      document.getElementById('invite-modal').classList.remove('visible');
+      document.getElementById('invite-code-input').value = '';
+      hideInviteError();
+      _pendingIdToken = null;
+    }
+
+    async function submitInviteCode() {
+      const code = document.getElementById('invite-code-input').value.trim();
+      if (!code) { showInviteError('请输入邀请码'); return; }
+      if (!_pendingIdToken) { closeInviteModal(); return; }
+
+      const btn = document.getElementById('invite-confirm-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>注册中...';
+      hideInviteError();
+
+      try {
+        const res = await fetch(INFIDIVE_API + '/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: _pendingIdToken, invite_code: code })
+        });
+        const body = await res.json();
+
+        if (!res.ok) {
+          showInviteError(body.error || '邀请码无效或已被使用');
+          return;
+        }
+
+        closeInviteModal();
+        saveAndRedirect(body);
+      } catch(e) {
+        showInviteError('网络错误，请重试');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '注册并登录';
+      }
+    }
+
+    // ── Save tokens & redirect ─────────────────────────────────────
+    function saveAndRedirect(body) {
+      const d = body.data || body;
+      const accessToken = d.accessToken || d.access_token || '';
+      const refreshToken = d.refreshToken || d.refresh_token || '';
+      const user = d.user || {};
+
+      if (!accessToken) { showError('登录失败：未收到 Token'); return; }
+
+      localStorage.setItem('dd_token', accessToken);
+      localStorage.setItem('dd_refresh_token', refreshToken);
+      localStorage.setItem('dd_user', JSON.stringify({ id: user.id, email: user.email, username: user.username }));
+
+      location.href = '/dashboard';
+    }
+
+    // ── Email login (fallback) ─────────────────────────────────────
+    function toggleEmailForm() {
+      const form = document.getElementById('email-form');
+      const link = document.getElementById('email-toggle-link');
+      const open = form.classList.toggle('visible');
+      link.textContent = open ? '收起邮箱登录' : '使用邮箱密码登录';
+      if (open) setTimeout(() => document.getElementById('email').focus(), 100);
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const emailForm = document.getElementById('email-form');
+      if (!emailForm.classList.contains('visible')) return;
+      const active = document.activeElement?.id;
+      if (active === 'email') document.getElementById('password').focus();
+      else if (active === 'password') doLogin();
+    });
 
     async function doLogin() {
       hideError();
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      if (!email || !password) { showError('Please enter your email and password.'); return; }
+      if (!email || !password) { showError('请输入邮箱和密码'); return; }
 
       const btn = document.getElementById('login-btn');
       btn.disabled = true;
-      btn.textContent = 'Signing in...';
+      btn.innerHTML = '<span class="spinner"></span>登录中...';
 
       try {
         const res = await fetch(INFIDIVE_API + '/auth/login', {
@@ -213,28 +438,44 @@
         const body = await res.json();
 
         if (!res.ok) {
-          showError(body.error || 'Invalid email or password.');
+          showError(body.error || '邮箱或密码不正确');
           return;
         }
 
-        // infidive returns { data: { accessToken, refreshToken, user } }
-        const d = body.data || body;
-        const accessToken = d.accessToken || d.access_token || '';
-        const refreshToken = d.refreshToken || d.refresh_token || '';
-        const user = d.user || {};
-
-        if (!accessToken) { showError('Login failed — no token received.'); return; }
-
-        localStorage.setItem('dd_token', accessToken);
-        localStorage.setItem('dd_refresh_token', refreshToken);
-        localStorage.setItem('dd_user', JSON.stringify({ id: user.id, email: user.email, username: user.username }));
-
-        location.href = '/dashboard';
+        saveAndRedirect(body);
       } catch(e) {
-        showError('Network error — please try again.');
+        showError('网络错误，请重试');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Dive In →';
+        btn.textContent = '登录 →';
+      }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideError() { document.getElementById('error-msg').style.display = 'none'; }
+
+    function showInviteError(msg) {
+      const el = document.getElementById('invite-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideInviteError() { document.getElementById('invite-error').style.display = 'none'; }
+
+    let _loadingOverlay = null;
+    function showMainLoading(show) {
+      if (show) {
+        if (_loadingOverlay) return;
+        _loadingOverlay = document.createElement('div');
+        _loadingOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:500;display:flex;align-items:center;justify-content:center;';
+        _loadingOverlay.innerHTML = '<div style="width:36px;height:36px;border:3px solid rgba(255,255,255,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin 0.7s linear infinite;"></div>';
+        document.body.appendChild(_loadingOverlay);
+      } else {
+        if (_loadingOverlay) { _loadingOverlay.remove(); _loadingOverlay = null; }
       }
     }
   </script>
