@@ -7160,7 +7160,7 @@ function buildMgVarMappingHtml(nodeId, trigIdx, mappings) {
     }).join('');
     return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
   <input id="mgt-vmap-src-${nodeId}-${trigIdx}-${idx}" type="text" value="${escHtml(m.source||'')}"
-    placeholder="score / outcome / stats.health"
+    placeholder="stats.var_1 / stats.var_2 / score / outcome"
     style="flex:3;background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;color:#111827;padding:2px 5px;font-size:11px;"/>
   <span style="font-size:11px;color:var(--text-muted);flex-shrink:0;">→</span>
   <select id="mgt-vmap-tgt-${nodeId}-${trigIdx}-${idx}"
@@ -7521,7 +7521,7 @@ function addMgVarMapping(nodeId, trigIdx) {
   const nd = state.gameData.nodes[nodeId];
   if (!nd || !nd.minigame_triggers || !nd.minigame_triggers[trigIdx]) return;
   _collectMgTriggerToState(nodeId, trigIdx);
-  nd.minigame_triggers[trigIdx].result_to_variables.push({source:'score', target_var:'', type:'number'});
+  nd.minigame_triggers[trigIdx].result_to_variables.push({source:'stats.var_1', target_var:'', type:'number'});
   saveData(); _refreshMgTriggersSection(nodeId);
 }
 
