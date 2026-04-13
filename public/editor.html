@@ -2367,6 +2367,7 @@ let ctxTargetNode = null;
 // ── INIT ───────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   await loadData();
+  _loadMgTemplates(); // preload in background, no await
   initKeyboard();
   initMinimap();
   initResizeHandle();
@@ -6348,44 +6349,44 @@ async function _doPublish(existingWorldId) {
 }
 
 // ==================== 小游戏配置面板 T5-T8 ====================
-const MINIGAME_TEMPLATES_MOCK = [
-  {
-    template_id: 'catch-dragon',
-    category: 'reaction',
-    display_name: '驯龙高手',
-    description: '接住友好的龙，躲避炸弹',
-    character_slots: [
-      { slot: 'hero', label: '你的龙', role: 'friendly', placeholder_url: '/assets/placeholder.png' },
-      { slot: 'bomb', label: '炸弹',   role: 'enemy',    placeholder_url: '/assets/bomb_placeholder.png' }
-    ],
-    difficulty_presets: ['easy','medium','hard'],
-    thumbnail_url: null
-  },
-  {
-    template_id: 'flip-match',
-    category: 'memory',
-    display_name: '翻牌记忆',
-    description: '翻转配对相同的角色卡牌',
-    character_slots: [
-      { slot: 'card_a', label: '卡牌角色A', role: 'neutral', placeholder_url: '/assets/placeholder.png' },
-      { slot: 'card_b', label: '卡牌角色B', role: 'neutral', placeholder_url: '/assets/placeholder.png' }
-    ],
-    difficulty_presets: ['easy','medium','hard'],
-    thumbnail_url: null
-  },
-  {
-    template_id: 'dodge-arrows',
-    category: 'agility',
-    display_name: '躲避乱箭',
-    description: '拖动角色躲避飞来的箭矢',
-    character_slots: [
-      { slot: 'player', label: '玩家角色', role: 'friendly', placeholder_url: '/assets/placeholder.png' },
-      { slot: 'arrow',  label: '箭矢',     role: 'enemy',    placeholder_url: '/assets/arrow_placeholder.png' }
-    ],
-    difficulty_presets: ['easy','medium','hard'],
-    thumbnail_url: null
+// ── Dynamic template list (loaded from API) ────────────────────────
+let MINIGAME_TEMPLATES_MOCK = [];    // shared across all usages
+let _mgTplLoaded = false;
+let _mgTplLoading = false;
+
+async function _loadMgTemplates() {
+  if (_mgTplLoaded || _mgTplLoading) return;
+  _mgTplLoading = true;
+  try {
+    const resp = await _apiFetch('https://infidive.ai/api/v1/minigames/templates');
+    if (!resp || !resp.ok) throw new Error('HTTP ' + (resp ? resp.status : 'null'));
+    const body = await resp.json();
+    // API returns { data: [...] } or flat array
+    const list = Array.isArray(body) ? body : (Array.isArray(body.data) ? body.data : null);
+    if (list && list.length > 0) {
+      MINIGAME_TEMPLATES_MOCK = list;
+      _mgTplLoaded = true;
+      console.log('[MgTemplates] Loaded', list.length, 'templates');
+    } else {
+      console.warn('[MgTemplates] Unexpected response:', body);
+    }
+  } catch(e) {
+    console.warn('[MgTemplates] Load failed:', e.message);
+  } finally {
+    _mgTplLoading = false;
   }
-];
+}
+
+function _buildTplOptions(currentTemplateId) {
+  if (!_mgTplLoaded) {
+    return _mgTplLoading
+      ? '<option value="" disabled>加载中...</option>'
+      : '<option value="" disabled>加载模板失败，请刷新</option>';
+  }
+  return MINIGAME_TEMPLATES_MOCK.map(t =>
+    `<option value="${t.template_id}" ${currentTemplateId === t.template_id ? 'selected' : ''}>${escHtml(t.display_name || t.template_id)} (${t.category})</option>`
+  ).join('');
+}
 
 const MG_DIFFICULTY_PRESETS = {
   easy:   { fall_speed_base: 2.0, spawn_interval_ms: 1400, bomb_ratio: 0.15, game_duration_s: 40, max_misses: 5 },
@@ -6404,9 +6405,7 @@ const MG_THEMES = [
 
 function buildMinigameInspectorHtml(nodeId, cfg) {
   const selectedTpl = MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === cfg.template_id);
-  const tplOptions = MINIGAME_TEMPLATES_MOCK.map(t =>
-    `<option value="${t.template_id}" ${cfg.template_id === t.template_id ? 'selected' : ''}>${escHtml(t.display_name)}（${t.category}）</option>`
-  ).join('');
+  const tplOptions = _buildTplOptions(cfg.template_id);
   const charSlotsHtml = selectedTpl
     ? buildMgCharSlotsHtml(nodeId, selectedTpl, cfg.characters || {})
     : '<p style="color:var(--text-muted);font-size:12px;padding:6px 0">请先选择模板</p>';
@@ -7424,9 +7423,7 @@ function buildMgCondJumpsHtml(nodeId, trigIdx, jumps) {
 
 function buildMgTriggerGameCfgHtml(nodeId, trigIdx, cfg) {
   const selectedTpl = cfg.template_id ? MINIGAME_TEMPLATES_MOCK.find(t => t.template_id === cfg.template_id) : null;
-  const tplOptions = MINIGAME_TEMPLATES_MOCK.map(t =>
-    `<option value="${t.template_id}" ${cfg.template_id===t.template_id?'selected':''}>${escHtml(t.display_name)}（${t.category}）</option>`
-  ).join('');
+  const tplOptions = _buildTplOptions(cfg.template_id);
   const themeOptions = MG_THEMES.map(t =>
     `<option value="${t.id}" ${cfg.theme&&cfg.theme.base===t.id?'selected':''}>${t.label}</option>`
   ).join('');
