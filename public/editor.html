@@ -346,6 +346,9 @@ html, body {
 .conn-path.branch { stroke: var(--accent-amber); opacity: 0.5; }
 .conn-path.ending { stroke: var(--accent-purple); opacity: 0.5; }
 .conn-path.direct { stroke: #888; stroke-dasharray: 6 3; opacity: 0.5; }
+.conn-path.mg-win     { stroke: #059669; opacity: 0.7; }
+.conn-path.mg-perfect { stroke: #d97706; opacity: 0.7; }
+.conn-path.mg-lose    { stroke: #dc2626; opacity: 0.7; }
 .conn-arrow { fill: #1a1a1a; opacity: 0.5; }
 .conn-arrow.branch { fill: var(--accent-amber); }
 #temp-conn {
@@ -1914,6 +1917,12 @@ body.immersive-mode #right-panel {
             <marker id="arrow-amber" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
               <path d="M0,0 L0,6 L7,3 z" class="conn-arrow branch"/>
             </marker>
+            <marker id="arrow-green" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#059669" opacity="0.7"/>
+            </marker>
+            <marker id="arrow-red" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L7,3 z" fill="#dc2626" opacity="0.7"/>
+            </marker>
           </defs>
           <path id="temp-conn" d=""/>
         </svg>
@@ -2456,6 +2465,14 @@ function renderGraph() {
     if (nodeData.next_node && state.nodes[nodeData.next_node]) {
       addConnection(nodeData.id, nodeData.next_node, -1, '');
     }
+    // minigame rewards → outgoing connections
+    if (nodeData.type === 'minigame' && nodeData.minigame_config && nodeData.minigame_config.rewards) {
+      [['win','mg_win'],['perfect','mg_perfect'],['lose','mg_lose']].forEach(([k,t]) => {
+        const r = nodeData.minigame_config.rewards[k];
+        const sid = r && r.story_unlock_node_id;
+        if (sid && state.nodes[sid]) addConnection(nodeData.id, sid, -1, '', t);
+      });
+    }
   });
   updateMinimap();
   updatePreviewPanel(data.nodes[data.start_node]);
@@ -2533,8 +2550,8 @@ function createNodeCard(nodeData, x, y) {
   return el;
 }
 
-function addConnection(fromId, toId, choiceIdx, label) {
-  const conn = { from: fromId, to: toId, choiceIdx, label };
+function addConnection(fromId, toId, choiceIdx, label, connType) {
+  const conn = { from: fromId, to: toId, choiceIdx, label, connType: connType || null };
   state.connections.push(conn);
   renderConnections();
 }
@@ -2551,8 +2568,19 @@ function renderConnections() {
     const fw = getNodeWidth(fromNode.el), fh = getNodeHeight(fromNode.el);
     const tw = getNodeWidth(toNode.el),   th = getNodeHeight(toNode.el);
 
+    const isMgWin     = conn.connType === 'mg_win';
+    const isMgPerfect = conn.connType === 'mg_perfect';
+    const isMgLose    = conn.connType === 'mg_lose';
+    const isMg        = isMgWin || isMgPerfect || isMgLose;
+
     let fy;
-    if (conn.choiceIdx >= 0) {
+    if (isMgWin) {
+      fy = fromNode.y + fh * 0.35;
+    } else if (isMgPerfect) {
+      fy = fromNode.y + fh * 0.55;
+    } else if (isMgLose) {
+      fy = fromNode.y + fh * 0.75;
+    } else if (conn.choiceIdx >= 0) {
       fy = fromNode.y + fh * (0.40 + conn.choiceIdx * 0.28);
     } else {
       fy = fromNode.y + fh / 2;
@@ -2564,27 +2592,33 @@ function renderConnections() {
     const dx = Math.abs(tx - fx) * 0.5;
     const d  = `M${fx},${fy} C${fx+dx},${fy} ${tx-dx},${ty} ${tx},${ty}`;
 
-    const isBranch = conn.choiceIdx >= 0;
-    const isDirect = conn.choiceIdx < 0;
+    const isBranch = !isMg && conn.choiceIdx >= 0;
+    const isDirect = !isMg && conn.choiceIdx < 0;
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
     g.className.baseVal = 'conn-path-g';
 
     const path = document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d', d);
-    path.setAttribute('class', `conn-path ${isBranch ? 'branch' : ''} ${isDirect ? 'direct' : ''}`);
-    path.setAttribute('marker-end', isBranch ? 'url(#arrow-amber)' : 'url(#arrow-dark)');
+    const pathClass = isMgWin ? 'conn-path mg-win' : isMgPerfect ? 'conn-path mg-perfect' : isMgLose ? 'conn-path mg-lose' : `conn-path ${isBranch ? 'branch' : ''} ${isDirect ? 'direct' : ''}`;
+    path.setAttribute('class', pathClass);
+    const markerEnd = isMgWin ? 'url(#arrow-green)' : isMgPerfect ? 'url(#arrow-amber)' : isMgLose ? 'url(#arrow-red)' : isBranch ? 'url(#arrow-amber)' : 'url(#arrow-dark)';
+    path.setAttribute('marker-end', markerEnd);
     g.appendChild(path);
 
-    if (conn.label) {
+    const mgLabel = isMgWin ? '胜利' : isMgPerfect ? '完美' : isMgLose ? '失败' : '';
+    const mgLabelColor = isMgWin ? '#059669' : isMgPerfect ? '#d97706' : isMgLose ? '#dc2626' : '';
+    const showLabel = isMg ? mgLabel : conn.label;
+    const labelColor = isMg ? mgLabelColor : isBranch ? '#d97706' : '#888888';
+    if (showLabel) {
       const mx = (fx + tx) / 2, my = (fy + ty) / 2;
       const text = document.createElementNS('http://www.w3.org/2000/svg','text');
       text.setAttribute('x', mx); text.setAttribute('y', my - 6);
       text.setAttribute('text-anchor','middle');
       text.setAttribute('class','conn-label-text');
-      text.setAttribute('fill', isBranch ? '#d97706' : '#888888');
+      text.setAttribute('fill', labelColor);
       text.setAttribute('font-size','10');
       text.setAttribute('font-family','Inter, sans-serif');
-      text.textContent = conn.label.length > 8 ? conn.label.slice(0,8)+'…' : conn.label;
+      text.textContent = showLabel.length > 8 ? showLabel.slice(0,8)+'…' : showLabel;
       g.appendChild(text);
     }
 
@@ -2777,6 +2811,14 @@ function endConnect(e, toId) {
     });
     if (nd.next_node && state.nodes[nd.next_node])
       state.connections.push({ from: nd.id, to: nd.next_node, choiceIdx: -1, label: '' });
+    // minigame rewards → outgoing connections
+    if (nd.type === 'minigame' && nd.minigame_config && nd.minigame_config.rewards) {
+      [['win','mg_win'],['perfect','mg_perfect'],['lose','mg_lose']].forEach(([k,t]) => {
+        const r = nd.minigame_config.rewards[k];
+        const sid = r && r.story_unlock_node_id;
+        if (sid && state.nodes[sid]) state.connections.push({ from: nd.id, to: sid, choiceIdx: -1, label: '', connType: t });
+      });
+    }
   });
   renderConnections();
   document.getElementById('temp-conn').setAttribute('d','');
@@ -3470,6 +3512,14 @@ function applyInspector(nodeId) {
     });
     if (nd.next_node && state.nodes[nd.next_node])
       state.connections.push({ from: nd.id, to: nd.next_node, choiceIdx: -1, label: '' });
+    // minigame rewards → outgoing connections
+    if (nd.type === 'minigame' && nd.minigame_config && nd.minigame_config.rewards) {
+      [['win','mg_win'],['perfect','mg_perfect'],['lose','mg_lose']].forEach(([k,t]) => {
+        const r = nd.minigame_config.rewards[k];
+        const sid = r && r.story_unlock_node_id;
+        if (sid && state.nodes[sid]) state.connections.push({ from: nd.id, to: sid, choiceIdx: -1, label: '', connType: t });
+      });
+    }
   });
   renderConnections();
   updatePreviewPanel(nodeData);
