@@ -6596,8 +6596,10 @@ function buildMgRewardTabsHtml(nodeId, rewards) {
   </div>
   <div class="insp-row" style="margin-bottom:5px;">
     <label class="insp-label" style="font-size:10px;">解锁节点</label>
-    <input id="mg-unlock-node-${nodeId}-${o}" type="text" value="${escHtml(r.story_unlock_node_id||'')}" placeholder="节点ID（留空不解锁）"
-      style="flex:1;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 5px;font-size:11px;"/>
+    <select id="mg-unlock-node-${nodeId}-${o}"
+      style="flex:1;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 5px;font-size:11px;">
+      ${buildMgUnlockNodeOptions(nodeId, o, r.story_unlock_node_id)}
+    </select>
   </div>
   <div class="insp-row" style="margin-bottom:5px;align-items:flex-start;">
     <label class="insp-label" style="font-size:10px;padding-top:2px;">跳转位置</label>
@@ -6810,6 +6812,23 @@ function addMgVarChange(nodeId, outcome) {
 function removeMgVarChange(nodeId, outcome, idx) {
   const c = document.getElementById('mg-var-changes-' + nodeId + '-' + outcome);
   if (c && c.children[idx]) c.children[idx].remove();
+}
+
+function buildMgUnlockNodeOptions(currentNodeId, outcome, selectedId) {
+  const EXCLUDED_TYPES = ['panorama', '3d_model'];
+  const nodes = state.gameData ? Object.values(state.gameData.nodes || {}) : [];
+  const validNodes = nodes.filter(n => String(n.id) !== String(currentNodeId) && !EXCLUDED_TYPES.includes(n.type));
+  const selectedStr = String(selectedId || '');
+  let opts = '<option value="">\uff08\u4e0d\u8bbe\u7f6e\uff09</option>';
+  if (selectedStr && !validNodes.find(n => String(n.id) === selectedStr)) {
+    opts += '<option value="' + escHtml(selectedStr) + '" selected style="color:#dc2626;">\u26a0 \u8282\u70b9 ' + escHtml(selectedStr) + '\uff08\u5df2\u5220\u9664\uff09</option>';
+  }
+  validNodes.forEach(n => {
+    const label = n.id + ': ' + (n.title || n.type || '(\u65e0\u6807\u9898)');
+    const sel = String(n.id) === selectedStr ? ' selected' : '';
+    opts += '<option value="' + escHtml(String(n.id)) + '"' + sel + '>' + escHtml(label) + '</option>';
+  });
+  return opts;
 }
 
 function toggleMgSeekCustom(nodeId, outcome) {
