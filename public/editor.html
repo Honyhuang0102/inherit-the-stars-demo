@@ -2490,9 +2490,16 @@ function createNodeCard(nodeData, x, y) {
   el.style.left = x + 'px';
   el.style.top  = y + 'px';
 
-  // Thumbnail：有封面则显示封面图，否则显示占位符（9:16 竖屏）
+  // Thumbnail：有封面则显示封面图，minigame 用 emoji 占位，其余显示视频占位符
   const thumbHtml = nodeData.poster_url
     ? `<img class="node-thumb" src="${escHtml(nodeData.poster_url)}" alt="封面" draggable="false"/>`
+    : nodeData.type === 'minigame'
+    ? `<div class="node-thumb-placeholder" style="background:linear-gradient(135deg,#d1fae5 0%,#6ee7b7 100%);">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+          <span style="font-size:38px;line-height:1;">🎮</span>
+          <span style="font-size:9px;color:#065f46;letter-spacing:0.08em;font-weight:600;">MINI GAME</span>
+        </div>
+      </div>`
     : `<div class="node-thumb-placeholder">
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="#c0c0c0" stroke-width="1.2" style="width:28px;height:28px;"><rect x="2" y="3" width="20" height="18" rx="2"/><polygon points="10,8 16,12 10,16" fill="#c0c0c0" stroke="none"/></svg>
