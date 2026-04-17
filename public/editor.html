@@ -6577,6 +6577,7 @@ function buildMgRewardTabsHtml(nodeId, rewards) {
   ).join('');
   const tabPanels = outcomes.map((o,i) => {
     const r = (rewards&&rewards[o]) ? rewards[o] : {story_unlock_node_id:null,item_rewards:[],variable_changes:[],unlock_message:''};
+    const seekTo = r.seek_to || 'start';
     const itemRowsHtml = (r.item_rewards||[]).map((item,idx) => buildMgRewardItemRow(nodeId,o,idx,item)).join('');
     const vcRowsHtml   = (r.variable_changes||[]).map((vc,idx)  => buildMgVarChangeRow(nodeId,o,idx,vc)).join('');
     return `
@@ -6590,6 +6591,27 @@ function buildMgRewardTabsHtml(nodeId, rewards) {
     <label class="insp-label" style="font-size:10px;">解锁节点</label>
     <input id="mg-unlock-node-${nodeId}-${o}" type="text" value="${escHtml(r.story_unlock_node_id||'')}" placeholder="节点ID（留空不解锁）"
       style="flex:1;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:3px 5px;font-size:11px;"/>
+  </div>
+  <div class="insp-row" style="margin-bottom:5px;align-items:flex-start;">
+    <label class="insp-label" style="font-size:10px;padding-top:2px;">跳转位置</label>
+    <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+      <div style="display:flex;gap:10px;">
+        <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;color:#111827;">
+          <input type="radio" name="mg-seek-${nodeId}-${o}" value="start" ${seekTo==='start'?'checked':''} onchange="toggleMgSeekCustom('${nodeId}','${o}')"/> 片头
+        </label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;color:#111827;">
+          <input type="radio" name="mg-seek-${nodeId}-${o}" value="end" ${seekTo==='end'?'checked':''} onchange="toggleMgSeekCustom('${nodeId}','${o}')"/> 片尾
+        </label>
+        <label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;color:#111827;">
+          <input type="radio" name="mg-seek-${nodeId}-${o}" value="custom" ${seekTo==='custom'?'checked':''} onchange="toggleMgSeekCustom('${nodeId}','${o}')"/> 指定时间
+        </label>
+      </div>
+      <div id="mg-seek-custom-wrap-${nodeId}-${o}" style="display:${seekTo==='custom'?'flex':'none'};align-items:center;gap:4px;">
+        <input id="mg-seek-custom-${nodeId}-${o}" type="number" min="0" step="0.5" value="${escHtml(String(r.target_timestamp_s||''))}" placeholder="0"
+          style="width:70px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;color:#111827;padding:2px 5px;font-size:11px;"/>
+        <span style="font-size:10px;color:var(--text-muted);">秒</span>
+      </div>
+    </div>
   </div>
   <div style="margin-bottom:5px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
@@ -6783,6 +6805,12 @@ function removeMgVarChange(nodeId, outcome, idx) {
   if (c && c.children[idx]) c.children[idx].remove();
 }
 
+function toggleMgSeekCustom(nodeId, outcome) {
+  const checked = document.querySelector('input[name="mg-seek-' + nodeId + '-' + outcome + '"]:checked');
+  const wrap = document.getElementById('mg-seek-custom-wrap-' + nodeId + '-' + outcome);
+  if (wrap) wrap.style.display = checked && checked.value === 'custom' ? 'flex' : 'none';
+}
+
 function toggleMgShop(nodeId, enabled) {
   const node = state.gameData.nodes[nodeId];
   if (!node || !node.minigame_config) return;
@@ -6858,8 +6886,13 @@ function collectMinigameConfig(nodeId) {
         if (varName) varChanges.push({variable_name: varName, operation: op, value: val});
       });
     }
+    const seekToEl = document.querySelector('input[name="mg-seek-' + nodeId + '-' + o + '"]:checked');
+    const seekToVal = seekToEl ? seekToEl.value : 'start';
+    const targetTs  = seekToVal === 'custom' ? (parseFloat(document.getElementById('mg-seek-custom-' + nodeId + '-' + o)?.value) || 0) : undefined;
     rewards[o] = {
       story_unlock_node_id: unlockNode || null,
+      seek_to: seekToVal,
+      ...(seekToVal === 'custom' ? { target_timestamp_s: targetTs } : {}),
       item_rewards: itemRewards,
       variable_changes: varChanges,
       unlock_message: unlockMsg
