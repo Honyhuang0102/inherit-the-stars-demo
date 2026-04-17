@@ -2507,7 +2507,7 @@ function createNodeCard(nodeData, x, y) {
     ${thumbHtml}
     <div class="node-footer">
       <div class="node-type-dot"></div>
-      ${state.gameData.start_node === nodeData.id ? '<span style="font-size:9px;background:#2563eb;color:#fff;border-radius:3px;padding:1px 4px;margin-right:4px;">起始</span>' : ''}<div class="node-title">${escHtml(String(state.nodeIndexMap?.[nodeData.id] ?? nodeData.id))}：${escHtml(nodeData.title || '')}</div>
+      ${state.gameData.start_node === nodeData.id ? '<span style="font-size:9px;background:#2563eb;color:#fff;border-radius:3px;padding:1px 4px;margin-right:4px;">起始</span>' : ''}<div class="node-title">${escHtml(String(nodeData.id))}：${escHtml(nodeData.title || '')}</div>
     </div>
     <div class="port port-in" data-node="${nodeData.id}" onmouseup="endConnect(event, '${nodeData.id}')"></div>
     ${nodeData.choices ? choicePortsHtml : `<div class="port port-out" data-node="${nodeData.id}" onmousedown="startConnect(event, '${nodeData.id}', -1)"></div>`}
@@ -3192,7 +3192,7 @@ function openInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData) return;
   const insp = document.getElementById('inspector');
-  const nodeSeq = state.nodeIndexMap?.[nodeId] ?? nodeId;
+  const nodeSeq = nodeId;
   document.getElementById('insp-title').textContent = `编辑 · ${nodeSeq}：${nodeData.title || ''}`;
 
   let choicesHtml = '';
@@ -3428,14 +3428,7 @@ function applyInspector(nodeId) {
         } else if (field === 'normal') {
           nodeData.choices[idx].normal = inp.value;
         } else if (field === 'target_node') {
-          const inputVal = inp.value.trim();
-          if (inputVal && /^\d+$/.test(inputVal)) {
-            const seqNum = parseInt(inputVal, 10);
-            const reverseEntry = Object.entries(state.nodeIndexMap || {}).find(([, v]) => v === seqNum);
-            nodeData.choices[idx][field] = reverseEntry ? reverseEntry[0] : inputVal;
-          } else {
-            nodeData.choices[idx][field] = inputVal;
-          }
+          nodeData.choices[idx][field] = inp.value.trim();
         }
       });
       // Resolve seek_to for this choice
