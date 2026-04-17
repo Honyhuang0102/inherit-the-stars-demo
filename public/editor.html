@@ -3269,7 +3269,7 @@ function openInspector(nodeId) {
                 <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:5px;">&#128205; 跳转到目标节点的：</div>
                 <div style="display:flex;gap:6px;margin-bottom:4px;">
                   <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="start" ${(!c.seek_to||c.seek_to==='start')?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 片头</label>
-                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="branch" ${c.seek_to==='branch'?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 片尾</label>
+                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="end" ${c.seek_to==='end'?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 片尾</label>
                 </div>
                 <div style="display:flex;align-items:center;gap:6px;">
                   <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="custom" ${(typeof c.seek_to==='number')?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 指定秒数：</label>
@@ -3483,7 +3483,7 @@ function applyInspector(nodeId) {
       // Resolve seek_to for this choice
       const _seekTypeEl = row.querySelector('[data-field="seek_type"]:checked');
       const _seekType = _seekTypeEl ? _seekTypeEl.value : 'start';
-      if (_seekType === 'branch') { nodeData.choices[idx].seek_to = 'branch'; }
+      if (_seekType === 'end') { nodeData.choices[idx].seek_to = 'end'; }
       else if (_seekType === 'custom') {
         const _customEl = row.querySelector('[data-field="seek_custom"]');
         let _seekVal = _customEl ? (parseFloat(_customEl.value) || 0) : 0;
