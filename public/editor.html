@@ -2521,7 +2521,7 @@ function createNodeCard(nodeData, x, y) {
       state.dragging = {
         nodeId: nodeData.id,
         startX: e.clientX, startY: e.clientY,
-        origX: x, origY: y,
+        origX: state.nodes[nodeData.id]?.x ?? x, origY: state.nodes[nodeData.id]?.y ?? y,
       };
     }
   });
