@@ -315,6 +315,7 @@ html, body {
   overflow: hidden;
   cursor: default;
   background: var(--bg-canvas);
+  overscroll-behavior: none; /* Prevent Chrome Mac swipe-back navigation */
 }
 #canvas-wrap.grabbing { cursor: grabbing; }
 #canvas-wrap.connecting { cursor: crosshair; }
@@ -1905,8 +1906,7 @@ body.immersive-mode #right-panel {
       oncontextmenu="showCtxMenu(event)"
       onmousedown="onCanvasMouseDown(event)"
       onmousemove="onCanvasMouseMove(event)"
-      onmouseup="onCanvasMouseUp(event)"
-      onwheel="onCanvasWheel(event)">
+      onmouseup="onCanvasMouseUp(event)">
 
       <div id="canvas">
         <svg id="connections-svg">
@@ -2380,6 +2380,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   initKeyboard();
   initMinimap();
   initResizeHandle();
+  // Register wheel listener as non-passive so preventDefault() works.
+  // Prevents Chrome Mac trackpad left-swipe triggering browser back-navigation.
+  document.getElementById('canvas-wrap').addEventListener('wheel', onCanvasWheel, { passive: false });
   setTimeout(() => {
     document.getElementById('loading').classList.add('hidden');
   }, 1400);
@@ -3994,62 +3997,89 @@ function refreshPreview() {
 function initMinimap() { updateMinimap(); }
 
 function updateMinimap() {
-  const canvas = document.getElementById('minimap-canvas');
-  const ctx = canvas.getContext('2d');
-  const w = 120, h = 76;
-  ctx.clearRect(0,0,w,h);
-
+  const mmCanvas = document.getElementById('minimap-canvas');
+  const ctx = mmCanvas.getContext('2d');
+  const W = 120, H = 76;
+  ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#f5f5f5';
-  ctx.fillRect(0,0,w,h);
+  ctx.fillRect(0, 0, W, H);
 
-  const scaleX = w / 1200, scaleY = h / 800;
+  const wrap = document.getElementById('canvas-wrap');
+  const { x: vpTX, y: vpTY, scale: vpScale } = state.viewport;
 
-  Object.values(state.nodes).forEach(n => {
+  // Current viewport boundaries in canvas-space coordinates
+  const vpLeft   = -vpTX / vpScale;
+  const vpTop    = -vpTY / vpScale;
+  const vpRight  = vpLeft + (wrap.clientWidth  || 900) / vpScale;
+  const vpBottom = vpTop  + (wrap.clientHeight || 600) / vpScale;
+
+  // Compute bounding box: union of all nodes + current viewport
+  let minX = vpLeft, minY = vpTop;
+  let maxX = vpRight, maxY = vpBottom;
+
+  const nodeVals = Object.values(state.nodes);
+  nodeVals.forEach(n => {
+    const nw = getNodeWidth(n.el) || 180;
+    const nh = getNodeHeight(n.el) || 200;
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + nw);
+    maxY = Math.max(maxY, n.y + nh);
+  });
+
+  // Add padding so nodes/viewport don't touch minimap edges
+  const padX = Math.max(60, (maxX - minX) * 0.1);
+  const padY = Math.max(40, (maxY - minY) * 0.1);
+  minX -= padX; minY -= padY;
+  maxX += padX; maxY += padY;
+
+  const totalW = maxX - minX || 1;
+  const totalH = maxY - minY || 1;
+  const scaleX = W / totalW;
+  const scaleY = H / totalH;
+
+  // Draw connections
+  state.connections.forEach(conn => {
+    const fn = state.nodes[conn.from], tn = state.nodes[conn.to];
+    if (!fn || !tn) return;
+    const fnw = getNodeWidth(fn.el) || 180, fnh = getNodeHeight(fn.el) || 200;
+    const tnh = getNodeHeight(tn.el) || 200;
+    ctx.strokeStyle = conn.choiceIdx >= 0 ? 'rgba(217,119,6,0.5)' : 'rgba(26,26,26,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo((fn.x + fnw - minX) * scaleX, (fn.y + fnh / 2 - minY) * scaleY);
+    ctx.lineTo((tn.x - minX) * scaleX, (tn.y + tnh / 2 - minY) * scaleY);
+    ctx.stroke();
+  });
+
+  // Draw nodes (on top of connections)
+  nodeVals.forEach(n => {
     const typeColors = { branching: '#d97706', ending: '#7c3aed', start: '#2563eb' };
     const color = typeColors[n.data.type] || '#888888';
     ctx.fillStyle = color + '30';
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
-    const rx = n.x * scaleX, ry = n.y * scaleY;
+    const nw = getNodeWidth(n.el) || 180, nh = getNodeHeight(n.el) || 200;
+    const rx = (n.x - minX) * scaleX;
+    const ry = (n.y - minY) * scaleY;
     ctx.beginPath();
-    const nw = getNodeWidth(n.el), nh = getNodeHeight(n.el);
-    ctx.roundRect(rx, ry, nw*scaleX, nh*scaleY, 2);
+    ctx.roundRect(rx, ry, nw * scaleX, nh * scaleY, 2);
     ctx.fill(); ctx.stroke();
   });
 
-  state.connections.forEach(conn => {
-    const fn = state.nodes[conn.from], tn = state.nodes[conn.to];
-    if (!fn || !tn) return;
-    const fnw = getNodeWidth(fn.el), fnh = getNodeHeight(fn.el);
-    const tnw = getNodeWidth(tn.el), tnh = getNodeHeight(tn.el);
-    ctx.strokeStyle = conn.choiceIdx >= 0 ? 'rgba(217,119,6,0.5)' : 'rgba(26,26,26,0.3)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo((fn.x+fnw)*scaleX, (fn.y+fnh/2)*scaleY);
-    ctx.lineTo(tn.x*scaleX, (tn.y+tnh/2)*scaleY);
-    ctx.stroke();
-  });
+  // Draw viewport indicator rectangle
+  const mmLeft   = (vpLeft  - minX) * scaleX;
+  const mmTop2   = (vpTop   - minY) * scaleY;
+  const mmWidth  = (vpRight  - vpLeft)  * scaleX;
+  const mmHeight = (vpBottom - vpTop)   * scaleY;
 
-  // 视口矩形：将画布坐标系中的可见区域映射到小地图坐标系
-  const wrap = document.getElementById('canvas-wrap');
-  // 小地图坐标系中，画布原点对应的小地图位置
-  // state.viewport.x/y 是 canvas 元素的 translate 偶，除以 scale 得到画布坐标系中的偏移
-  const vw = wrap.clientWidth  / state.viewport.scale;
-  const vh = wrap.clientHeight / state.viewport.scale;
-  // 画布左上角在小地图中的位置 = -偶移 / scale
-  const vx = -state.viewport.x / state.viewport.scale;
-  const vy = -state.viewport.y / state.viewport.scale;
   const mm = document.getElementById('minimap-viewport');
-  // 将画布坐标系映射到小地图坐标系
-  const mmLeft   = vx * scaleX;
-  const mmTop    = vy * scaleY;
-  const mmWidth  = vw * scaleX;
-  const mmHeight = vh * scaleY;
-  // 限制在小地图范围内
-  mm.style.left   = Math.max(0, Math.min(w - 4, mmLeft))   + 'px';
-  mm.style.top    = Math.max(0, Math.min(h - 4, mmTop))    + 'px';
-  mm.style.width  = Math.max(4, Math.min(w, mmWidth))      + 'px';
-  mm.style.height = Math.max(4, Math.min(h, mmHeight))     + 'px';
+  const clampedLeft = Math.max(0, mmLeft);
+  const clampedTop  = Math.max(0, mmTop2);
+  mm.style.left   = clampedLeft + 'px';
+  mm.style.top    = clampedTop  + 'px';
+  mm.style.width  = Math.max(4, Math.min(W - clampedLeft, mmWidth))  + 'px';
+  mm.style.height = Math.max(4, Math.min(H - clampedTop,  mmHeight)) + 'px';
 }
 
 // ── RESIZE HANDLE ──────────────────────────────────────────────
