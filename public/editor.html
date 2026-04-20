@@ -318,6 +318,7 @@ html, body {
   cursor: default;
   background: var(--bg-canvas);
   overscroll-behavior: none; /* Prevent Chrome Mac swipe-back navigation */
+  touch-action: none;        /* Let JS handle all touch gestures (pan + pinch-zoom) */
 }
 #canvas-wrap.grabbing { cursor: grabbing; }
 #canvas-wrap.connecting { cursor: crosshair; }
@@ -2385,6 +2386,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Register wheel listener as non-passive so preventDefault() works.
   // Prevents Chrome Mac trackpad left-swipe triggering browser back-navigation.
   document.getElementById('canvas-wrap').addEventListener('wheel', onCanvasWheel, { passive: false });
+  initCanvasTouch();
   setTimeout(() => {
     document.getElementById('loading').classList.add('hidden');
   }, 1400);
@@ -2765,6 +2767,100 @@ function onCanvasMouseUp(e) {
     state.selBox = null;
     document.getElementById('selection-box').style.display = 'none';
   }
+}
+
+
+// ── TOUCH SUPPORT (mobile two-finger pan + pinch-zoom, single-finger pan) ──
+let _ts = null; // touch state: { mode:'two'|'one', origVX, origVY, origScale?, origMidX?, origMidY?, origDist?, startX?, startY? }
+
+function initCanvasTouch() {
+  const wrap = document.getElementById('canvas-wrap');
+
+  wrap.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches;
+    if (t.length === 2) {
+      // ── Two fingers: prepare for pan + pinch-zoom ──
+      const rect = wrap.getBoundingClientRect();
+      const mx = ((t[0].clientX + t[1].clientX) / 2) - rect.left;
+      const my = ((t[0].clientY + t[1].clientY) / 2) - rect.top;
+      _ts = {
+        mode: 'two',
+        origVX:    state.viewport.x,
+        origVY:    state.viewport.y,
+        origScale: state.viewport.scale,
+        origMidX:  mx,
+        origMidY:  my,
+        origDist:  Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY),
+      };
+      // Cancel any ongoing single-finger pan
+      state.panning = null;
+      wrap.classList.remove('grabbing');
+    } else if (t.length === 1) {
+      // ── Single finger: pan only if touching canvas background (not a node/port) ──
+      const tgt = document.elementFromPoint(t[0].clientX, t[0].clientY);
+      const onBg = tgt && (tgt.id === 'canvas-wrap' || tgt.id === 'canvas' || tgt.tagName === 'svg' || tgt.tagName === 'SVG');
+      if (onBg) {
+        const rect = wrap.getBoundingClientRect();
+        _ts = {
+          mode:   'one',
+          origVX: state.viewport.x,
+          origVY: state.viewport.y,
+          startX: t[0].clientX - rect.left,
+          startY: t[0].clientY - rect.top,
+        };
+        wrap.classList.add('grabbing');
+      } else {
+        _ts = null;
+      }
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchmove', (e) => {
+    if (!_ts) return;
+    e.preventDefault();
+    const t = e.touches;
+
+    if (_ts.mode === 'two' && t.length >= 2) {
+      // ── Two-finger: simultaneous pan + pinch-zoom ──
+      const rect = wrap.getBoundingClientRect();
+      const mx   = ((t[0].clientX + t[1].clientX) / 2) - rect.left;
+      const my   = ((t[0].clientY + t[1].clientY) / 2) - rect.top;
+      const dist = Math.hypot(t[1].clientX - t[0].clientX, t[1].clientY - t[0].clientY);
+
+      const newScale = Math.max(0.2, Math.min(3, _ts.origScale * (dist / _ts.origDist)));
+
+      // Canvas coordinate pinned under the original midpoint
+      const canvasMidX = (_ts.origMidX - _ts.origVX) / _ts.origScale;
+      const canvasMidY = (_ts.origMidY - _ts.origVY) / _ts.origScale;
+
+      // New viewport: current midpoint tracks same canvas coord + panning delta
+      state.viewport.x     = mx - canvasMidX * newScale;
+      state.viewport.y     = my - canvasMidY * newScale;
+      state.viewport.scale = newScale;
+      applyViewport();
+
+    } else if (_ts.mode === 'one' && t.length === 1) {
+      // ── Single-finger: simple pan ──
+      const rect = wrap.getBoundingClientRect();
+      state.viewport.x = _ts.origVX + (t[0].clientX - rect.left - _ts.startX);
+      state.viewport.y = _ts.origVY + (t[0].clientY - rect.top  - _ts.startY);
+      applyViewport();
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', (e) => {
+    if (_ts && _ts.mode === 'one') wrap.classList.remove('grabbing');
+    // When all fingers lift, or switching from two→one fingers mid-gesture, reset
+    if (e.touches.length === 0 || (_ts && _ts.mode === 'two' && e.touches.length < 2)) {
+      _ts = null;
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchcancel', () => {
+    if (_ts && _ts.mode === 'one') wrap.classList.remove('grabbing');
+    _ts = null;
+  }, { passive: false });
 }
 
 function onCanvasWheel(e) {
