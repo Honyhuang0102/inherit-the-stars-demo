@@ -2740,29 +2740,27 @@ body.immersive-mode #right-panel {
           <div class="w3-field">
             <label>模式</label>
             <select id="qte-mode" onchange="onQteModeChange()">
-              <option value="tap_target">tap_target 点击靶</option>
-              <option value="swipe">swipe 滑动</option>
-              <option value="hold_circle">hold_circle 长按圆</option>
-              <option value="rhythm">rhythm 节奏</option>
-              <option value="none">none 纯倒计时</option>
+              <option value="dodge">dodge 闪避</option>
+              <option value="guard">guard 格挡</option>
+              <option value="charge">charge 蓄力</option>
             </select>
           </div>
           <div class="w3-field" id="qte-input-method-wrap">
             <label>输入方式</label>
             <select id="qte-input-method">
-              <option value="tap">tap</option>
-              <option value="swipe_up">swipe_up</option>
-              <option value="swipe_any">swipe_any</option>
-              <option value="hold">hold</option>
-              <option value="multi_tap">multi_tap</option>
+              <option value="swipe_left">swipe_left 左滑</option>
+              <option value="swipe_right">swipe_right 右滑</option>
+              <option value="tap">tap 单击</option>
+              <option value="long_press">long_press 长按</option>
+              <option value="shake">shake 摇晃</option>
+              <option value="charge_release">charge_release 蓄力释放</option>
             </select>
           </div>
           <div class="w3-field">
             <label>失败行为</label>
             <select id="qte-fail-behavior">
-              <option value="show_fail_outcome">show_fail_outcome 展示失败结果</option>
+              <option value="branch">branch 走失败分支</option>
               <option value="retry">retry 重试</option>
-              <option value="continue">continue 继续播放</option>
             </select>
           </div>
         </div>
@@ -6222,7 +6220,7 @@ function renderImmersiveAdvanced(nodeData) {
 let _qteEditIdx = -1;
 
 function _qteModeLabel(mode) {
-  return { tap_target:'点击靶', swipe:'滑动', hold_circle:'长按圆', rhythm:'节奏', none:'倒计时' }[mode] || mode || 'QTE';
+  return { dodge:'闪避', guard:'格挡', charge:'蓄力' }[mode] || mode || 'QTE';
 }
 
 function openQtePanel(idx) {
@@ -6253,9 +6251,9 @@ function openQtePanel(idx) {
     const item = interactions[_qteEditIdx];
     document.getElementById('qte-sidebar-title').textContent = '编辑快速反应事件';
     document.getElementById('qte-trigger-time').value = item.trigger_time_s != null ? item.trigger_time_s : 5;
-    document.getElementById('qte-mode').value = item.mode || 'tap_target';
+    document.getElementById('qte-mode').value = item.mode || 'dodge';
     document.getElementById('qte-time-limit').value = item.time_limit_s != null ? item.time_limit_s : 5;
-    document.getElementById('qte-fail-behavior').value = item.fail_behavior || 'show_fail_outcome';
+    document.getElementById('qte-fail-behavior').value = item.fail_behavior || 'branch';
     const sm = item.slow_mo;
     const smEn = !!(sm && sm.enabled);
     document.getElementById('qte-slowmo-enabled').checked = smEn;
@@ -6276,9 +6274,9 @@ function openQtePanel(idx) {
   } else {
     document.getElementById('qte-sidebar-title').textContent = '添加快速反应事件';
     document.getElementById('qte-trigger-time').value = '5';
-    document.getElementById('qte-mode').value = 'tap_target';
+    document.getElementById('qte-mode').value = 'dodge';
     document.getElementById('qte-time-limit').value = '5';
-    document.getElementById('qte-fail-behavior').value = 'show_fail_outcome';
+    document.getElementById('qte-fail-behavior').value = 'branch';
     document.getElementById('qte-slowmo-enabled').checked = false;
     document.getElementById('qte-slowmo-fields').style.display = 'none';
     thSel.value = ''; ghSel.value = '';
@@ -6301,26 +6299,10 @@ function _loadQteOutcome(type, outcome) {
 
 function onQteModeChange() {
   const mode = document.getElementById('qte-mode').value;
-  const wrap = document.getElementById('qte-input-method-wrap');
-  const sel  = document.getElementById('qte-input-method');
-  const modeMap = {
-    tap_target:  ['tap', 'multi_tap'],
-    swipe:       ['swipe_up', 'swipe_any'],
-    hold_circle: ['hold'],
-    rhythm:      ['tap', 'multi_tap'],
-    none:        []
-  };
-  const allowed = modeMap[mode] || [];
-  wrap.style.display = allowed.length ? '' : 'none';
-  const cur = sel.value;
-  sel.innerHTML = '';
-  allowed.forEach(m => {
-    const o = document.createElement('option');
-    o.value = m; o.textContent = m;
-    if (m === cur) o.selected = true;
-    sel.appendChild(o);
-  });
-  if (allowed.length && !allowed.includes(cur)) sel.value = allowed[0];
+  // 为每个 mode 预选推荐的 input_method，不限制用户选其他
+  const modeDefault = { dodge: 'swipe_left', guard: 'long_press', charge: 'charge_release' };
+  const recommended = modeDefault[mode] || 'tap';
+  document.getElementById('qte-input-method').value = recommended;
 }
 
 function onQteOutcomeChange(type) {
@@ -6389,7 +6371,7 @@ function saveQte() {
     outcomes: { success: buildOutcome('success'), fail: buildOutcome('fail') },
     metadata: {}
   };
-  if (mode !== 'none') item.input_method = document.getElementById('qte-input-method').value || 'tap';
+  item.input_method = document.getElementById('qte-input-method').value || 'tap';
   if (slow_mo) item.slow_mo = slow_mo;
   if (Object.keys(hint).length > 0) item.hint = hint;
   item.ui_theme = {
