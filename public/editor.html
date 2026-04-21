@@ -1547,6 +1547,92 @@ html, body {
 .imm-text-hint-badge.pos-top    { top: 8%; }
 /* active state for 添加独白 button */
 .imm-top-btn.th-active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.5); color: #818cf8; }
+/* ── hud_overlay 和 graphic_hint 编辑侧边栏 (3.0 W3) ─────────── */
+#hud-sidebar, #gh-sidebar {
+  position: absolute;
+  top: 0; right: 0;
+  width: 340px; height: 100%;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  z-index: 10000;
+  overflow: hidden;
+}
+#hud-sidebar.open, #gh-sidebar.open { transform: translateX(0); }
+.w3-sidebar-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.w3-sidebar-header h4 { margin: 0; font-size: 13px; color: var(--text-primary); }
+.w3-sidebar-close {
+  background: none; border: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+}
+.w3-sidebar-close:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+.w3-sidebar-body {
+  flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 11px;
+}
+.w3-field label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.w3-field select, .w3-field input[type=number], .w3-field input[type=text], .w3-field textarea {
+  width: 100%; box-sizing: border-box;
+  background: var(--bg-input, #1a1a1a); border: 1px solid var(--border);
+  color: var(--text-primary); border-radius: var(--radius-sm);
+  font-size: 12px; padding: 6px 8px; font-family: inherit;
+}
+.w3-field textarea { resize: vertical; min-height: 55px; }
+.w3-field select:focus, .w3-field input:focus, .w3-field textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.w3-row { display: flex; gap: 8px; }
+.w3-row .w3-field { flex: 1; }
+.w3-section-title {
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px;
+  padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+.w3-sidebar-actions {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; gap: 8px;
+}
+.w3-sidebar-actions button { flex: 1; padding: 7px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; border: 1px solid var(--border); }
+.w3-btn-save { background: var(--accent); color: #fff; border-color: var(--accent) !important; }
+.w3-btn-save:hover { background: #333; border-color: #333 !important; }
+.w3-btn-cancel { background: transparent; color: var(--text-secondary); }
+.w3-btn-cancel:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+/* HUD panels list */
+.hud-panel-item {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px; background: var(--bg-card-hover, #1e1e1e); margin-bottom: 8px;
+}
+.hud-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.hud-panel-header span { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.hud-panel-del { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 14px; }
+.hud-panel-del:hover { color: #ef4444; }
+.hud-stat-row { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+.hud-stat-row input { flex: 1; padding: 4px 6px; font-size: 11px; }
+.hud-stat-row .del-stat { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 12px; }
+.hud-add-btn {
+  width: 100%; padding: 6px; font-size: 11px; border: 1px dashed var(--border);
+  background: transparent; color: var(--text-secondary); border-radius: var(--radius-sm); cursor: pointer;
+}
+.hud-add-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+/* HUD + graphic_hint preview badges */
+.imm-hud-badge {
+  position: absolute; top: 12px; right: 12px;
+  padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 500;
+  background: rgba(234,179,8,0.85); color: #fff; pointer-events: none; z-index: 5;
+}
+.imm-gh-badge {
+  position: absolute;
+  padding: 4px 10px; border-radius: 999px; font-size: 10px; font-weight: 500;
+  background: rgba(16,185,129,0.85); color: #fff; pointer-events: none; z-index: 5;
+}
+.imm-top-btn.hud-active { background: rgba(234,179,8,0.15); border-color: rgba(234,179,8,0.5); color: #fbbf24; }
+.imm-top-btn.gh-active  { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.5); color: #34d399; }
+
 
 
 /* ── Immersive Stage (放大的预览屏容器) ─────────────────── */
@@ -2295,6 +2381,14 @@ body.immersive-mode #right-panel {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       添加独白
     </button>
+    <button class="imm-top-btn" id="btn-add-hud" onclick="openHudPanel(null)" title="添加 HUD 看板（外星生物收集进度 / 机甲能量等 DSL hud_overlay）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      添加 HUD
+    </button>
+    <button class="imm-top-btn" id="btn-add-gh" onclick="openGhPanel(null)" title="添加图形引导（手势演示 / 箭头 / 光效，DSL graphic_hint）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+      添加引导图
+    </button>
     <!-- 全景模式专属：在当前视角打点 -->
     <button class="imm-top-btn" id="btn-add-3d-hotspot" onclick="toggle3DPickMode()" title="点击模型表面精准打点（positionAndNormalFromPoint）">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2459,6 +2553,122 @@ body.immersive-mode #right-panel {
     </div>
     <!-- 已有 text_hint 列表 -->
     <div id="text-hint-list"></div>
+  </div>
+  <!-- hud_overlay 编辑侧边栏 (W3) -->
+  <div id="hud-sidebar">
+    <div class="w3-sidebar-header">
+      <h4>添加 HUD 看板</h4>
+      <button class="w3-sidebar-close" onclick="closeHudPanel()" title="关闭">&times;</button>
+    </div>
+    <div class="w3-sidebar-body" id="hud-sidebar-body">
+      <input type="hidden" id="hud-edit-idx" value="-1" />
+      <div class="w3-row">
+        <div class="w3-field">
+          <label>唤起方式</label>
+          <select id="hud-trigger" onchange="onHudTriggerChange()">
+            <option value="on_tap_pause" selected>点击暂停唤起</option>
+            <option value="auto_at_time">时间轴自动唤起</option>
+          </select>
+        </div>
+        <div class="w3-field" id="hud-auto-at-wrap" style="display:none">
+          <label>触发时间（秒）</label>
+          <input type="number" id="hud-auto-at" value="5" min="0" step="0.5" />
+        </div>
+      </div>
+      <div class="w3-row">
+        <div class="w3-field">
+          <label>暂停行为</label>
+          <select id="hud-behavior">
+            <option value="soft_pause" selected>软暂停（视频模糊不停）</option>
+            <option value="hard_pause">硬暂停</option>
+          </select>
+        </div>
+        <div class="w3-field">
+          <label>关闭方式</label>
+          <select id="hud-close-on">
+            <option value="both" selected>点遮罩或关闭按钮</option>
+            <option value="tap_outside">点遮罩</option>
+            <option value="close_button">关闭按钮</option>
+          </select>
+        </div>
+      </div>
+      <div class="w3-section-title">面板列表</div>
+      <div id="hud-panels-list"></div>
+      <button class="hud-add-btn" onclick="addHudPanel()">+ 添加面板</button>
+    </div>
+    <div class="w3-sidebar-actions">
+      <button class="w3-btn-save" onclick="saveHudOverlay()">保存</button>
+      <button class="w3-btn-cancel" onclick="closeHudPanel()">取消</button>
+    </div>
+    <!-- 已有 hud_overlay 列表 -->
+    <div id="hud-list" style="padding:0 16px 14px;display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+
+  <!-- graphic_hint 编辑侧边栏 (W3) -->
+  <div id="gh-sidebar">
+    <div class="w3-sidebar-header">
+      <h4 id="gh-sidebar-title">添加图形引导</h4>
+      <button class="w3-sidebar-close" onclick="closeGhPanel()" title="关闭">&times;</button>
+    </div>
+    <div class="w3-sidebar-body">
+      <input type="hidden" id="gh-edit-idx" value="-1" />
+      <div class="w3-field">
+        <label>图形类型</label>
+        <select id="gh-type" onchange="onGhTypeChange()">
+          <option value="gesture_demo" selected>手势演示</option>
+          <option value="arrow">箭头指示</option>
+          <option value="glow_pulse">光效脉冲</option>
+          <option value="tap_ripple">点击涟漪</option>
+          <option value="custom_svg">自定义 SVG</option>
+        </select>
+      </div>
+      <div class="w3-field" id="gh-gesture-wrap">
+        <label>手势类型</label>
+        <select id="gh-gesture">
+          <option value="swipe_left" selected>向左滑动</option>
+          <option value="swipe_right">向右滑动</option>
+          <option value="tap">点击</option>
+          <option value="long_press">长按</option>
+          <option value="charge">蓄力</option>
+          <option value="shake">摇晃</option>
+        </select>
+      </div>
+      <div class="w3-section-title">显示位置（归一化 0-1）</div>
+      <div class="w3-row">
+        <div class="w3-field"><label>X</label><input type="number" id="gh-bx" value="0.4" min="0" max="1" step="0.05" /></div>
+        <div class="w3-field"><label>Y</label><input type="number" id="gh-by" value="0.4" min="0" max="1" step="0.05" /></div>
+        <div class="w3-field"><label>W</label><input type="number" id="gh-bw" value="0.2" min="0.02" max="1" step="0.05" /></div>
+        <div class="w3-field"><label>H</label><input type="number" id="gh-bh" value="0.2" min="0.02" max="1" step="0.05" /></div>
+      </div>
+      <div class="w3-section-title">时间轴</div>
+      <div class="w3-row">
+        <div class="w3-field"><label>出现时间（秒）</label><input type="number" id="gh-show-at" value="1" min="0" step="0.5" /></div>
+        <div class="w3-field"><label>持续时长（秒）</label><input type="number" id="gh-duration" value="3" min="0.5" step="0.5" /></div>
+      </div>
+      <div class="w3-row">
+        <div class="w3-field">
+          <label>显示策略</label>
+          <select id="gh-strategy">
+            <option value="first_time_only" selected>仅首次显示</option>
+            <option value="always">始终显示</option>
+            <option value="after_idle_s">空闲后显示</option>
+          </select>
+        </div>
+        <div class="w3-field">
+          <label>循环播放</label>
+          <select id="gh-loop">
+            <option value="true" selected>是</option>
+            <option value="false">否</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="w3-sidebar-actions">
+      <button class="w3-btn-save" onclick="saveGhHint()">保存</button>
+      <button class="w3-btn-cancel" onclick="closeGhPanel()">取消</button>
+    </div>
+    <!-- 已有 graphic_hint 列表 -->
+    <div id="gh-list" style="padding:0 16px 14px;display:flex;flex-direction:column;gap:6px;"></div>
   </div>
 <!-- /immersive-overlay -->
 
@@ -5391,9 +5601,362 @@ function renderImmersiveTextHints(nodeData) {
     `;
     listEl.appendChild(div);
   });
+  renderImmersiveAdvanced(nodeData);
 }
 
 // ==================== DSL text_hint 编辑层结束 ====================
+
+
+// ==================== DSL hud_overlay + graphic_hint 编辑层 (3.0 W3) ====================
+
+// ─────────────────────────── hud_overlay ────────────────────────────
+
+let _hudEditIdx = -1;
+let _hudPanels = [];  // working copy of panels[] for current edit session
+
+function openHudPanel(idx) {
+  _hudEditIdx = (idx === null || idx === undefined) ? -1 : idx;
+  const sidebar = document.getElementById('hud-sidebar');
+  sidebar.classList.add('open');
+  document.getElementById('btn-add-hud').classList.add('hud-active');
+
+  if (_hudEditIdx >= 0 && immersiveNodeData) {
+    const hud = (immersiveNodeData.interactions || [])[_hudEditIdx];
+    if (hud && hud.type === 'hud_overlay') {
+      document.getElementById('hud-trigger').value   = hud.trigger || 'on_tap_pause';
+      document.getElementById('hud-behavior').value  = hud.behavior || 'soft_pause';
+      document.getElementById('hud-close-on').value  = hud.close_on || 'both';
+      _hudPanels = JSON.parse(JSON.stringify(hud.panels || []));
+      onHudTriggerChange();
+      if (hud.trigger === 'auto_at_time' && hud.auto_at_s != null)
+        document.getElementById('hud-auto-at').value = hud.auto_at_s;
+      renderHudPanelsList();
+      return;
+    }
+  }
+  // New defaults
+  document.getElementById('hud-trigger').value  = 'on_tap_pause';
+  document.getElementById('hud-behavior').value = 'soft_pause';
+  document.getElementById('hud-close-on').value = 'both';
+  document.getElementById('hud-auto-at').value  = 5;
+  _hudPanels = [{ id: 'quest_panel', title: '当前任务', content: '' }];
+  onHudTriggerChange();
+  renderHudPanelsList();
+}
+
+function closeHudPanel() {
+  document.getElementById('hud-sidebar').classList.remove('open');
+  document.getElementById('btn-add-hud').classList.remove('hud-active');
+  _hudEditIdx = -1; _hudPanels = [];
+}
+
+function onHudTriggerChange() {
+  const v = document.getElementById('hud-trigger').value;
+  document.getElementById('hud-auto-at-wrap').style.display = v === 'auto_at_time' ? '' : 'none';
+}
+
+function addHudPanel() {
+  _hudPanels.push({ id: 'panel_' + Date.now(), title: '新面板', content: '', stats: [] });
+  renderHudPanelsList();
+}
+
+function removeHudPanel(idx) {
+  _hudPanels.splice(idx, 1);
+  renderHudPanelsList();
+}
+
+function addHudStat(panelIdx) {
+  if (!_hudPanels[panelIdx].stats) _hudPanels[panelIdx].stats = [];
+  _hudPanels[panelIdx].stats.push({ label: '', value: 0, max: 100 });
+  renderHudPanelsList();
+}
+
+function removeHudStat(panelIdx, statIdx) {
+  _hudPanels[panelIdx].stats.splice(statIdx, 1);
+  renderHudPanelsList();
+}
+
+function syncHudPanelFromDom(panelIdx) {
+  const p = _hudPanels[panelIdx];
+  const el = document.querySelector(`[data-panel-idx="${panelIdx}"]`);
+  if (!el) return;
+  p.title   = el.querySelector('.hud-p-title').value || p.title;
+  p.content = el.querySelector('.hud-p-content').value;
+  (p.stats || []).forEach((s, si) => {
+    const row = el.querySelector(`[data-stat-idx="${si}"]`);
+    if (!row) return;
+    s.label = row.querySelector('.stat-label').value;
+    s.value = parseFloat(row.querySelector('.stat-val').value) || 0;
+    s.max   = parseFloat(row.querySelector('.stat-max').value) || 100;
+  });
+}
+
+function renderHudPanelsList() {
+  const container = document.getElementById('hud-panels-list');
+  container.innerHTML = '';
+  _hudPanels.forEach((panel, pi) => {
+    const div = document.createElement('div');
+    div.className = 'hud-panel-item';
+    div.setAttribute('data-panel-idx', pi);
+    const statsRows = (panel.stats || []).map((s, si) => `
+      <div class="hud-stat-row" data-stat-idx="${si}">
+        <input class="stat-label" placeholder="标签" value="${escHtml(s.label||'')}" style="flex:2;" />
+        <input class="stat-val" type="number" placeholder="当前" value="${s.value||0}" style="flex:1;" />
+        <input class="stat-max" type="number" placeholder="最大" value="${s.max||100}" style="flex:1;" />
+        <button class="del-stat" onclick="removeHudStat(${pi},${si})" title="删除">×</button>
+      </div>
+    `).join('');
+    div.innerHTML = `
+      <div class="hud-panel-header">
+        <span>面板 ${pi + 1}</span>
+        <button class="hud-panel-del" onclick="syncAllHudPanels();removeHudPanel(${pi})" title="删除面板">×</button>
+      </div>
+      <div class="w3-field" style="margin-bottom:6px;">
+        <label>面板标题</label>
+        <input type="text" class="hud-p-title" value="${escHtml(panel.title||'')}" placeholder="如：收集进度" />
+      </div>
+      <div class="w3-field" style="margin-bottom:6px;">
+        <label>说明文字（可选）</label>
+        <textarea class="hud-p-content" placeholder="如：找到 3 只外星生物解锁下一段旅程">${escHtml(panel.content||'')}</textarea>
+      </div>
+      <div class="w3-section-title" style="margin-bottom:4px;">数值条（可选）</div>
+      ${statsRows}
+      <button class="hud-add-btn" style="margin-top:4px;" onclick="syncAllHudPanels();addHudStat(${pi})">+ 添加数值条</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function syncAllHudPanels() {
+  _hudPanels.forEach((_, pi) => syncHudPanelFromDom(pi));
+}
+
+function saveHudOverlay() {
+  if (!immersiveNodeData) { showToast('请先选中一个节点', 'error'); return; }
+  syncAllHudPanels();
+  if (_hudPanels.length === 0) { showToast('至少需要一个面板', 'error'); return; }
+
+  const trigger  = document.getElementById('hud-trigger').value;
+  const autoAt   = parseFloat(document.getElementById('hud-auto-at').value) || 5;
+  const item = {
+    id: (_hudEditIdx >= 0 && (immersiveNodeData.interactions||[])[_hudEditIdx])
+      ? immersiveNodeData.interactions[_hudEditIdx].id
+      : ('hud_' + Date.now()),
+    type:     'hud_overlay',
+    trigger,
+    behavior: document.getElementById('hud-behavior').value,
+    close_on: document.getElementById('hud-close-on').value,
+    panels:   JSON.parse(JSON.stringify(_hudPanels)),
+    metadata: {}
+  };
+  if (trigger === 'auto_at_time') item.auto_at_s = autoAt;
+
+  if (!immersiveNodeData.interactions) immersiveNodeData.interactions = [];
+  if (_hudEditIdx >= 0 && _hudEditIdx < immersiveNodeData.interactions.length) {
+    immersiveNodeData.interactions[_hudEditIdx] = item;
+    showToast('HUD 看板已更新', 'success');
+  } else {
+    immersiveNodeData.interactions.push(item);
+    showToast('HUD 看板已添加', 'success');
+  }
+  renderImmersiveAdvanced(immersiveNodeData);
+  updatePreviewPanel(immersiveNodeData);
+  closeHudPanel();
+}
+
+function deleteHudOverlay(idx) {
+  if (!immersiveNodeData || !immersiveNodeData.interactions) return;
+  if (!confirm('删除此 HUD 看板?')) return;
+  immersiveNodeData.interactions.splice(idx, 1);
+  renderImmersiveAdvanced(immersiveNodeData);
+  updatePreviewPanel(immersiveNodeData);
+  showToast('HUD 看板已删除', 'info');
+}
+
+// ─────────────────────────── graphic_hint ────────────────────────────
+
+let _ghEditIdx = -1;
+
+function openGhPanel(idx) {
+  _ghEditIdx = (idx === null || idx === undefined) ? -1 : idx;
+  const sidebar = document.getElementById('gh-sidebar');
+  sidebar.classList.add('open');
+  document.getElementById('btn-add-gh').classList.add('gh-active');
+
+  if (_ghEditIdx >= 0 && immersiveNodeData) {
+    const gh = (immersiveNodeData.interactions || [])[_ghEditIdx];
+    if (gh && gh.type === 'graphic_hint') {
+      document.getElementById('gh-sidebar-title').textContent = '编辑图形引导';
+      document.getElementById('gh-type').value     = gh.graphic_type || 'gesture_demo';
+      document.getElementById('gh-gesture').value  = gh.gesture_type || 'swipe_left';
+      const bbox = (gh.anchor && gh.anchor.bbox) || [0.4, 0.4, 0.2, 0.2];
+      document.getElementById('gh-bx').value = bbox[0];
+      document.getElementById('gh-by').value = bbox[1];
+      document.getElementById('gh-bw').value = bbox[2];
+      document.getElementById('gh-bh').value = bbox[3];
+      document.getElementById('gh-show-at').value  = gh.timing ? gh.timing.show_at_s : 1;
+      document.getElementById('gh-duration').value = gh.timing ? gh.timing.duration_s : 3;
+      document.getElementById('gh-strategy').value = gh.show_strategy || 'first_time_only';
+      document.getElementById('gh-loop').value = (gh.loop !== false) ? 'true' : 'false';
+      onGhTypeChange();
+      return;
+    }
+  }
+  // New defaults
+  document.getElementById('gh-sidebar-title').textContent = '添加图形引导';
+  document.getElementById('gh-type').value     = 'gesture_demo';
+  document.getElementById('gh-gesture').value  = 'swipe_left';
+  document.getElementById('gh-bx').value = 0.4;
+  document.getElementById('gh-by').value = 0.4;
+  document.getElementById('gh-bw').value = 0.2;
+  document.getElementById('gh-bh').value = 0.2;
+  const immVid = document.querySelector('#immersive-screen .imm-video-el');
+  document.getElementById('gh-show-at').value  = (immVid && immVid.currentTime > 0) ? Math.round(immVid.currentTime * 10) / 10 : 1;
+  document.getElementById('gh-duration').value = 3;
+  document.getElementById('gh-strategy').value = 'first_time_only';
+  document.getElementById('gh-loop').value = 'true';
+  onGhTypeChange();
+}
+
+function closeGhPanel() {
+  document.getElementById('gh-sidebar').classList.remove('open');
+  document.getElementById('btn-add-gh').classList.remove('gh-active');
+  _ghEditIdx = -1;
+}
+
+function onGhTypeChange() {
+  const v = document.getElementById('gh-type').value;
+  document.getElementById('gh-gesture-wrap').style.display = v === 'gesture_demo' ? '' : 'none';
+}
+
+function saveGhHint() {
+  if (!immersiveNodeData) { showToast('请先选中一个节点', 'error'); return; }
+  const gtype = document.getElementById('gh-type').value;
+  const bbox = [
+    parseFloat(document.getElementById('gh-bx').value) || 0.4,
+    parseFloat(document.getElementById('gh-by').value) || 0.4,
+    parseFloat(document.getElementById('gh-bw').value) || 0.2,
+    parseFloat(document.getElementById('gh-bh').value) || 0.2
+  ].map(v => Math.round(Math.min(1, Math.max(0, v)) * 1000) / 1000);
+  const item = {
+    id: (_ghEditIdx >= 0 && (immersiveNodeData.interactions||[])[_ghEditIdx])
+      ? immersiveNodeData.interactions[_ghEditIdx].id
+      : ('gh_' + Date.now()),
+    type:         'graphic_hint',
+    timing: {
+      show_at_s:  parseFloat(document.getElementById('gh-show-at').value) || 1,
+      duration_s: parseFloat(document.getElementById('gh-duration').value) || 3
+    },
+    graphic_type: gtype,
+    anchor:       { mode: 'fixed', bbox },
+    show_strategy: document.getElementById('gh-strategy').value,
+    loop:         document.getElementById('gh-loop').value === 'true',
+    metadata: {}
+  };
+  if (gtype === 'gesture_demo') item.gesture_type = document.getElementById('gh-gesture').value;
+  if (!immersiveNodeData.interactions) immersiveNodeData.interactions = [];
+  if (_ghEditIdx >= 0 && _ghEditIdx < immersiveNodeData.interactions.length) {
+    immersiveNodeData.interactions[_ghEditIdx] = item;
+    showToast('引导图已更新', 'success');
+  } else {
+    immersiveNodeData.interactions.push(item);
+    showToast('引导图已添加', 'success');
+  }
+  renderImmersiveAdvanced(immersiveNodeData);
+  updatePreviewPanel(immersiveNodeData);
+  closeGhPanel();
+}
+
+function deleteGhHint(idx) {
+  if (!immersiveNodeData || !immersiveNodeData.interactions) return;
+  if (!confirm('删除此引导图?')) return;
+  immersiveNodeData.interactions.splice(idx, 1);
+  renderImmersiveAdvanced(immersiveNodeData);
+  updatePreviewPanel(immersiveNodeData);
+  showToast('引导图已删除', 'info');
+}
+
+// ─────────────────────── 统一渲染 advanced interactions ─────────────────────────
+
+/** 枚举翻译 */
+function _ghTypeLabel(t) {
+  return { gesture_demo:'手势演示', arrow:'箭头', glow_pulse:'光效', tap_ripple:'点击涟漪', custom_svg:'SVG' }[t] || t;
+}
+function _ghGestureLabel(t) {
+  return { swipe_left:'左滑', swipe_right:'右滑', tap:'点击', long_press:'长按', charge:'蓄力', shake:'摇晃' }[t] || t;
+}
+
+/**
+ * 渲染 hud_overlay + graphic_hint 预览标签（以及侧边栏里的管理列表）
+ * 注意：text_hint 由 renderImmersiveTextHints 负责，此函数只管 hud + gh
+ */
+function renderImmersiveAdvanced(nodeData) {
+  const screen = document.getElementById('immersive-choices');
+  // 清除旧 hud / gh 标签
+  screen.querySelectorAll('.imm-hud-badge, .imm-gh-badge').forEach(el => el.remove());
+
+  const interactions = nodeData.interactions || [];
+
+  // HUD 预览
+  const huds = interactions.filter((it, i) => it.type === 'hud_overlay' && (it._idx = i) !== undefined);
+  huds.forEach(hud => {
+    const badge = document.createElement('div');
+    badge.className = 'imm-hud-badge';
+    badge.textContent = '[HUD] ' + ((hud.panels && hud.panels[0] && hud.panels[0].title) || 'HUD');
+    screen.appendChild(badge);
+  });
+
+  // graphic_hint 预览
+  interactions.forEach((it, i) => {
+    if (it.type !== 'graphic_hint') return;
+    const bbox = (it.anchor && it.anchor.bbox) || [0.4, 0.4, 0.2, 0.2];
+    const badge = document.createElement('div');
+    badge.className = 'imm-gh-badge';
+    badge.style.cssText = `left:${bbox[0]*100}%;top:${bbox[1]*100}%;`;
+    badge.textContent = '[引导] ' + _ghTypeLabel(it.graphic_type) + (it.gesture_type ? ' ' + _ghGestureLabel(it.gesture_type) : '');
+    screen.appendChild(badge);
+  });
+
+  // 更新 HUD 侧边栏列表
+  const hudList = document.getElementById('hud-list');
+  if (hudList) {
+    const hudItems = interactions.map((it, i) => ({ it, i })).filter(({ it }) => it.type === 'hud_overlay');
+    hudList.innerHTML = '';
+    if (hudItems.length === 0) {
+      hudList.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:8px 0;">暂无 HUD，点击上方"添加 HUD"</div>';
+    } else {
+      hudItems.forEach(({ it, i }) => {
+        const d = document.createElement('div');
+        d.className = 'th-list-item';
+        d.onclick = () => openHudPanel(i);
+        const pTitle = (it.panels && it.panels[0] && it.panels[0].title) || 'HUD';
+        d.innerHTML = `<span class="th-li-icon">🎮</span><div class="th-li-text"><div class="th-li-content">${escHtml(pTitle)}</div><div class="th-li-meta">${it.trigger === 'auto_at_time' ? it.auto_at_s+'s 自动唤起' : '点击暂停唤起'} · ${it.panels ? it.panels.length : 0}个面板</div></div><button class="th-li-del" onclick="event.stopPropagation();deleteHudOverlay(${i})" title="删除">&times;</button>`;
+        hudList.appendChild(d);
+      });
+    }
+  }
+
+  // 更新 graphic_hint 侧边栏列表
+  const ghList = document.getElementById('gh-list');
+  if (ghList) {
+    const ghItems = interactions.map((it, i) => ({ it, i })).filter(({ it }) => it.type === 'graphic_hint');
+    ghList.innerHTML = '';
+    if (ghItems.length === 0) {
+      ghList.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:8px 0;">暂无引导图，点击上方"添加引导图"</div>';
+    } else {
+      ghItems.forEach(({ it, i }) => {
+        const d = document.createElement('div');
+        d.className = 'th-list-item';
+        d.onclick = () => openGhPanel(i);
+        d.innerHTML = `<span class="th-li-icon">✨</span><div class="th-li-text"><div class="th-li-content">${_ghTypeLabel(it.graphic_type)}${it.gesture_type ? ' · ' + _ghGestureLabel(it.gesture_type) : ''}</div><div class="th-li-meta">${it.timing ? it.timing.show_at_s + 's / ' + it.timing.duration_s + 's' : ''} · ${it.show_strategy || ''}</div></div><button class="th-li-del" onclick="event.stopPropagation();deleteGhHint(${i})" title="删除">&times;</button>`;
+        ghList.appendChild(d);
+      });
+    }
+  }
+}
+
+// ==================== DSL hud_overlay + graphic_hint 编辑层结束 ====================
+
 
 
 /**
