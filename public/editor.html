@@ -1633,6 +1633,48 @@ html, body {
 .imm-top-btn.hud-active { background: rgba(234,179,8,0.15); border-color: rgba(234,179,8,0.5); color: #fbbf24; }
 .imm-top-btn.gh-active  { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.5); color: #34d399; }
 
+/* ── QTE 快速反应事件侧边栏 (3.0 W4) ──────────────────────── */
+#qte-sidebar {
+  position: absolute;
+  top: 0; right: 0;
+  width: 340px; height: 100%;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  z-index: 10000;
+  overflow: hidden;
+}
+#qte-sidebar.open { transform: translateX(0); }
+.qte-group {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; flex-shrink: 0;
+}
+.qte-group summary {
+  list-style: none; padding: 8px 12px;
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; background: rgba(255,255,255,0.03);
+  display: flex; align-items: center; gap: 5px; user-select: none;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.qte-group summary::-webkit-details-marker { display: none; }
+.qte-group summary::before { content: '▶'; font-size: 8px; transition: transform .15s; opacity: 0.5; }
+.qte-group[open] summary::before { transform: rotate(90deg); }
+.qte-group-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.qte-outcome-block {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 10px; background: var(--bg-card-hover);
+}
+.qte-outcome-block h6 { margin: 0 0 7px; font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+.imm-qte-badge {
+  position: absolute; bottom: 35%; left: 50%; transform: translateX(-50%);
+  padding: 4px 12px; border-radius: 999px; font-size: 10px; font-weight: 600;
+  background: rgba(239,68,68,0.9); color: #fff; pointer-events: none; z-index: 5;
+}
+.imm-top-btn.qte-active { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.5); color: #f87171; }
+.th-list-item.drag-over { border-color: var(--accent) !important; background: rgba(99,102,241,0.08) !important; }
+
 
 
 /* ── Immersive Stage (放大的预览屏容器) ─────────────────── */
@@ -2389,6 +2431,10 @@ body.immersive-mode #right-panel {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
       添加引导图
     </button>
+    <button class="imm-top-btn" id="btn-add-qte" onclick="openQtePanel(null)" title="添加快速反应事件（点击靶 / 滑动 / 长按，DSL qte）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><line x1="12" y1="2.5" x2="12" y2="5.5"/><line x1="12" y1="18.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="5.5" y2="12"/><line x1="18.5" y1="12" x2="21.5" y2="12"/></svg>
+      QTE
+    </button>
     <!-- 全景模式专属：在当前视角打点 -->
     <button class="imm-top-btn" id="btn-add-3d-hotspot" onclick="toggle3DPickMode()" title="点击模型表面精准打点（positionAndNormalFromPoint）">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2669,6 +2715,183 @@ body.immersive-mode #right-panel {
     </div>
     <!-- 已有 graphic_hint 列表 -->
     <div id="gh-list" style="padding:0 16px 14px;display:flex;flex-direction:column;gap:6px;"></div>
+  </div>
+  <!-- QTE 编辑侧边栏 (W4) -->
+  <div id="qte-sidebar">
+    <div class="w3-sidebar-header">
+      <h4 id="qte-sidebar-title">添加快速反应事件</h4>
+      <button class="w3-sidebar-close" onclick="closeQtePanel()" title="关闭">&times;</button>
+    </div>
+    <div class="w3-sidebar-body" id="qte-sidebar-body">
+      <!-- Group 1: 基础设置 -->
+      <details class="qte-group" open>
+        <summary>基础设置</summary>
+        <div class="qte-group-body">
+          <div class="w3-row">
+            <div class="w3-field">
+              <label>触发时间（s）</label>
+              <input type="number" id="qte-trigger-time" value="5" min="0" step="0.1">
+            </div>
+            <div class="w3-field">
+              <label>时限（s）</label>
+              <input type="number" id="qte-time-limit" value="5" min="1" step="1">
+            </div>
+          </div>
+          <div class="w3-field">
+            <label>模式</label>
+            <select id="qte-mode" onchange="onQteModeChange()">
+              <option value="tap_target">tap_target 点击靶</option>
+              <option value="swipe">swipe 滑动</option>
+              <option value="hold_circle">hold_circle 长按圆</option>
+              <option value="rhythm">rhythm 节奏</option>
+              <option value="none">none 纯倒计时</option>
+            </select>
+          </div>
+          <div class="w3-field" id="qte-input-method-wrap">
+            <label>输入方式</label>
+            <select id="qte-input-method">
+              <option value="tap">tap</option>
+              <option value="swipe_up">swipe_up</option>
+              <option value="swipe_any">swipe_any</option>
+              <option value="hold">hold</option>
+              <option value="multi_tap">multi_tap</option>
+            </select>
+          </div>
+          <div class="w3-field">
+            <label>失败行为</label>
+            <select id="qte-fail-behavior">
+              <option value="show_fail_outcome">show_fail_outcome 展示失败结果</option>
+              <option value="retry">retry 重试</option>
+              <option value="continue">continue 继续播放</option>
+            </select>
+          </div>
+        </div>
+      </details>
+      <!-- Group 2: 慢动作 -->
+      <details class="qte-group">
+        <summary>慢动作 slow_mo</summary>
+        <div class="qte-group-body">
+          <div class="w3-field" style="flex-direction:row;align-items:center;gap:8px;">
+            <input type="checkbox" id="qte-slowmo-enabled" onchange="onQteSlowmoToggle()" style="width:auto;cursor:pointer;">
+            <label style="margin:0;cursor:pointer;" for="qte-slowmo-enabled">启用慢动作</label>
+          </div>
+          <div id="qte-slowmo-fields" style="display:none;flex-direction:column;gap:8px;">
+            <div class="w3-row">
+              <div class="w3-field"><label>窗口开始（s）</label><input type="number" id="qte-slowmo-start" value="3" min="0" step="0.1"></div>
+              <div class="w3-field"><label>窗口结束（s）</label><input type="number" id="qte-slowmo-end" value="7" min="0" step="0.1"></div>
+            </div>
+            <div class="w3-field">
+              <label>播放速率 <span id="qte-slowmo-speed-val">0.30</span>x</label>
+              <input type="range" id="qte-slowmo-speed" min="0.1" max="1" step="0.05" value="0.3"
+                oninput="document.getElementById('qte-slowmo-speed-val').textContent=parseFloat(this.value).toFixed(2)"
+                style="width:100%;cursor:pointer;accent-color:var(--accent);">
+            </div>
+          </div>
+        </div>
+      </details>
+      <!-- Group 3: 提示引用 -->
+      <details class="qte-group">
+        <summary>提示引用 hint</summary>
+        <div class="qte-group-body">
+          <div class="w3-field">
+            <label>绑定文字提示 text_hint</label>
+            <select id="qte-hint-text"><option value="">-- 不绑定 --</option></select>
+          </div>
+          <div class="w3-field">
+            <label>绑定图形引导 graphic_hint</label>
+            <select id="qte-hint-graphic"><option value="">-- 不绑定 --</option></select>
+          </div>
+        </div>
+      </details>
+      <!-- Group 4: 结果走向 -->
+      <details class="qte-group">
+        <summary>结果走向 outcomes</summary>
+        <div class="qte-group-body">
+          <div class="qte-outcome-block">
+            <h6>&#x2705; 成功 success</h6>
+            <div class="w3-field">
+              <label>动作</label>
+              <select id="qte-success-action" onchange="onQteOutcomeChange('success')">
+                <option value="continue">continue 继续播放</option>
+                <option value="jump_to_clip">jump_to_clip 跳片段</option>
+                <option value="jump_to_timestamp">jump_to_timestamp 跳时间点</option>
+              </select>
+            </div>
+            <div class="w3-field" id="qte-success-target-wrap" style="display:none">
+              <label>目标节点 ID</label>
+              <input type="text" id="qte-success-target" placeholder="node_xxx">
+            </div>
+            <div class="w3-field" id="qte-success-time-wrap" style="display:none">
+              <label>跳转时间（s）</label>
+              <input type="number" id="qte-success-time" value="0" min="0" step="0.1">
+            </div>
+            <div class="w3-field">
+              <label>转场效果</label>
+              <select id="qte-success-fx">
+                <option value="">默认</option>
+                <option value="cut">cut</option>
+                <option value="fade">fade</option>
+                <option value="flash">flash</option>
+              </select>
+            </div>
+          </div>
+          <div class="qte-outcome-block">
+            <h6>&#x274C; 失败 fail</h6>
+            <div class="w3-field">
+              <label>动作</label>
+              <select id="qte-fail-action" onchange="onQteOutcomeChange('fail')">
+                <option value="continue">continue 继续播放</option>
+                <option value="jump_to_clip">jump_to_clip 跳片段</option>
+                <option value="jump_to_timestamp">jump_to_timestamp 跳时间点</option>
+              </select>
+            </div>
+            <div class="w3-field" id="qte-fail-target-wrap" style="display:none">
+              <label>目标节点 ID</label>
+              <input type="text" id="qte-fail-target" placeholder="node_xxx">
+            </div>
+            <div class="w3-field" id="qte-fail-time-wrap" style="display:none">
+              <label>跳转时间（s）</label>
+              <input type="number" id="qte-fail-time" value="0" min="0" step="0.1">
+            </div>
+            <div class="w3-field">
+              <label>转场效果</label>
+              <select id="qte-fail-fx">
+                <option value="">默认</option>
+                <option value="cut">cut</option>
+                <option value="fade">fade</option>
+                <option value="flash">flash</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </details>
+      <!-- Group 5: 视觉主题 -->
+      <details class="qte-group">
+        <summary>视觉主题 ui_theme</summary>
+        <div class="qte-group-body">
+          <div class="w3-field">
+            <label>按鈕样式</label>
+            <select id="qte-btn-style">
+              <option value="circle">circle 圆形</option>
+              <option value="bar">bar 条形</option>
+              <option value="ring">ring 环形</option>
+              <option value="none">none 无</option>
+            </select>
+          </div>
+          <div class="w3-field">
+            <label>主色</label>
+            <input type="color" id="qte-primary-color" value="#ef4444"
+              style="width:100%;height:34px;padding:2px 4px;box-sizing:border-box;cursor:pointer;border-radius:var(--radius-sm);border:1px solid var(--border);">
+          </div>
+        </div>
+      </details>
+    </div>
+    <div class="w3-sidebar-actions">
+      <button class="w3-btn-save" onclick="saveQte()">保存</button>
+      <button class="w3-btn-cancel" onclick="closeQtePanel()">取消</button>
+    </div>
+    <!-- 已有 QTE 列表 -->
+    <div id="qte-list" style="padding:0 16px 14px;display:flex;flex-direction:column;gap:6px;"></div>
   </div>
 <!-- /immersive-overlay -->
 
@@ -5601,6 +5824,7 @@ function renderImmersiveTextHints(nodeData) {
     `;
     listEl.appendChild(div);
   });
+  attachListDragDrop(listEl, nodeData, 'text_hint');
   renderImmersiveAdvanced(nodeData);
 }
 
@@ -5893,7 +6117,7 @@ function _ghGestureLabel(t) {
 function renderImmersiveAdvanced(nodeData) {
   const screen = document.getElementById('immersive-choices');
   // 清除旧 hud / gh 标签
-  screen.querySelectorAll('.imm-hud-badge, .imm-gh-badge').forEach(el => el.remove());
+  screen.querySelectorAll('.imm-hud-badge, .imm-gh-badge, .imm-qte-badge').forEach(el => el.remove());
 
   const interactions = nodeData.interactions || [];
 
@@ -5953,9 +6177,294 @@ function renderImmersiveAdvanced(nodeData) {
       });
     }
   }
+
+  // QTE 预览徽章
+  interactions.forEach((it) => {
+    if (it.type !== 'qte') return;
+    const badge = document.createElement('div');
+    badge.className = 'imm-qte-badge';
+    badge.textContent = '[QTE] ' + _qteModeLabel(it.mode) + ' @' + (it.trigger_time_s || 0) + 's';
+    screen.appendChild(badge);
+  });
+
+  // 更新 QTE 侧边栏列表
+  const qteList = document.getElementById('qte-list');
+  if (qteList) {
+    const qteItems = interactions.map((it, i) => ({ it, i })).filter(({ it }) => it.type === 'qte');
+    qteList.innerHTML = '';
+    if (qteItems.length === 0) {
+      qteList.innerHTML = '<div class="th-list-empty">暂无 QTE，点击上方“QTE”添加</div>';
+    } else {
+      qteItems.forEach(({ it, i }) => {
+        const d = document.createElement('div');
+        d.className = 'th-list-item';
+        d.onclick = () => openQtePanel(i);
+        d.innerHTML = `<span class="th-li-icon">&#9889;</span><div class="th-li-text"><div class="th-li-content">${_qteModeLabel(it.mode)} @${it.trigger_time_s || 0}s</div><div class="th-li-meta">${it.time_limit_s || 5}s时限 &middot; ${it.fail_behavior || ''}</div></div><button class="th-li-del" onclick="event.stopPropagation();deleteQte(${i})" title="删除">&times;</button>`;
+        qteList.appendChild(d);
+      });
+      attachListDragDrop(qteList, nodeData, 'qte');
+    }
+  }
+
+  // 为 hud-list / gh-list 附加拖拽排序
+  if (hudList && hudList.querySelectorAll('.th-list-item').length > 1) {
+    attachListDragDrop(hudList, nodeData, 'hud_overlay');
+  }
+  if (ghList && ghList.querySelectorAll('.th-list-item').length > 1) {
+    attachListDragDrop(ghList, nodeData, 'graphic_hint');
+  }
 }
 
 // ==================== DSL hud_overlay + graphic_hint 编辑层结束 ====================
+
+// ==================== DSL v0 QTE 编辑层 (3.0 W4) ====================
+
+let _qteEditIdx = -1;
+
+function _qteModeLabel(mode) {
+  return { tap_target:'点击靶', swipe:'滑动', hold_circle:'长按圆', rhythm:'节奏', none:'倒计时' }[mode] || mode || 'QTE';
+}
+
+function openQtePanel(idx) {
+  _qteEditIdx = (idx !== null && idx >= 0) ? idx : -1;
+  document.getElementById('qte-sidebar').classList.add('open');
+  document.getElementById('btn-add-qte').classList.add('qte-active');
+
+  const interactions = (immersiveNodeData && immersiveNodeData.interactions) || [];
+
+  const thSel = document.getElementById('qte-hint-text');
+  const ghSel = document.getElementById('qte-hint-graphic');
+  thSel.innerHTML = '<option value="">-- 不绑定 --</option>';
+  ghSel.innerHTML = '<option value="">-- 不绑定 --</option>';
+  interactions.forEach(it => {
+    if (it.type === 'text_hint') {
+      const o = document.createElement('option');
+      o.value = it.id; o.textContent = it.id + ' · ' + (it.content || '').substring(0, 18);
+      thSel.appendChild(o);
+    }
+    if (it.type === 'graphic_hint') {
+      const o = document.createElement('option');
+      o.value = it.id; o.textContent = it.id + ' · ' + (it.graphic_type || '');
+      ghSel.appendChild(o);
+    }
+  });
+
+  if (_qteEditIdx >= 0) {
+    const item = interactions[_qteEditIdx];
+    document.getElementById('qte-sidebar-title').textContent = '编辑快速反应事件';
+    document.getElementById('qte-trigger-time').value = item.trigger_time_s != null ? item.trigger_time_s : 5;
+    document.getElementById('qte-mode').value = item.mode || 'tap_target';
+    document.getElementById('qte-time-limit').value = item.time_limit_s != null ? item.time_limit_s : 5;
+    document.getElementById('qte-fail-behavior').value = item.fail_behavior || 'show_fail_outcome';
+    const sm = item.slow_mo;
+    const smEn = !!(sm && sm.enabled);
+    document.getElementById('qte-slowmo-enabled').checked = smEn;
+    document.getElementById('qte-slowmo-fields').style.display = smEn ? 'flex' : 'none';
+    if (smEn && sm.window) {
+      document.getElementById('qte-slowmo-start').value = sm.window[0];
+      document.getElementById('qte-slowmo-end').value = sm.window[1];
+      const spd = sm.speed_ratio != null ? sm.speed_ratio : 0.3;
+      document.getElementById('qte-slowmo-speed').value = spd;
+      document.getElementById('qte-slowmo-speed-val').textContent = parseFloat(spd).toFixed(2);
+    }
+    thSel.value = (item.hint && item.hint.text_hint_id) || '';
+    ghSel.value = (item.hint && item.hint.graphic_hint_id) || '';
+    _loadQteOutcome('success', item.outcomes && item.outcomes.success);
+    _loadQteOutcome('fail',    item.outcomes && item.outcomes.fail);
+    document.getElementById('qte-btn-style').value = (item.ui_theme && item.ui_theme.button_style) || 'circle';
+    document.getElementById('qte-primary-color').value = (item.ui_theme && item.ui_theme.primary_color) || '#ef4444';
+  } else {
+    document.getElementById('qte-sidebar-title').textContent = '添加快速反应事件';
+    document.getElementById('qte-trigger-time').value = '5';
+    document.getElementById('qte-mode').value = 'tap_target';
+    document.getElementById('qte-time-limit').value = '5';
+    document.getElementById('qte-fail-behavior').value = 'show_fail_outcome';
+    document.getElementById('qte-slowmo-enabled').checked = false;
+    document.getElementById('qte-slowmo-fields').style.display = 'none';
+    thSel.value = ''; ghSel.value = '';
+    _loadQteOutcome('success', null);
+    _loadQteOutcome('fail',    null);
+    document.getElementById('qte-btn-style').value = 'circle';
+    document.getElementById('qte-primary-color').value = '#ef4444';
+  }
+  onQteModeChange();
+}
+
+function _loadQteOutcome(type, outcome) {
+  const action = (outcome && outcome.action) || 'continue';
+  document.getElementById('qte-' + type + '-action').value = action;
+  document.getElementById('qte-' + type + '-target').value = (outcome && outcome.target_clip_id) || '';
+  document.getElementById('qte-' + type + '-time').value = (outcome && outcome.target_time_s) || 0;
+  document.getElementById('qte-' + type + '-fx').value = (outcome && outcome.transition_fx) || '';
+  onQteOutcomeChange(type);
+}
+
+function onQteModeChange() {
+  const mode = document.getElementById('qte-mode').value;
+  const wrap = document.getElementById('qte-input-method-wrap');
+  const sel  = document.getElementById('qte-input-method');
+  const modeMap = {
+    tap_target:  ['tap', 'multi_tap'],
+    swipe:       ['swipe_up', 'swipe_any'],
+    hold_circle: ['hold'],
+    rhythm:      ['tap', 'multi_tap'],
+    none:        []
+  };
+  const allowed = modeMap[mode] || [];
+  wrap.style.display = allowed.length ? '' : 'none';
+  const cur = sel.value;
+  sel.innerHTML = '';
+  allowed.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m;
+    if (m === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+  if (allowed.length && !allowed.includes(cur)) sel.value = allowed[0];
+}
+
+function onQteOutcomeChange(type) {
+  const action = document.getElementById('qte-' + type + '-action').value;
+  const tw = document.getElementById('qte-' + type + '-target-wrap');
+  const tt = document.getElementById('qte-' + type + '-time-wrap');
+  if (tw) tw.style.display = (action === 'jump_to_clip' || action === 'jump_to_timestamp') ? '' : 'none';
+  if (tt) tt.style.display = (action === 'jump_to_timestamp') ? '' : 'none';
+}
+
+function onQteSlowmoToggle() {
+  document.getElementById('qte-slowmo-fields').style.display =
+    document.getElementById('qte-slowmo-enabled').checked ? 'flex' : 'none';
+}
+
+function closeQtePanel() {
+  document.getElementById('qte-sidebar').classList.remove('open');
+  document.getElementById('btn-add-qte').classList.remove('qte-active');
+}
+
+function saveQte() {
+  const triggerTime  = parseFloat(document.getElementById('qte-trigger-time').value) || 5;
+  const timeLimit    = parseFloat(document.getElementById('qte-time-limit').value) || 5;
+  const mode         = document.getElementById('qte-mode').value;
+  const failBehavior = document.getElementById('qte-fail-behavior').value;
+
+  let slow_mo = null;
+  if (document.getElementById('qte-slowmo-enabled').checked) {
+    const smStart = parseFloat(document.getElementById('qte-slowmo-start').value) || 0;
+    const smEnd   = parseFloat(document.getElementById('qte-slowmo-end').value) || 10;
+    if (smEnd <= smStart) {
+      typeof showToast === 'function' && showToast('慢动作窗口结束时间必须大于开始时间', 'error'); return;
+    }
+    if (triggerTime < smStart || triggerTime > smEnd) {
+      typeof showToast === 'function' && showToast('触发时间 ' + triggerTime + 's 须在慢动作窗口 [' + smStart + 's,' + smEnd + 's] 内', 'error'); return;
+    }
+    slow_mo = { enabled: true, window: [smStart, smEnd],
+      speed_ratio: parseFloat(document.getElementById('qte-slowmo-speed').value) || 0.3 };
+  }
+
+  const thId = document.getElementById('qte-hint-text').value;
+  const ghId = document.getElementById('qte-hint-graphic').value;
+  const hint = {};
+  if (thId) hint.text_hint_id = thId;
+  if (ghId) hint.graphic_hint_id = ghId;
+
+  const buildOutcome = (type) => {
+    const action = document.getElementById('qte-' + type + '-action').value;
+    if (action === 'continue') return { action: 'continue' };
+    const out = { action };
+    const tgt = (document.getElementById('qte-' + type + '-target').value || '').trim();
+    if (tgt) out.target_clip_id = tgt;
+    if (action === 'jump_to_timestamp')
+      out.target_time_s = parseFloat(document.getElementById('qte-' + type + '-time').value) || 0;
+    const fx = document.getElementById('qte-' + type + '-fx').value;
+    if (fx) out.transition_fx = fx;
+    return out;
+  };
+
+  const existing = _qteEditIdx >= 0 && immersiveNodeData.interactions && immersiveNodeData.interactions[_qteEditIdx];
+  const itemId = (existing && existing.id) || ('qte_' + Date.now());
+  const item = {
+    id: itemId, type: 'qte',
+    trigger_time_s: triggerTime, mode,
+    time_limit_s: timeLimit, fail_behavior: failBehavior,
+    outcomes: { success: buildOutcome('success'), fail: buildOutcome('fail') },
+    metadata: {}
+  };
+  if (mode !== 'none') item.input_method = document.getElementById('qte-input-method').value || 'tap';
+  if (slow_mo) item.slow_mo = slow_mo;
+  if (Object.keys(hint).length > 0) item.hint = hint;
+  item.ui_theme = {
+    button_style: document.getElementById('qte-btn-style').value || 'circle',
+    primary_color: document.getElementById('qte-primary-color').value || '#ef4444'
+  };
+
+  if (!immersiveNodeData.interactions) immersiveNodeData.interactions = [];
+  if (_qteEditIdx >= 0) {
+    immersiveNodeData.interactions[_qteEditIdx] = item;
+  } else {
+    immersiveNodeData.interactions.push(item);
+  }
+
+  typeof markDirty === 'function' && markDirty();
+  closeQtePanel();
+  renderImmersiveAdvanced(immersiveNodeData);
+  typeof renderImmersiveTextHints === 'function' && renderImmersiveTextHints(immersiveNodeData);
+  typeof showToast === 'function' && showToast('QTE 已保存', 'success');
+}
+
+function deleteQte(idx) {
+  if (!immersiveNodeData || !immersiveNodeData.interactions) return;
+  immersiveNodeData.interactions.splice(idx, 1);
+  typeof markDirty === 'function' && markDirty();
+  renderImmersiveAdvanced(immersiveNodeData);
+  typeof renderImmersiveTextHints === 'function' && renderImmersiveTextHints(immersiveNodeData);
+}
+
+// 拖拽排序（HTML5 drag-drop，适用所有四类交互列表）
+function attachListDragDrop(listEl, nodeData, interactionType) {
+  if (!listEl) return;
+  const items = listEl.querySelectorAll('.th-list-item');
+  if (items.length < 2) return;
+  let dragSrc = null;
+  items.forEach(item => {
+    item.setAttribute('draggable', 'true');
+    item.addEventListener('dragstart', e => {
+      dragSrc = item;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => { if (dragSrc) dragSrc.style.opacity = '0.4'; }, 0);
+    });
+    item.addEventListener('dragend', () => {
+      if (dragSrc) dragSrc.style.opacity = '';
+      dragSrc = null;
+      listEl.querySelectorAll('.th-list-item').forEach(el => el.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      listEl.querySelectorAll('.th-list-item').forEach(el => el.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === item) return;
+      const all = [...listEl.querySelectorAll('.th-list-item')];
+      const fromIdx = all.indexOf(dragSrc);
+      const toIdx   = all.indexOf(item);
+      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+      const arr = (nodeData.interactions || []).filter(x => x.type === interactionType);
+      const moved = arr.splice(fromIdx, 1)[0];
+      arr.splice(toIdx, 0, moved);
+      let qi = 0;
+      nodeData.interactions = (nodeData.interactions || []).map(
+        x => x.type === interactionType ? arr[qi++] : x
+      );
+      typeof markDirty === 'function' && markDirty();
+      renderImmersiveAdvanced(nodeData);
+      typeof renderImmersiveTextHints === 'function' && renderImmersiveTextHints(nodeData);
+    });
+  });
+}
+
+// ==================== DSL v0 QTE 编辑层结束 ====================
 
 
 
