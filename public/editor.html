@@ -7088,6 +7088,178 @@ function collectMinigameConfig(nodeId) {
   };
 }
 
+// ==================== DSL v0 数据转换层 (3.0 W1) ====================
+
+/** 百分比字符串 -> 归一化浮点数 ("45.5%" -> 0.455) */
+function pctToNorm(s) {
+  if (typeof s === 'number') return Math.max(0, Math.min(1, s / 100));
+  return Math.max(0, Math.min(1, parseFloat(s) / 100));
+}
+
+/** 多边形点数组 -> 外接矩形 bbox [x, y, w, h] (DSL v0 降级策略) */
+function polygonToBbox(points) {
+  if (!points || points.length < 2) return [0.1, 0.1, 0.25, 0.25];
+  const xs = points.map(p => pctToNorm(p.x));
+  const ys = points.map(p => pctToNorm(p.y));
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const r = v => Math.round(v * 1000) / 1000;
+  return [r(minX), r(minY), r(Math.max(0.05, maxX - minX)), r(Math.max(0.05, maxY - minY))];
+}
+
+/** choice -> DSL Outcome 对象 */
+function buildDslOutcome(choice) {
+  const targetId = choice.target_node || choice.target || null;
+  if (!targetId) return { action: 'continue' };
+  if (typeof choice.seek_to === 'number') {
+    return { action: 'jump_to_timestamp', target_clip_id: targetId, target_time_s: choice.seek_to };
+  }
+  return { action: 'jump_to_clip', target_clip_id: targetId };
+}
+
+/** 文字热区 choice -> DSL hotspot 条目 (中心点展开为 bbox) */
+function buildTextHotspotItem(choice, idx) {
+  const xN = pctToNorm(choice.position.x);
+  const yN = pctToNorm(choice.position.y);
+  const r = v => Math.round(v * 1000) / 1000;
+  const bbox = [r(Math.max(0, xN - 0.12)), r(Math.max(0, yN - 0.09)), 0.25, 0.18];
+  const item = {
+    id: choice.id || ('hs_text_' + idx),
+    bbox,
+    visible_hint: choice.visible_hint || 'subtle',
+    hint_delay_s: 5,
+    on_click: {
+      feedback_fx: 'ripple',
+      action_outcome: buildDslOutcome(choice)
+    },
+    metadata: { label: choice.label || '' }
+  };
+  if (choice.timeWindow && choice.timeWindow[1] > choice.timeWindow[0]) {
+    item.timing = { show_at_s: choice.timeWindow[0], duration_s: choice.timeWindow[1] - choice.timeWindow[0] };
+  }
+  return item;
+}
+
+/** 多边形触发区 choice -> DSL hotspot 条目 (hidden, bbox 为外接矩形) */
+function buildPolygonHotspotItem(choice, idx) {
+  const bbox = polygonToBbox(choice.points);
+  const item = {
+    id: choice.id || ('hs_poly_' + idx),
+    bbox,
+    visible_hint: 'hidden',
+    on_click: {
+      feedback_fx: 'particle_burst',
+      action_outcome: buildDslOutcome(choice)
+    },
+    metadata: {
+      label: choice.label || '',
+      polygon_points: (choice.points || []).map(p => ({ x: pctToNorm(p.x), y: pctToNorm(p.y) }))
+    }
+  };
+  if (choice.timeWindow && choice.timeWindow[1] > choice.timeWindow[0]) {
+    item.timing = { show_at_s: choice.timeWindow[0], duration_s: choice.timeWindow[1] - choice.timeWindow[0] };
+  }
+  return item;
+}
+
+/**
+ * 核心转换函数: node.choices[] -> DSL v0 interaction_dsl JSON
+ * 返回合法 DSL 对象，或 null (无可转换内容)
+ */
+function buildInteractionDsl(nodeData) {
+  if (!nodeData.video_url) return null;
+  const choices = nodeData.choices || [];
+  const hasAdvanced = nodeData.interactions && nodeData.interactions.length > 0;
+  if (choices.length === 0 && !hasAdvanced) return null;
+
+  const duration = nodeData._videoDuration
+    || nodeData.branch_at_second
+    || nodeData.branch_time
+    || 30;
+  const clipId = nodeData.id;
+  const interactions = [];
+
+  // 1. 多边形触发区 -> hotspot (visible_hint: hidden)
+  const polygonChoices = choices.filter(c => c.type === 'polygon' && c.points && c.points.length >= 3);
+  // 2. 有 timeWindow 的文字热区 -> hotspot (visible_hint: subtle)
+  const textHotspotChoices = choices.filter(
+    c => c.type !== 'polygon' && c.position
+      && c.timeWindow && c.timeWindow[1] > c.timeWindow[0]
+  );
+  // 3. 无 timeWindow 的选项 -> branch
+  const branchChoices = choices.filter(
+    c => c.type !== 'polygon'
+      && (!c.timeWindow || !(c.timeWindow[1] > c.timeWindow[0]))
+  );
+
+  // Build hotspot interaction
+  const hotspotItems = [
+    ...textHotspotChoices.map((c, i) => buildTextHotspotItem(c, i)),
+    ...polygonChoices.map((c, i) => buildPolygonHotspotItem(c, i))
+  ];
+  if (hotspotItems.length > 0) {
+    interactions.push({
+      id: 'hotspot_' + nodeData.id,
+      type: 'hotspot',
+      video_mode: 'pause_at_end',
+      hotspots: hotspotItems,
+      help_after_s: 15,
+      max_wait_s: 60,
+      metadata: {}
+    });
+  }
+
+  // Build branch interaction
+  const branchTime = nodeData.branch_time || nodeData.branch_at_second;
+  if (branchChoices.length > 0 && branchTime != null) {
+    const triggerTime = Math.min(parseFloat(branchTime), duration);
+    const options = branchChoices.map((c, i) => {
+      const opt = {
+        id: c.id || ('opt_' + i),
+        label: (c.label || ('选项' + (i + 1))).substring(0, 30),
+        cost_bubbles: 1,
+        on_choose: buildDslOutcome(c)
+      };
+      if (c.sublabel) opt.description = c.sublabel.substring(0, 80);
+      return opt;
+    });
+    const branchInteraction = {
+      id: 'branch_' + nodeData.id,
+      type: 'branch',
+      trigger_time_s: triggerTime,
+      options,
+      metadata: {}
+    };
+    // countdown 超时配置 (如有)
+    const countdownCfg = branchChoices[0] && branchChoices[0].countdown;
+    if (countdownCfg && countdownCfg.seconds) {
+      branchInteraction.timeout_s = countdownCfg.seconds;
+      if (countdownCfg.timeout_target_node) {
+        branchInteraction.timeout_action = { action: 'jump_to_clip', target_clip_id: countdownCfg.timeout_target_node };
+      }
+    }
+    interactions.push(branchInteraction);
+  }
+
+  // Merge advanced interactions (text_hint / graphic_hint / hud_overlay / qte)
+  const advancedInteractions = (nodeData.interactions || []).filter(
+    item => ['text_hint', 'graphic_hint', 'hud_overlay', 'qte'].includes(item.type)
+  );
+  interactions.push(...advancedInteractions);
+
+  if (interactions.length === 0) return null;
+
+  return {
+    dsl_version: 'v0.1.0',
+    clip_id: clipId,
+    clip_duration_s: duration,
+    interactions,
+    metadata: {}
+  };
+}
+
+// ==================== DSL v0 数据转换层结束 ====================
+
 function prepareGameDataForPublish(gameData) {
   const data = JSON.parse(JSON.stringify(gameData));
   const errors = [];
@@ -7144,6 +7316,19 @@ function prepareGameDataForPublish(gameData) {
       });
     });
   });
+  // 3.0 W1: generate interaction_dsl for each clip node
+  let _dslPolygonCount = 0;
+  Object.values(data.nodes || {}).forEach(node => {
+    if (node.interaction_dsl != null) return;
+    const dsl = buildInteractionDsl(node);
+    if (dsl) {
+      node.interaction_dsl = dsl;
+      (node.choices || []).forEach(c => { if (c.type === 'polygon') _dslPolygonCount++; });
+    }
+  });
+  if (_dslPolygonCount > 0 && typeof showToast === 'function') {
+    showToast('提示：' + _dslPolygonCount + ' 个多边形触发区已简化为矩形热区（DSL v0 规格）', 'info');
+  }
   return data;
 }
 // ==================== 小游戏配置面板结束 ====================
