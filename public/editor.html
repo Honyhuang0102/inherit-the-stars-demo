@@ -1461,6 +1461,93 @@ html, body {
   border-color: var(--accent);
 }
 .imm-top-btn.primary:hover { background: #333; border-color: #333; }
+/* ── text_hint 独白编辑侧边栏 ──────────────────────────────── */
+#text-hint-sidebar {
+  position: absolute;
+  top: 0; right: 0;
+  width: 300px; height: 100%;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  z-index: 9999;
+  overflow: hidden;
+}
+#text-hint-sidebar.open { transform: translateX(0); }
+#text-hint-sidebar-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+#text-hint-sidebar-header h4 { margin: 0; font-size: 13px; color: var(--text-primary); }
+#text-hint-sidebar-close {
+  background: none; border: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+}
+#text-hint-sidebar-close:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+#text-hint-sidebar-body {
+  flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.th-field label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+.th-field textarea, .th-field select, .th-field input[type=number] {
+  width: 100%; box-sizing: border-box;
+  background: var(--bg-input, #1a1a1a); border: 1px solid var(--border);
+  color: var(--text-primary); border-radius: var(--radius-sm);
+  font-size: 12px; padding: 6px 8px; font-family: inherit;
+}
+.th-field textarea { resize: vertical; min-height: 70px; }
+.th-field select:focus, .th-field textarea:focus, .th-field input:focus {
+  outline: none; border-color: var(--accent);
+}
+.th-char-counter { font-size: 10px; color: var(--text-secondary); text-align: right; margin-top: 2px; }
+.th-char-counter.warn { color: #f59e0b; }
+.th-timing-row { display: flex; gap: 10px; }
+.th-timing-row .th-field { flex: 1; }
+#text-hint-sidebar-actions {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; gap: 8px;
+}
+#text-hint-sidebar-actions button { flex: 1; padding: 7px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; border: 1px solid var(--border); }
+#btn-th-save { background: var(--accent); color: #fff; border-color: var(--accent); }
+#btn-th-save:hover { background: #333; border-color: #333; }
+#btn-th-cancel { background: transparent; color: var(--text-secondary); }
+#btn-th-cancel:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+#text-hint-list { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 6px; }
+.th-list-item {
+  background: var(--bg-card-hover, #1e1e1e); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+}
+.th-list-item:hover { border-color: var(--accent); }
+.th-list-item .th-li-icon { font-size: 14px; opacity: 0.8; flex-shrink: 0; margin-top: 1px; }
+.th-list-item .th-li-text { flex: 1; min-width: 0; }
+.th-list-item .th-li-content { font-size: 12px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.th-list-item .th-li-meta { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+.th-list-item .th-li-del { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 14px; padding: 0 2px; flex-shrink: 0; }
+.th-list-item .th-li-del:hover { color: #ef4444; }
+.th-list-empty { font-size: 11px; color: var(--text-secondary); text-align: center; padding: 10px 0; }
+/* text_hint 预览指示标签（显示在沉浸屏内） */
+.imm-text-hint-badge {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px; font-weight: 500;
+  background: rgba(99,102,241,0.85);
+  color: #fff;
+  pointer-events: none;
+  z-index: 5;
+  white-space: nowrap;
+  max-width: 90%;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.imm-text-hint-badge.pos-bottom { bottom: 18%; }
+.imm-text-hint-badge.pos-center { top: 50%; margin-top: -12px; }
+.imm-text-hint-badge.pos-top    { top: 8%; }
+/* active state for 添加独白 button */
+.imm-top-btn.th-active { background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.5); color: #818cf8; }
+
 
 /* ── Immersive Stage (放大的预览屏容器) ─────────────────── */
 #immersive-stage {
@@ -2204,6 +2291,10 @@ body.immersive-mode #right-panel {
       </svg>
       添加隐形触发区
     </button>
+    <button class="imm-top-btn" id="btn-add-text-hint" onclick="openTextHintPanel(null)" title="在视频时间轴上添加一条主角独白 / 文字提示（DSL text_hint）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      添加独白
+    </button>
     <!-- 全景模式专属：在当前视角打点 -->
     <button class="imm-top-btn" id="btn-add-3d-hotspot" onclick="toggle3DPickMode()" title="点击模型表面精准打点（positionAndNormalFromPoint）">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2312,6 +2403,63 @@ body.immersive-mode #right-panel {
   </div>
 
 </div>
+  <!-- text_hint 独白编辑侧边栏 -->
+  <div id="text-hint-sidebar">
+    <div id="text-hint-sidebar-header">
+      <h4 id="th-sidebar-title">添加独白 / 文字提示</h4>
+      <button id="text-hint-sidebar-close" onclick="closeTextHintPanel()" title="关闭">&times;</button>
+    </div>
+    <div id="text-hint-sidebar-body">
+      <input type="hidden" id="th-edit-idx" value="-1" />
+      <div class="th-field">
+        <label>文字内容 <span class="th-char-counter" id="th-char-counter">0 / 140</span></label>
+        <textarea id="th-content" placeholder="我该走哪扇门..." maxlength="140"
+          oninput="onThContentInput()"></textarea>
+      </div>
+      <div class="th-field">
+        <label>风格</label>
+        <select id="th-style">
+          <option value="monologue" selected>独白（主角内心）</option>
+          <option value="subtitle">字幕</option>
+          <option value="ar_label">AR 标签</option>
+          <option value="title_card">章节标题卡</option>
+          <option value="narrator">旁白</option>
+        </select>
+      </div>
+      <div class="th-field">
+        <label>视角</label>
+        <select id="th-voice">
+          <option value="protagonist" selected>主角</option>
+          <option value="narrator">旁白</option>
+          <option value="world">世界</option>
+        </select>
+      </div>
+      <div class="th-field">
+        <label>位置</label>
+        <select id="th-position">
+          <option value="bottom" selected>底部</option>
+          <option value="center">中央</option>
+          <option value="top">顶部</option>
+        </select>
+      </div>
+      <div class="th-timing-row">
+        <div class="th-field">
+          <label>出现时间（秒）</label>
+          <input type="number" id="th-show-at" value="2" min="0" step="0.5" />
+        </div>
+        <div class="th-field">
+          <label>持续时长（秒）</label>
+          <input type="number" id="th-duration" value="4" min="0.5" step="0.5" />
+        </div>
+      </div>
+    </div>
+    <div id="text-hint-sidebar-actions">
+      <button id="btn-th-save" onclick="saveTextHint()">保存</button>
+      <button id="btn-th-cancel" onclick="closeTextHintPanel()">取消</button>
+    </div>
+    <!-- 已有 text_hint 列表 -->
+    <div id="text-hint-list"></div>
+  </div>
 <!-- /immersive-overlay -->
 
 <script>
@@ -4856,6 +5004,7 @@ function initHotspotDragOnScreen(btn, nodeData, choiceIdx, screenId) {
       showToast(`热点 ${choiceIdx+1} 已定位至 ${pos.x}, ${pos.y}`, 'info');
     }
   });
+  renderImmersiveTextHints(nodeData);
 }
 
 /**
@@ -5088,6 +5237,164 @@ function clearImmersiveChoices() {
   updatePreviewPanel(immersiveNodeData);
   showToast('热点已清空', 'info');
 }
+
+// ==================== DSL text_hint 编辑层 (3.0 W2) ====================
+
+/** 当前正在编辑的 text_hint 索引（-1 = 新建） */
+let _thEditIdx = -1;
+
+/** 打开 text_hint 侧边栏；idx=null 新建，idx>=0 编辑已有 */
+function openTextHintPanel(idx) {
+  _thEditIdx = (idx === null || idx === undefined) ? -1 : idx;
+  const sidebar = document.getElementById('text-hint-sidebar');
+  sidebar.classList.add('open');
+  document.getElementById('btn-add-text-hint').classList.add('th-active');
+
+  if (_thEditIdx >= 0 && immersiveNodeData) {
+    const th = (immersiveNodeData.interactions || [])[_thEditIdx];
+    if (th && th.type === 'text_hint') {
+      document.getElementById('th-sidebar-title').textContent = '编辑独白 / 文字提示';
+      document.getElementById('th-content').value  = th.content || '';
+      document.getElementById('th-style').value    = th.style || 'monologue';
+      document.getElementById('th-voice').value    = th.voice || 'protagonist';
+      document.getElementById('th-position').value = th.position || 'bottom';
+      document.getElementById('th-show-at').value  = th.timing ? th.timing.show_at_s : 2;
+      document.getElementById('th-duration').value = th.timing ? th.timing.duration_s : 4;
+      onThContentInput();
+      return;
+    }
+  }
+  // 新建默认值
+  document.getElementById('th-sidebar-title').textContent = '添加独白 / 文字提示';
+  document.getElementById('th-content').value  = '';
+  document.getElementById('th-style').value    = 'monologue';
+  document.getElementById('th-voice').value    = 'protagonist';
+  document.getElementById('th-position').value = 'bottom';
+  // 默认出现时间：当前视频播放位置（若有）
+  const immVid = document.querySelector('#immersive-screen .imm-video-el');
+  const defaultAt = (immVid && immVid.currentTime > 0) ? Math.round(immVid.currentTime * 10) / 10 : 2;
+  document.getElementById('th-show-at').value  = defaultAt;
+  document.getElementById('th-duration').value = 4;
+  onThContentInput();
+}
+
+/** 关闭 text_hint 侧边栏 */
+function closeTextHintPanel() {
+  document.getElementById('text-hint-sidebar').classList.remove('open');
+  document.getElementById('btn-add-text-hint').classList.remove('th-active');
+  _thEditIdx = -1;
+}
+
+/** 字数计数器实时更新 */
+function onThContentInput() {
+  const val = document.getElementById('th-content').value;
+  const counter = document.getElementById('th-char-counter');
+  counter.textContent = val.length + ' / 140';
+  counter.classList.toggle('warn', val.length > 100);
+}
+
+/** 保存 text_hint 到 node.interactions[] */
+function saveTextHint() {
+  if (!immersiveNodeData) { showToast('请先选中一个节点', 'error'); return; }
+
+  const content = document.getElementById('th-content').value.trim();
+  if (!content) { showToast('文字内容不能为空', 'error'); return; }
+  if (content.length > 140) { showToast('文字内容不能超过 140 字', 'error'); return; }
+
+  const showAt   = parseFloat(document.getElementById('th-show-at').value)  || 2;
+  const duration = parseFloat(document.getElementById('th-duration').value) || 4;
+
+  const item = {
+    id: (_thEditIdx >= 0 && (immersiveNodeData.interactions || [])[_thEditIdx])
+      ? immersiveNodeData.interactions[_thEditIdx].id
+      : ('th_' + Date.now()),
+    type:     'text_hint',
+    timing:   { show_at_s: showAt, duration_s: duration },
+    style:    document.getElementById('th-style').value,
+    content,
+    voice:    document.getElementById('th-voice').value,
+    position: document.getElementById('th-position').value,
+    metadata: {}
+  };
+
+  if (!immersiveNodeData.interactions) immersiveNodeData.interactions = [];
+
+  if (_thEditIdx >= 0 && _thEditIdx < immersiveNodeData.interactions.length) {
+    immersiveNodeData.interactions[_thEditIdx] = item;
+    showToast('独白已更新', 'success');
+  } else {
+    immersiveNodeData.interactions.push(item);
+    showToast('独白已添加', 'success');
+  }
+
+  renderImmersiveTextHints(immersiveNodeData);
+  updatePreviewPanel(immersiveNodeData);
+  closeTextHintPanel();
+}
+
+/** 删除指定索引的 text_hint */
+function deleteTextHint(idx) {
+  if (!immersiveNodeData || !immersiveNodeData.interactions) return;
+  const th = immersiveNodeData.interactions[idx];
+  if (!th || th.type !== 'text_hint') return;
+  if (!confirm(`删除独白: "${(th.content || '').substring(0, 30)}..."?`)) return;
+  immersiveNodeData.interactions.splice(idx, 1);
+  renderImmersiveTextHints(immersiveNodeData);
+  updatePreviewPanel(immersiveNodeData);
+  showToast('独白已删除', 'info');
+}
+
+/** style 枚举 -> 显示标签 */
+function _thStyleLabel(s) {
+  return { monologue:'独白', subtitle:'字幕', ar_label:'AR标签', title_card:'章节卡', narrator:'旁白' }[s] || s;
+}
+
+/** 在沉浸屏渲染 text_hint 指示标签 + 更新侧边栏列表 */
+function renderImmersiveTextHints(nodeData) {
+  // 1. 清除旧指示标签
+  const screen = document.getElementById('immersive-choices');
+  screen.querySelectorAll('.imm-text-hint-badge').forEach(el => el.remove());
+
+  // 2. 渲染新标签（预览）
+  const hints = (nodeData.interactions || []).filter(it => it.type === 'text_hint');
+  hints.forEach(th => {
+    const badge = document.createElement('div');
+    badge.className = 'imm-text-hint-badge pos-' + (th.position || 'bottom');
+    badge.textContent = '[独白] ' + (th.content || '').substring(0, 20) + (th.content && th.content.length > 20 ? '...' : '');
+    screen.appendChild(badge);
+  });
+
+  // 3. 更新侧边栏列表
+  const listEl = document.getElementById('text-hint-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  const allHints = (nodeData.interactions || [])
+    .map((it, i) => ({ it, i }))
+    .filter(({ it }) => it.type === 'text_hint');
+
+  if (allHints.length === 0) {
+    listEl.innerHTML = '<div class="th-list-empty">暂无独白，点击上方"添加独白"</div>';
+    return;
+  }
+  allHints.forEach(({ it, i }) => {
+    const div = document.createElement('div');
+    div.className = 'th-list-item';
+    div.onclick = () => openTextHintPanel(i);
+    div.innerHTML = `
+      <span class="th-li-icon">💬</span>
+      <div class="th-li-text">
+        <div class="th-li-content">${escHtml(it.content || '')}</div>
+        <div class="th-li-meta">${_thStyleLabel(it.style)} · ${it.timing ? it.timing.show_at_s + 's / ' + it.timing.duration_s + 's' : ''}</div>
+      </div>
+      <button class="th-li-del" onclick="event.stopPropagation(); deleteTextHint(${i})" title="删除">&times;</button>
+    `;
+    listEl.appendChild(div);
+  });
+}
+
+// ==================== DSL text_hint 编辑层结束 ====================
+
 
 /**
  * 微观工具切换
