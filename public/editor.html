@@ -2064,6 +2064,271 @@ body.immersive-mode #right-panel {
 .dsl-err-msg{font-size:12px;color:var(--text-2,#a0a8c0);margin-top:2px;}
 .dsl-err-ctx{font-size:11px;color:var(--text-2,#a0a8c0);margin-bottom:10px;padding:4px 8px;background:rgba(239,68,68,.07);border-radius:4px;}
 
+/* ══════════════════════════════════════════════════════════
+   Studio v0.2 — Tab 面板 / 交互卡片 / 节点下拉 / BGM 音乐库
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Tab 导航栏 ── */
+.insp-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  position: sticky;
+  top: 41px;
+  z-index: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.insp-tabs::-webkit-scrollbar { display: none; }
+.itab-btn {
+  flex: 1;
+  min-width: 52px;
+  padding: 8px 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+.itab-btn:hover { color: var(--text-primary); background: var(--bg-card-hover); }
+.itab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent); }
+
+/* ── Tab 内容区 ── */
+.itab-pane { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ── 只读字段 ── */
+.insp-readonly-field {
+  padding: 7px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  font-variant-numeric: tabular-nums;
+  min-height: 32px;
+  line-height: 18px;
+}
+
+/* ── 节点类型单选 ── */
+.insp-node-type-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.insp-type-radio {
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-canvas);
+  transition: var(--transition);
+}
+.insp-type-radio:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.insp-type-radio input { width: auto; margin: 0; cursor: pointer; }
+.insp-type-radio.selected { border-color: var(--accent); color: var(--text-primary); background: rgba(26,26,26,0.04); }
+
+/* ── 交互卡片 ── */
+.icard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-canvas);
+  overflow: hidden;
+}
+.icard-header {
+  display: flex; align-items: center; gap: 5px;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  cursor: pointer;
+  user-select: none;
+}
+.icard-type-icon { font-size: 13px; flex-shrink: 0; }
+.icard-type-name { font-size: 11px; font-weight: 600; color: var(--text-primary); flex: 1; }
+.icard-target-preview {
+  font-size: 10px; color: var(--text-secondary);
+  max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.icard-fx-badge {
+  font-size: 9px; padding: 1px 5px;
+  border-radius: 3px; background: var(--bg-secondary);
+  color: var(--text-secondary); border: 1px solid var(--border-light);
+  white-space: nowrap;
+}
+.icard-toggle {
+  border: none; background: transparent; color: var(--text-tertiary);
+  cursor: pointer; font-size: 11px; padding: 2px; line-height: 1;
+  transition: transform var(--transition); flex-shrink: 0;
+}
+.icard.expanded .icard-toggle { transform: rotate(180deg); }
+.icard-del {
+  border: none; background: transparent; color: var(--text-tertiary);
+  cursor: pointer; font-size: 13px; padding: 2px 4px;
+  transition: color var(--transition); flex-shrink: 0;
+}
+.icard-del:hover { color: var(--accent-red); }
+.icard-body {
+  display: none; padding: 10px;
+  border-top: 1px solid var(--border-light);
+  flex-direction: column; gap: 8px;
+}
+.icard.expanded .icard-body { display: flex; }
+.icard-field { display: flex; flex-direction: column; gap: 3px; }
+.icard-label { font-size: 10px; color: var(--text-secondary); font-weight: 500; }
+.icard-input {
+  width: 100%; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 12px; font-family: 'Inter', sans-serif;
+  color: var(--text-primary); background: var(--bg-panel);
+  outline: none; transition: border-color var(--transition);
+}
+.icard-input:focus { border-color: var(--border-strong); }
+.icard-type-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 7px; background: rgba(26,26,26,0.03);
+  border-radius: var(--radius-sm); margin-bottom: 4px;
+}
+.icard-type-row label { font-size: 10px; color: var(--text-secondary); white-space: nowrap; }
+.icard-type-row select {
+  flex: 1; padding: 3px 6px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 11px; color: var(--text-primary); background: var(--bg-panel); outline: none;
+}
+.icard-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.icard-advanced-btn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 3px 0; cursor: pointer; font-size: 10px; color: var(--text-secondary);
+  border: none; background: none; user-select: none; text-align: left;
+}
+.icard-advanced-btn::before { content: '▶'; font-size: 8px; transition: transform .15s; opacity: .6; }
+.icard-advanced-btn.open::before { transform: rotate(90deg); }
+.icard-advanced-body { display: none; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border-light); }
+.icard-advanced-body.open { display: flex; }
+
+.interactions-empty {
+  text-align: center; padding: 20px 10px;
+  color: var(--text-tertiary); font-size: 11px;
+}
+.interaction-add-menu {
+  position: fixed; background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg); z-index: 2000;
+  overflow: hidden; min-width: 170px;
+}
+.interaction-add-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; font-size: 12px; color: var(--text-primary);
+  cursor: pointer; transition: background var(--transition);
+}
+.interaction-add-item:hover { background: var(--bg-card-hover); }
+
+/* ── 节点下拉组件 ── */
+.node-dd-wrap { position: relative; }
+.node-dd-trigger {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-panel); cursor: pointer;
+  font-size: 11px; color: var(--text-primary);
+  transition: border-color var(--transition); min-height: 32px;
+}
+.node-dd-trigger:hover { border-color: var(--border-strong); }
+.node-dd-trigger-thumb {
+  width: 32px; height: 18px; border-radius: 2px;
+  background: var(--bg-secondary); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--text-tertiary); flex-shrink: 0;
+}
+.node-dd-trigger-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.node-dd-trigger-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.node-dd-trigger-arrow { font-size: 9px; color: var(--text-tertiary); flex-shrink: 0; }
+.node-dd-popup {
+  display: none; position: fixed;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  z-index: 3000; width: 240px; max-height: 280px;
+  overflow: hidden; flex-direction: column;
+}
+.node-dd-popup.open { display: flex; }
+.node-dd-search-wrap {
+  padding: 7px 8px; border-bottom: 1px solid var(--border-light); flex-shrink: 0;
+}
+.node-dd-search-input {
+  width: 100%; padding: 5px 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 11px; color: var(--text-primary); background: var(--bg-canvas); outline: none;
+}
+.node-dd-list { overflow-y: auto; flex: 1; scrollbar-width: thin; }
+.node-dd-opt {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 8px; cursor: pointer; font-size: 11px; color: var(--text-primary);
+  transition: background var(--transition);
+}
+.node-dd-opt:hover { background: var(--bg-card-hover); }
+.node-dd-opt.sel { background: rgba(26,26,26,0.06); }
+.node-dd-opt-thumb {
+  width: 40px; height: 23px; border-radius: 2px;
+  background: var(--bg-secondary); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; flex-shrink: 0;
+}
+.node-dd-opt-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.node-dd-opt-seq { font-size: 9px; color: var(--text-tertiary); flex-shrink: 0; }
+.node-dd-none-opt { padding: 5px 8px; font-size: 11px; color: var(--text-tertiary); cursor: pointer; }
+.node-dd-none-opt:hover { background: var(--bg-card-hover); }
+.node-dd-empty { padding: 14px 8px; text-align: center; font-size: 11px; color: var(--text-tertiary); }
+
+/* ── 底部固定操作栏 ── */
+.insp-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  position: sticky; bottom: 0; z-index: 2;
+}
+
+/* ── BGM 音乐库 ── */
+.audio-track-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); background: var(--bg-canvas);
+}
+.audio-track-icon { font-size: 15px; flex-shrink: 0; padding-top: 2px; }
+.audio-track-info { flex: 1; min-width: 0; }
+.audio-track-name { font-size: 12px; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audio-track-meta { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+.audio-track-actions { display: flex; gap: 4px; flex-shrink: 0; align-items: flex-start; }
+.atbtn {
+  padding: 3px 8px; font-size: 10px; border: 1px solid var(--border);
+  border-radius: 3px; background: var(--bg-panel); color: var(--text-secondary);
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+}
+.atbtn:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.atbtn.del:hover { border-color: var(--accent-red); color: var(--accent-red); }
+.audio-upload-area {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border: 1px dashed var(--border);
+  border-radius: var(--radius-md); background: var(--bg-canvas);
+  cursor: pointer; transition: var(--transition);
+  font-size: 12px; color: var(--text-secondary);
+}
+.audio-upload-area:hover { border-color: var(--border-strong); color: var(--text-primary); }
+
+/* ── BGM Clip 下拉（Tab 3）── */
+.bgm-adv-btn {
+  display: flex; align-items: center; gap: 4px;
+  cursor: pointer; font-size: 10px; color: var(--text-secondary);
+  border: none; background: none; padding: 3px 0; user-select: none;
+}
+.bgm-adv-btn::before { content: '▶'; font-size: 8px; transition: transform .15s; opacity: .6; }
+.bgm-adv-btn.open::before { transform: rotate(90deg); }
+.bgm-adv-body { display: none; flex-direction: column; gap: 8px; border-top: 1px solid var(--border-light); padding-top: 8px; }
+.bgm-adv-body.open { display: flex; }
+.bgm-vol-row { display: flex; align-items: center; gap: 8px; }
+.bgm-vol-row input[type=range] { flex: 1; }
+.bgm-vol-val { font-size: 11px; color: var(--text-secondary); min-width: 30px; text-align: right; }
+
 </style>
 <!-- W5: ajv 6 browser build — JSON Schema draft-07 校验 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/6.12.6/ajv.min.js" crossorigin="anonymous"></script>
@@ -2333,13 +2598,30 @@ body.immersive-mode #right-panel {
 
 </div>
 
-<!-- INSPECTOR -->
+<!-- INSPECTOR v0.2 -->
 <div id="inspector">
   <div class="insp-header">
     <span id="insp-title">编辑节点</span>
     <button class="insp-close-btn" onclick="closeInspector()">✕</button>
   </div>
-  <div id="insp-body"></div>
+  <!-- v0.2 Tab 导航栏（普通视频节点显示） -->
+  <div class="insp-tabs" id="insp-tabs" style="display:none;">
+    <button class="itab-btn" data-tab="basic"       onclick="switchInspTab('basic')">📝 基础</button>
+    <button class="itab-btn" data-tab="interaction" onclick="switchInspTab('interaction')">🔗 交互</button>
+    <button class="itab-btn" data-tab="music"       onclick="switchInspTab('music')">🎵 音乐</button>
+    <button class="itab-btn" data-tab="advanced"    onclick="switchInspTab('advanced')">⚙️ 高级</button>
+  </div>
+  <!-- v0.2 Tab 内容容器 -->
+  <div id="itab-basic"       class="itab-pane" style="display:none;"></div>
+  <div id="itab-interaction" class="itab-pane" style="display:none;"></div>
+  <div id="itab-music"       class="itab-pane" style="display:none;"></div>
+  <div id="itab-advanced"    class="itab-pane" style="display:none;"></div>
+  <!-- 兼容: 旧 insp-body 用于 minigame/panorama/3d_model 特殊节点 -->
+  <div id="insp-body" style="display:none; padding:12px 14px; flex-direction:column; gap:10px;"></div>
+  <!-- 底部固定按钮 -->
+  <div class="insp-footer" id="insp-footer" style="display:none;">
+    <button class="insp-save-btn" onclick="applyInspector(document.getElementById('inspector').dataset.nodeId)">应用更改</button>
+  </div>
 </div>
 
 <!-- CONTEXT MENU -->
@@ -3041,6 +3323,8 @@ async function loadData() {
     state.gameData = data;
     renderGraph();
     showToast('项目加载成功', 'success');
+    // 加载 world 级音乐库
+    _loadWorldAudioLibrary();
   } catch(e) {
     console.error('[loadData]', e);
     showToast('加载失败: ' + e.message, 'error');
@@ -3951,61 +4235,48 @@ function toggleMenuDropdown() {
   document.getElementById('menu-dropdown').classList.toggle('open');
 }
 
-// ── INSPECTOR ──────────────────────────────────────────────────
+// ── INSPECTOR v0.2 ────────────────────────────────────────────
 function openInspector(nodeId) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData) return;
+  closeAllNodeDropdowns();
   const insp = document.getElementById('inspector');
-  const nodeSeq = nodeId;
-  document.getElementById('insp-title').textContent = `编辑 · ${nodeSeq}：${nodeData.title || ''}`;
+  const nodeSeq = state.nodeIndexMap[nodeId] || nodeId;
+  document.getElementById('insp-title').textContent =
+    `编辑 · ${nodeSeq}：${nodeData.title || ''}`;
 
-  let choicesHtml = '';
-  if (nodeData.choices) {
-    choicesHtml = `
-      ${(nodeData.type !== '3d_model' && nodeData.type !== 'panorama') ? `
-      <div class="insp-field">
-        <div class="insp-label">分支时间 (秒)</div>
-        <input class="insp-input" id="insp-branch-sec" type="number" value="${nodeData.branch_time || nodeData.branch_at_second || 5}" min="0"/>
-      </div>` : ''}
-      <div class="insp-field">
-        <div class="insp-label">选项列表 <span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(拖动预览区按鈕可重新定位)</span></div>
-        <div class="insp-choices-list" id="insp-choices">
-          ${nodeData.choices.map((c,i) => `
-            <div class="insp-choice-row" data-idx="${i}">
-              <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
-                <span style="font-size:10px;color:var(--text-tertiary);flex:1;">选项 ${i+1}</span>
-                <button onclick="removeChoiceInInspector('${nodeId}',${i})" style="padding:1px 6px;font-size:10px;border:1px solid var(--accent-red);border-radius:3px;background:transparent;color:var(--accent-red);cursor:pointer;line-height:1.4;" title="删除此选项">✕</button>
-              </div>
-              <input placeholder="选项文字" value="${escHtml(c.label||'')}" data-field="label" data-idx="${i}"
-                oninput="syncHotspotLabel(${i}, this.value)"/>
-              <input placeholder="副标题" value="${escHtml(c.sublabel||'')}" data-field="sublabel" data-idx="${i}"/>
-              <input placeholder="目标节点 ID" value="${escHtml(c.target_node||'')}" data-field="target_node" data-idx="${i}"/>
-              <div style="margin-top:4px;padding:5px 7px;background:var(--bg-panel);border-radius:4px;border:1px solid var(--border);">
-                <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:5px;">&#128205; 跳转到目标节点的：</div>
-                <div style="display:flex;gap:6px;margin-bottom:4px;">
-                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="start" ${(!c.seek_to||c.seek_to==='start')?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 片头</label>
-                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:3px;background:var(--bg-canvas);flex:1;justify-content:center;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="end" ${c.seek_to==='end'?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 片尾</label>
-                </div>
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <label style="font-size:11px;color:var(--text-secondary);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;"><input type="radio" name="seek_${nodeId}_${i}" value="custom" ${(typeof c.seek_to==='number')?'checked':''} data-field="seek_type" data-idx="${i}" onchange="toggleSeekCustom('${nodeId}',${i},this.value)"/> 指定秒数：</label>
-                  ${(()=>{ const _tn=c.target_node&&state.gameData.nodes[c.target_node]; const _tm=_tn&&(_tn._sliderMaxSec||_tn.branch_time||_tn.branch_at_second)||null; return '<input type="number" placeholder="0" min="0" step="0.5" value="'+(typeof c.seek_to==='number'?c.seek_to:0)+'" data-field="seek_custom" data-idx="${i}" '+(_tm?'max="'+Math.ceil(_tm)+'"':'')+' style="width:70px;padding:2px 5px;font-size:11px;background:var(--bg-canvas);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);" data-field="seek_custom" data-idx="${i}"/><span style="font-size:10px;color:var(--text-tertiary);white-space:nowrap;" data-field="seek_custom_wrap" data-idx="${i}">'+(_tm?'最大 '+Math.ceil(_tm)+'s（目标节点）':'')+'</span>'; })()}
-                </div>
-              </div>
-              <div style="display:flex;gap:4px;align-items:center;margin-top:2px;">
-                <span style="font-size:10px;color:var(--text-tertiary);">X:</span>
-                <input placeholder="50%" value="${escHtml((c.position&&c.position.x)||'50%')}" data-field="position_x" data-idx="${i}"
-                  style="width:52px;"
-                  oninput="syncHotspotPos(${i}, 'x', this.value)"/>
-                <span style="font-size:10px;color:var(--text-tertiary);">Y:</span>
-                <input placeholder="65%" value="${escHtml((c.position&&c.position.y)||'65%')}" data-field="position_y" data-idx="${i}"
-                  style="width:52px;"
-                  oninput="syncHotspotPos(${i}, 'y', this.value)"/>
-              </div>
-            </div>`).join('')}
-        </div>
-        <button class="insp-add-btn" onclick="addChoiceInInspector('${nodeId}')">+ 添加选项</button>
-      </div>`;
+  const SPECIAL_TYPES = ['minigame', 'panorama', '3d_model', 'ending'];
+  if (SPECIAL_TYPES.includes(nodeData.type)) {
+    document.getElementById('insp-tabs').style.display = 'none';
+    ['itab-basic','itab-interaction','itab-music','itab-advanced'].forEach(id => {
+      document.getElementById(id).style.display = 'none';
+    });
+    const body = document.getElementById('insp-body');
+    body.style.display = 'flex';
+    document.getElementById('insp-footer').style.display = 'none';
+    _renderSpecialNodeBody(nodeId, nodeData);
+  } else {
+    document.getElementById('insp-body').style.display = 'none';
+    document.getElementById('insp-tabs').style.display = 'flex';
+    document.getElementById('insp-footer').style.display = 'block';
+    migrateNodeToV2(nodeData);
+    renderTabBasic(nodeId, nodeData);
+    renderTabInteractions(nodeId, nodeData);
+    renderTabMusic(nodeId, nodeData);
+    renderTabAdvanced(nodeId, nodeData);
+    switchInspTab(resolveDefaultTab(nodeData));
   }
+  insp.style.display = 'block';
+  insp.dataset.nodeId = nodeId;
+  _checkTcStatusOnInspectorOpen(nodeId);
+  const rp = document.getElementById('right-panel');
+  const rpRect = rp.getBoundingClientRect();
+  insp.style.right = (window.innerWidth - rpRect.left + 8) + 'px';
+}
+
+// 特殊节点类型(minigame/panorama/3d_model/ending)使用旧版 insp-body 渲染
+function _renderSpecialNodeBody(nodeId, nodeData) {
+  let choicesHtml = '';
   if (nodeData.type === 'ending') {
     choicesHtml = `
       <div class="insp-field">
@@ -4021,30 +4292,16 @@ function openInspector(nodeId) {
   if (nodeData.type === 'minigame') {
     minigameHtml = buildMinigameInspectorHtml(nodeId, nodeData.minigame_config || {});
   }
-
-  // 全景图上传区域 HTML（panorama 和 3d_model 类型共用）
   const model3dUploadHtml = (nodeData.type === '3d_model' || nodeData.type === 'panorama') ? `
     <div class="insp-field">
       <div class="insp-label">360° 全景图 URL</div>
       <input class="insp-input" id="insp-panorama-url" value="${escHtml(nodeData.panorama_url||'')}" placeholder="https://...skybox...jpg"/>
     </div>
-    ${nodeData.poster_url ? `
+    ${nodeData.poster_url ? `<div class="insp-field"><div class="insp-label">缩略图预览</div><img src="${escHtml(nodeData.poster_url)}" style="width:100%;border-radius:4px;max-height:120px;object-fit:cover;"/></div>` : ''}
     <div class="insp-field">
-      <div class="insp-label">缩略图预览</div>
-      <img src="${escHtml(nodeData.poster_url)}" style="width:100%;border-radius:4px;max-height:120px;object-fit:cover;"/>
-    </div>` : ''}
-    <div class="insp-field">
-      <div class="insp-label" style="display:flex;align-items:center;gap:6px;">
-        生成 360° 全景图
-        <span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(Blockade Labs)</span>
-      </div>
-      <button class="insp-btn" onclick="openAI3DModal()" style="width:100%;margin-top:4px;">
-        🌐 打开全景图生成向导
-      </button>
-    </div>
-  ` : '';
-
-  // 3D 热点列表 HTML
+      <div class="insp-label" style="display:flex;align-items:center;gap:6px;">生成 360° 全景图<span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(Blockade Labs)</span></div>
+      <button class="insp-btn" onclick="openAI3DModal()" style="width:100%;margin-top:4px;">🌐 打开全景图生成向导</button>
+    </div>` : '';
   const model3dChoicesHtml = (nodeData.type === '3d_model' && nodeData.choices && nodeData.choices.length) ? `
     <div class="insp-field">
       <div class="insp-label">3D 热点列表 <span style="font-weight:400;color:var(--text-tertiary);font-size:10px;">(在沉浸模式中点击"3D 打点"添加)</span></div>
@@ -4057,11 +4314,11 @@ function openInspector(nodeId) {
               <span style="font-size:10px;color:var(--text-tertiary);">pos:</span>
               <input value="${escHtml(c.position||'0 0 0')}" data-field="position" data-idx="${i}" style="flex:1;" title="3D 坐标 x y z"/>
               <span style="font-size:10px;color:var(--text-tertiary);">n:</span>
-              <input value="${escHtml(c.normal||'0 1 0')}" data-field="normal" data-idx="${i}" style="width:90px;" title="法线向量 nx ny nz"/>
+              <input value="${escHtml(c.normal||'0 1 0')}" data-field="normal" data-idx="${i}" style="width:90px;" title="法线向量"/>
             </div>
           </div>`).join('')}
       </div>
-    </div>  ` : '';
+    </div>` : '';
 
   document.getElementById('insp-body').innerHTML = `
     <div class="insp-field">
@@ -4072,64 +4329,17 @@ function openInspector(nodeId) {
       <div class="insp-label">标题</div>
       <input class="insp-input" id="insp-title-val" value="${escHtml(nodeData.title||'')}"/>
     </div>
-    ${(nodeData.type !== '3d_model' && nodeData.type !== 'panorama' && nodeData.type !== 'minigame') ? `
-    <div class="insp-field">
-      <div class="insp-label">视频文件</div>
-      <div class="video-upload-zone" id="video-upload-zone" onclick="document.getElementById('video-file-input').click()">
-        ${nodeData.video_url ? `
-          <div class="video-upload-thumb" id="video-upload-thumb">
-            ${nodeData.poster_url
-              ? `<img src="${escHtml(nodeData.poster_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"/>`
-              : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;">&#127916;</div>`
-            }
-          </div>
-          <div class="video-upload-info">
-            <div class="video-upload-filename" id="video-upload-filename">${escHtml(nodeData.video_url.split('/').pop())}</div>
-            <div class="video-upload-action">点击更换视频</div>
-          </div>
-        ` : `
-          <div class="upload-icon">🎥</div>
-          <div class="upload-text"><strong>点击上传视频</strong><br/>支持 .mp4 / .mov / .webm 格式</div>
-        `}
-      </div>
-      <!-- P0-C: 文件格式推荐提示 -->
-      <div class="video-upload-hint">推荐源文件：<strong>1080p / H.264 / ≤ 100MB</strong>，超过 200MB 转码耗时较长</div>
-      <div class="video-upload-hint" style="margin-top:2px;">平台自动转码为三档清晰度（480p / 720p / 1080p）</div>
-      <div id="video-upload-progress" style="display:none;margin-top:6px;">
-        <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
-          <div id="video-upload-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.3s;"></div>
-        </div>
-        <div id="video-upload-status" style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">上传中...</div>
-      </div>
-      <!-- P0-C: 转码状态显示区 -->
-      <div id="video-tc-status" style="display:none;"></div>
-      <input type="file" id="video-file-input" accept="video/*" style="display:none" onchange="uploadVideoFile(event, '${nodeId}')"/>
-      <!-- 隐藏的 URL 输入框，用于 applyInspector 读取 -->
-      <input type="hidden" id="insp-video-url" value="${escHtml(nodeData.video_url||'')}"/>
-    </div>` : ''}
     ${model3dUploadHtml}
     ${choicesHtml}
     ${model3dChoicesHtml}
     ${minigameHtml}
     <button class="insp-save-btn" onclick="applyInspector('${nodeId}')">应用更改</button>
   `;
-
-  // 如果已有 3D 模型 URL，显示预览
   if (nodeData.model_url) {
     const preview = document.getElementById('model3d-url-preview');
     if (preview) { preview.textContent = nodeData.model_url; preview.style.display = 'block'; }
   }
-  insp.style.display = 'block';
-  insp.dataset.nodeId = nodeId;
-  // P0-C: check transcode status if this node has been published
-  _checkTcStatusOnInspectorOpen(nodeId);
-
-  // Position inspector relative to right panel
-  const rp = document.getElementById('right-panel');
-  const rpRect = rp.getBoundingClientRect();
-  insp.style.right = (window.innerWidth - rpRect.left + 8) + 'px';
 }
-
 function toggleSeekCustom(nodeId, choiceIdx, val) {
   const row = document.querySelector(`.insp-choice-row[data-idx="${choiceIdx}"]`);
   if (!row) return;
@@ -4176,9 +4386,11 @@ function applyInspector(nodeId) {
   }
   if (nodeData.choices) {
     if (nodeData.type !== '3d_model' && nodeData.type !== 'panorama') {
-      const branchVal = parseFloat(document.getElementById('insp-branch-sec')?.value) || 5;
-      nodeData.branch_at_second = branchVal;
-      nodeData.branch_time      = branchVal;
+      // v0.2: 分支时间(branch_time)由视频时长自动确定，不从 UI input 读取
+      if (nodeData._videoDuration > 0) {
+        nodeData.branch_at_second = Math.round(nodeData._videoDuration);
+        nodeData.branch_time      = Math.round(nodeData._videoDuration);
+      }
     }
     // 处理所有 choice 行（video 的 position / 3d_model 的 position+normal）
     document.querySelectorAll('.insp-choice-row').forEach(row => {
@@ -4256,7 +4468,7 @@ function applyInspector(nodeId) {
   showToast('节点已更新', 'success');
 }
 
-function closeInspector() { document.getElementById('inspector').style.display = 'none'; }
+// closeInspector v0.2 moved to bottom — see Studio v0.2 section
 // ── VIDEO UPLOAD ──────────────────────────────────────────────────────────
 
 /**
@@ -4392,16 +4604,11 @@ async function uploadVideoFile(event, nodeId) {
     const urlInput = document.getElementById('insp-video-url');
     if (urlInput) urlInput.value = data.videoUrl;
 
-    // 5b. 自动填入分支时间（设为只读）
+    // 5b. v0.2: 更新只读分支时间显示
     if (videoDuration > 0) {
-      const branchInput = document.getElementById('insp-branch-sec');
-      if (branchInput) {
-        branchInput.value = Math.round(videoDuration);
-        branchInput.readOnly = true;
-        branchInput.title = `视频时长自动识别：${Math.round(videoDuration)}秒`;
-        branchInput.style.background = '#f5f5f5';
-        branchInput.style.color = '#888';
-        branchInput.style.cursor = 'not-allowed';
+      const branchDisplay = document.getElementById('insp-branch-time-display');
+      if (branchDisplay) {
+        branchDisplay.textContent = Math.round(videoDuration) + ' 秒（自动识别）';
       }
     }
 
@@ -8674,11 +8881,56 @@ function buildInteractionDsl(nodeData) {
 
   if (interactions.length === 0) return null;
 
+  // v0.2.0: 注入 audio_tracks（BGM）
+  const audioTracks = [];
+  if (nodeData.bgm && nodeData.bgm.id && nodeData.bgm.url) {
+    audioTracks.push({
+      id: nodeData.bgm.id,
+      type: 'bgm',
+      url: nodeData.bgm.url,
+      loop: true,
+      volume: nodeData.bgm.volume !== undefined ? nodeData.bgm.volume : 0.3,
+      fade_in_ms: nodeData.bgm.fade_in_ms !== undefined ? nodeData.bgm.fade_in_ms : 1000,
+      fade_out_ms: nodeData.bgm.fade_out_ms !== undefined ? nodeData.bgm.fade_out_ms : 1000,
+      trigger_time_s: 0
+    });
+  }
+
+  // v0.2.0: 从 interactions_v2 补充直接跳转类型（方式 B: 单选项 branch）
+  if (nodeData._v2_migrated && nodeData.interactions_v2) {
+    const jumpItems = nodeData.interactions_v2.filter(it => it.type === 'jump');
+    jumpItems.forEach((jt, ji) => {
+      if (!jt.target_node) return;
+      const jumpTrigger = jt.jump_trigger === 'start' ? 0
+        : jt.jump_trigger === 'custom' ? (parseFloat(jt.jump_trigger_s) || duration)
+        : duration; // 'end' → 片尾
+      interactions.push({
+        id: jt.id || ('jump_' + ji),
+        type: 'branch',
+        trigger_time_s: Math.min(jumpTrigger, duration),
+        options: [{
+          id: 'auto_jump',
+          label: '',
+          on_choose: {
+            action: 'jump_to_clip',
+            target_clip_id: jt.target_node,
+            transition_fx: jt.transition_fx || 'fade'
+          }
+        }],
+        metadata: { auto_execute: true }
+      });
+    });
+  }
+
+  if (interactions.length === 0 && audioTracks.length === 0) return null;
+  const dslVersion = audioTracks.length > 0 ? 'v0.2.0' : 'v0.1.0';
+
   return {
-    dsl_version: 'v0.1.0',
+    dsl_version: dslVersion,
     clip_id: clipId,
     clip_duration_s: duration,
     interactions,
+    ...(audioTracks.length > 0 ? { audio_tracks: audioTracks } : {}),
     metadata: {}
   };
 }
@@ -10924,5 +11176,960 @@ document.addEventListener('click', function(e) {
     }
   }
 });
+
+
+// ══════════════════════════════════════════════════════════════════
+// STUDIO v0.2 — Tab 面板 / 交互类型化 / 节点下拉 / BGM 音乐库
+// ══════════════════════════════════════════════════════════════════
+
+// ── Tab 切换 ──────────────────────────────────────────────────────
+function switchInspTab(tabName) {
+  document.querySelectorAll('.itab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === tabName));
+  ['basic','interaction','music','advanced'].forEach(name => {
+    const el = document.getElementById('itab-' + name);
+    if (el) el.style.display = name === tabName ? 'flex' : 'none';
+  });
+}
+
+function resolveDefaultTab(nodeData) {
+  const hasTitle = !!(nodeData.title && nodeData.title.trim());
+  const hasVideo = !!(nodeData.video_url && nodeData._tc_status !== 'failed');
+  return (hasTitle && hasVideo) ? 'interaction' : 'basic';
+}
+
+// ── 老数据迁移 ────────────────────────────────────────────────────
+function migrateNodeToV2(nodeData) {
+  if (nodeData._v2_migrated) return;
+  const v2 = [];
+  // choices[] → 识别类型
+  (nodeData.choices || []).forEach((c, i) => {
+    const baseId = c.id || ('c_' + i + '_' + Date.now());
+    const common = {
+      id: baseId,
+      target_node: c.target_node || '',
+      transition_fx: c.transition_fx || 'fade',
+    };
+    if (c.type === 'polygon' && c.points && c.points.length >= 3) {
+      const xs = c.points.map(p => p[0] || 0), ys = c.points.map(p => p[1] || 0);
+      const x = Math.min(...xs), y = Math.min(...ys);
+      const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+      v2.push({ ...common, type: 'hotspot_hidden', bbox: [x, y, w, h], feedback_fx: 'ripple', label: c.label || '' });
+    } else if (c.timeWindow && c.timeWindow[1] > c.timeWindow[0]) {
+      const hint = c.visible_hint || 'hidden';
+      v2.push({ ...common,
+        type: hint === 'hidden' ? 'hotspot_hidden' : 'hotspot_visible',
+        bbox: c.bbox || [0.1, 0.1, 0.2, 0.2],
+        feedback_fx: c.feedback_fx || 'ripple',
+        visible_hint: hint,
+        hint_delay_s: c.hint_delay_s || 0,
+        label: c.label || ''
+      });
+    } else {
+      // 普通按钮
+      v2.push({ ...common,
+        type: 'button',
+        label: c.label || ('选项' + (i+1)),
+        sublabel: c.sublabel || '',
+        pos_x: (c.position && c.position.x) || '50%',
+        pos_y: (c.position && c.position.y) || '65%',
+      });
+    }
+  });
+  // 已有 QTE interactions → 迁移
+  (nodeData.interactions || []).filter(it => it.type === 'qte').forEach(it => {
+    v2.push({
+      id: it.id || ('qte_' + Date.now()),
+      type: 'qte',
+      target_node: (it.outcomes && it.outcomes.success && it.outcomes.success.target_clip_id) || '',
+      target_node_fail: (it.outcomes && it.outcomes.fail && it.outcomes.fail.target_clip_id) || '',
+      transition_fx: (it.outcomes && it.outcomes.success && it.outcomes.success.transition_fx) || 'none',
+      qte_trigger_s: it.trigger_time_s || 3,
+      qte_input: it.input_method || 'tap',
+      qte_time_limit: it.time_limit_s || 2,
+      qte_fail_behavior: it.fail_behavior || 'retry',
+    });
+  });
+  nodeData.interactions_v2 = v2;
+  nodeData._v2_migrated = true;
+}
+
+// ── Tab 1 · 📝 基础 ──────────────────────────────────────────────
+function renderTabBasic(nodeId, nodeData) {
+  const el = document.getElementById('itab-basic');
+  if (!el) return;
+  const dur = nodeData._videoDuration > 0 ? (Math.round(nodeData._videoDuration) + ' 秒（自动识别）')
+    : (nodeData.branch_time || nodeData.branch_at_second) ? ((nodeData.branch_time || nodeData.branch_at_second) + ' 秒')
+    : '—（上传视频后自动读取）';
+
+  const isStart = state.gameData && state.gameData.start_node === nodeId;
+  const nodeType = nodeData.node_type || (isStart ? 'start' : 'normal');
+
+  let videoHtml = '';
+  if (nodeData.video_url) {
+    const fname = nodeData.video_url.split('/').pop();
+    videoHtml = `
+      <div class="video-upload-zone" id="video-upload-zone" onclick="document.getElementById('video-file-input').click()">
+        <div class="video-upload-thumb" id="video-upload-thumb">
+          ${nodeData.poster_url
+            ? `<img src="${escHtml(nodeData.poster_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:4px;"/>`
+            : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;">🎬</div>`}
+        </div>
+        <div class="video-upload-info">
+          <div class="video-upload-filename" id="video-upload-filename">${escHtml(fname)}</div>
+          <div class="video-upload-action">点击更换视频</div>
+        </div>
+      </div>`;
+  } else {
+    videoHtml = `
+      <div class="video-upload-zone" id="video-upload-zone" onclick="document.getElementById('video-file-input').click()">
+        <div class="upload-icon">🎥</div>
+        <div class="upload-text"><strong>点击上传视频</strong><br/>支持 .mp4 / .mov / .webm 格式</div>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="insp-field">
+      <div class="insp-label">节点 ID</div>
+      <input class="insp-input" id="insp-id" value="${escHtml(nodeId)}" readonly style="opacity:0.5;cursor:not-allowed"/>
+    </div>
+    <div class="insp-field">
+      <div class="insp-label">标题</div>
+      <input class="insp-input" id="insp-title-val" value="${escHtml(nodeData.title||'')}"/>
+    </div>
+    <div class="insp-field">
+      <div class="insp-label">视频文件</div>
+      ${videoHtml}
+      <div class="video-upload-hint">推荐：<strong>1080p / H.264 / ≤ 100MB</strong>，平台自动转码三档清晰度</div>
+      <div id="video-upload-progress" style="display:none;margin-top:6px;">
+        <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+          <div id="video-upload-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.3s;"></div>
+        </div>
+        <div id="video-upload-status" style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">上传中...</div>
+      </div>
+      <div id="video-tc-status" style="display:none;margin-top:4px;"></div>
+      <input type="file" id="video-file-input" accept="video/*" style="display:none" onchange="uploadVideoFile(event, '${nodeId}')"/>
+      <input type="hidden" id="insp-video-url" value="${escHtml(nodeData.video_url||'')}"/>
+    </div>
+    <div class="insp-field">
+      <div class="insp-label">分支时间（只读，跟随视频自动更新）</div>
+      <div class="insp-readonly-field" id="insp-branch-time-display">${escHtml(dur)}</div>
+    </div>
+    <div class="insp-field">
+      <div class="insp-label">节点类型</div>
+      <div class="insp-node-type-group">
+        ${[['normal','普通'],['start','🚀 起始节点'],['checkpoint','📌 检查点']].map(([val,label]) =>
+          `<label class="insp-type-radio${nodeType===val?' selected':''}">
+            <input type="radio" name="insp-node-type" value="${val}" ${nodeType===val?'checked':''} onchange="onNodeTypeChange('${nodeId}',this.value)"/> ${escHtml(label)}
+          </label>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function onNodeTypeChange(nodeId, newType) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  nodeData.node_type = newType;
+  if (newType === 'start') {
+    state.gameData.start_node = nodeId;
+  }
+  document.querySelectorAll('.insp-type-radio').forEach(el => {
+    const inp = el.querySelector('input');
+    el.classList.toggle('selected', inp && inp.value === newType);
+  });
+}
+
+// ── Tab 2 · 🔗 交互 ──────────────────────────────────────────────
+function renderTabInteractions(nodeId, nodeData) {
+  const el = document.getElementById('itab-interaction');
+  if (!el) return;
+  const items = nodeData.interactions_v2 || [];
+
+  const cardsHtml = items.map((item, idx) => renderInteractionCard(nodeId, item, idx)).join('');
+  const emptyHtml = items.length === 0
+    ? '<div class="interactions-empty">还没有交互，点击下方「添加交互」开始</div>'
+    : '';
+
+  el.innerHTML = `
+    <div id="interactions-v2-list">${cardsHtml}${emptyHtml}</div>
+    <button class="insp-add-btn" style="margin-top:2px;"
+      onclick="openAddInteractionMenu('${nodeId}', this)">+ 添加交互</button>
+  `;
+}
+
+const INTERACTION_TYPE_ICONS = {
+  jump: '🎬',
+  button: '🔘',
+  hotspot_hidden: '👻',
+  hotspot_visible: '✨',
+  qte: '⚡',
+};
+const INTERACTION_TYPE_NAMES = {
+  jump: '直接跳转',
+  button: '交互按钮',
+  hotspot_hidden: '隐形热区',
+  hotspot_visible: '可见热区',
+  qte: '快速反应(QTE)',
+};
+const FX_OPTIONS = ['none','fade','dash_blur','screen_shatter_red'];
+const TRIGGER_OPTIONS = [['end','片尾（默认）'],['start','片头'],['custom','指定秒数']];
+const INPUT_OPTIONS = [['tap','点击'],['long_press','长按'],['swipe_left','左滑'],['swipe_right','右滑'],['swipe_up','上滑'],['swipe_down','下滑'],['shake','摇晃'],['charge_release','蓄力释放']];
+const FEEDBACK_OPTIONS = [['ripple','涟漪'],['flash','闪光'],['particle_burst','粒子爆发'],['none','无']];
+
+function renderInteractionCard(nodeId, item, idx) {
+  const icon = INTERACTION_TYPE_ICONS[item.type] || '❓';
+  const name = INTERACTION_TYPE_NAMES[item.type] || item.type;
+  const targetName = _getNodeDisplayName(item.target_node);
+  const fxBadge = item.transition_fx && item.transition_fx !== 'none' ? item.transition_fx : '';
+
+  // 类型专属配置区
+  let configHtml = '';
+  const fxSelect = `<select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','transition_fx',this.value)">
+    ${FX_OPTIONS.map(v => `<option value="${v}" ${(item.transition_fx||'fade')===v?'selected':''}>${v}</option>`).join('')}
+  </select>`;
+  const targetDd = buildNodeDropdown('dd_target_' + item.id, item.target_node,
+    (newId) => { _updateInteractionV2Field(nodeId, item.id, 'target_node', newId); refreshInteractionCard(nodeId, item.id); });
+
+  if (item.type === 'jump') {
+    const trig = item.jump_trigger || 'end';
+    configHtml = `
+      <div class="icard-field"><div class="icard-label">触发时机</div>
+        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','jump_trigger',this.value);_toggleJumpCustom('${item.id}',this.value)">
+          ${TRIGGER_OPTIONS.map(([v,l]) => `<option value="${v}" ${trig===v?'selected':''}>${escHtml(l)}</option>`).join('')}
+        </select>
+      </div>
+      <div id="jump_custom_${escHtml(item.id)}" style="${trig==='custom'?'':'display:none'}">
+        <div class="icard-field"><div class="icard-label">指定时间（秒）</div>
+          <input class="icard-input" type="number" min="0" step="0.5" value="${item.jump_trigger_s||0}"
+            onchange="_saveIcardField('${nodeId}','${item.id}','jump_trigger_s',parseFloat(this.value))"/>
+        </div>
+      </div>
+      <div class="icard-field"><div class="icard-label">目标节点</div>${targetDd}</div>
+      <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>`;
+  } else if (item.type === 'button') {
+    configHtml = `
+      <div class="icard-field"><div class="icard-label">按钮文字（≤30字）</div>
+        <input class="icard-input" placeholder="走向光门" maxlength="30" value="${escHtml(item.label||'')}"
+          oninput="_saveIcardField('${nodeId}','${item.id}','label',this.value)"/>
+      </div>
+      <div class="icard-field"><div class="icard-label">副标题（可选）</div>
+        <input class="icard-input" placeholder="冒险进入未知" value="${escHtml(item.sublabel||'')}"
+          oninput="_saveIcardField('${nodeId}','${item.id}','sublabel',this.value)"/>
+      </div>
+      <div class="icard-2col">
+        <div class="icard-field"><div class="icard-label">X 位置</div>
+          <input class="icard-input" placeholder="50%" value="${escHtml(item.pos_x||'50%')}"
+            oninput="_saveIcardField('${nodeId}','${item.id}','pos_x',this.value)"/>
+        </div>
+        <div class="icard-field"><div class="icard-label">Y 位置</div>
+          <input class="icard-input" placeholder="65%" value="${escHtml(item.pos_y||'65%')}"
+            oninput="_saveIcardField('${nodeId}','${item.id}','pos_y',this.value)"/>
+        </div>
+      </div>
+      <div class="icard-field"><div class="icard-label">目标节点</div>${targetDd}</div>
+      <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>`;
+  } else if (item.type === 'hotspot_hidden' || item.type === 'hotspot_visible') {
+    const bbox = item.bbox || [0.1, 0.1, 0.2, 0.2];
+    configHtml = `
+      <div class="icard-field"><div class="icard-label">热区坐标（归一化 0-1）</div>
+        <div class="icard-2col">
+          <div class="icard-field"><div class="icard-label">X</div>
+            <input class="icard-input" type="number" min="0" max="1" step="0.01" value="${bbox[0]}"
+              onchange="_saveBbox('${nodeId}','${item.id}',0,parseFloat(this.value))"/>
+          </div>
+          <div class="icard-field"><div class="icard-label">Y</div>
+            <input class="icard-input" type="number" min="0" max="1" step="0.01" value="${bbox[1]}"
+              onchange="_saveBbox('${nodeId}','${item.id}',1,parseFloat(this.value))"/>
+          </div>
+          <div class="icard-field"><div class="icard-label">宽</div>
+            <input class="icard-input" type="number" min="0.01" max="1" step="0.01" value="${bbox[2]}"
+              onchange="_saveBbox('${nodeId}','${item.id}',2,parseFloat(this.value))"/>
+          </div>
+          <div class="icard-field"><div class="icard-label">高</div>
+            <input class="icard-input" type="number" min="0.01" max="1" step="0.01" value="${bbox[3]}"
+              onchange="_saveBbox('${nodeId}','${item.id}',3,parseFloat(this.value))"/>
+          </div>
+        </div>
+      </div>
+      ${item.type === 'hotspot_visible' ? `
+        <div class="icard-field"><div class="icard-label">可见度策略</div>
+          <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','visible_hint',this.value)">
+            ${[['subtle','subtle（轻微提示）'],['breathing_glow','breathing_glow（呼吸光效）'],['always','always（始终显示）']].map(([v,l]) =>
+              `<option value="${v}" ${(item.visible_hint||'subtle')===v?'selected':''}>${escHtml(l)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="icard-field"><div class="icard-label">提示延迟（秒）</div>
+          <input class="icard-input" type="number" min="0" step="1" value="${item.hint_delay_s||5}"
+            onchange="_saveIcardField('${nodeId}','${item.id}','hint_delay_s',parseFloat(this.value))"/>
+        </div>` : ''}
+      <div class="icard-field"><div class="icard-label">点击反馈</div>
+        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','feedback_fx',this.value)">
+          ${FEEDBACK_OPTIONS.map(([v,l]) => `<option value="${v}" ${(item.feedback_fx||'ripple')===v?'selected':''}>${escHtml(l)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="icard-field"><div class="icard-label">目标节点</div>${targetDd}</div>
+      <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>`;
+  } else if (item.type === 'qte') {
+    configHtml = `
+      <div class="icard-2col">
+        <div class="icard-field"><div class="icard-label">触发时间（秒）</div>
+          <input class="icard-input" type="number" min="0" step="0.5" value="${item.qte_trigger_s||3}"
+            onchange="_saveIcardField('${nodeId}','${item.id}','qte_trigger_s',parseFloat(this.value))"/>
+        </div>
+        <div class="icard-field"><div class="icard-label">反应时限（秒）</div>
+          <input class="icard-input" type="number" min="0.5" max="10" step="0.5" value="${item.qte_time_limit||2}"
+            onchange="_saveIcardField('${nodeId}','${item.id}','qte_time_limit',parseFloat(this.value))"/>
+        </div>
+      </div>
+      <div class="icard-field"><div class="icard-label">输入方式</div>
+        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','qte_input',this.value)">
+          ${INPUT_OPTIONS.map(([v,l]) => `<option value="${v}" ${(item.qte_input||'tap')===v?'selected':''}>${escHtml(l)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="icard-field"><div class="icard-label">失败行为</div>
+        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','qte_fail_behavior',this.value)">
+          <option value="retry" ${(item.qte_fail_behavior||'retry')==='retry'?'selected':''}>retry（重试）</option>
+          <option value="branch" ${item.qte_fail_behavior==='branch'?'selected':''}>branch（走失败分支）</option>
+        </select>
+      </div>
+      <div class="icard-field"><div class="icard-label">成功→目标节点</div>${targetDd}</div>
+      ${item.qte_fail_behavior === 'branch' ? `
+        <div class="icard-field"><div class="icard-label">失败→目标节点</div>
+          ${buildNodeDropdown('dd_fail_'+item.id, item.target_node_fail,
+            (nid) => _updateInteractionV2Field(nodeId, item.id, 'target_node_fail', nid))}
+        </div>` : ''}
+      <div class="icard-field"><div class="icard-label">过渡效果（成功）</div>${fxSelect}</div>`;
+  }
+
+  return `<div class="icard${item._expanded?' expanded':''}" id="icard-${escHtml(item.id)}">
+    <div class="icard-header" onclick="toggleInteractionCard('${escHtml(item.id)}')">
+      <span class="icard-type-icon">${icon}</span>
+      <span class="icard-type-name">${escHtml(name)}</span>
+      <span class="icard-target-preview">→ ${escHtml(targetName)}</span>
+      ${fxBadge ? `<span class="icard-fx-badge">${escHtml(fxBadge)}</span>` : ''}
+      <button class="icard-toggle" onclick="event.stopPropagation();toggleInteractionCard('${escHtml(item.id)}')">▾</button>
+      <button class="icard-del" onclick="event.stopPropagation();deleteInteractionV2('${nodeId}','${escHtml(item.id)}')" title="删除">✕</button>
+    </div>
+    <div class="icard-body">
+      <div class="icard-type-row">
+        <label class="icard-label">类型：</label>
+        <select onchange="onInteractionTypeChange('${nodeId}','${escHtml(item.id)}',this.value)">
+          ${Object.entries(INTERACTION_TYPE_NAMES).map(([v,l]) =>
+            `<option value="${v}" ${item.type===v?'selected':''}>${icon} ${escHtml(l)}</option>`).join('')}
+        </select>
+      </div>
+      ${configHtml}
+    </div>
+  </div>`;
+}
+
+function toggleInteractionCard(itemId) {
+  const card = document.getElementById('icard-' + itemId);
+  if (!card) return;
+  card.classList.toggle('expanded');
+  const nodeId = document.getElementById('inspector').dataset.nodeId;
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  if (nodeData && nodeData.interactions_v2) {
+    const item = nodeData.interactions_v2.find(it => it.id === itemId);
+    if (item) item._expanded = card.classList.contains('expanded');
+  }
+}
+
+function refreshInteractionCard(nodeId, itemId) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  const item = nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
+  if (!item) return;
+  const card = document.getElementById('icard-' + itemId);
+  if (!card) return;
+  const newCard = document.createElement('div');
+  newCard.innerHTML = renderInteractionCard(nodeId, item, 0);
+  const newEl = newCard.firstElementChild;
+  if (newEl) card.replaceWith(newEl);
+}
+
+function _updateInteractionV2Field(nodeId, itemId, field, value) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  const item = nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
+  if (item) item[field] = value;
+}
+
+function _saveIcardField(nodeId, itemId, field, value) {
+  _updateInteractionV2Field(nodeId, itemId, field, value);
+  // 更新卡片头部预览
+  const card = document.getElementById('icard-' + itemId);
+  if (card) {
+    const nodeData = state.gameData && state.gameData.nodes[nodeId];
+    const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
+    if (item) {
+      const preview = card.querySelector('.icard-target-preview');
+      if (preview) preview.textContent = '→ ' + _getNodeDisplayName(item.target_node);
+      const fxBadge = card.querySelector('.icard-fx-badge');
+      if (fxBadge && item.transition_fx && item.transition_fx !== 'none') fxBadge.textContent = item.transition_fx;
+    }
+  }
+}
+
+function _saveBbox(nodeId, itemId, bboxIdx, value) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
+  if (!item) return;
+  if (!item.bbox) item.bbox = [0.1, 0.1, 0.2, 0.2];
+  item.bbox[bboxIdx] = value;
+}
+
+function _toggleJumpCustom(itemId, trigVal) {
+  const el = document.getElementById('jump_custom_' + itemId);
+  if (el) el.style.display = trigVal === 'custom' ? '' : 'none';
+}
+
+function openAddInteractionMenu(nodeId, btn) {
+  // 关闭已有菜单
+  document.querySelectorAll('.interaction-add-menu').forEach(m => m.remove());
+  const menu = document.createElement('div');
+  menu.className = 'interaction-add-menu';
+  const types = [
+    ['jump','🎬','直接跳转'],
+    ['button','🔘','交互按钮'],
+    ['hotspot_hidden','👻','隐形热区'],
+    ['hotspot_visible','✨','可见热区'],
+    ['qte','⚡','快速反应(QTE)'],
+  ];
+  menu.innerHTML = types.map(([type,icon,label]) =>
+    `<div class="interaction-add-item" onclick="addInteractionV2('${nodeId}','${type}');this.closest('.interaction-add-menu').remove()">
+      <span class="ia-icon">${icon}</span>${escHtml(label)}
+    </div>`).join('');
+  document.body.appendChild(menu);
+  const rect = btn.getBoundingClientRect();
+  menu.style.cssText = `top:${rect.bottom + 4}px;left:${rect.left}px;`;
+  setTimeout(() => document.addEventListener('click', function _c(e) {
+    if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', _c); }
+  }), 10);
+}
+
+function addInteractionV2(nodeId, type) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  if (!nodeData.interactions_v2) nodeData.interactions_v2 = [];
+  const newItem = {
+    id: 'iv2_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    type,
+    target_node: '',
+    transition_fx: 'fade',
+    _expanded: true,
+    ...(type === 'button' ? { label: '新选项', sublabel: '', pos_x: '50%', pos_y: '65%' } : {}),
+    ...(type === 'hotspot_hidden' || type === 'hotspot_visible' ? { bbox: [0.1, 0.1, 0.2, 0.2], feedback_fx: 'ripple' } : {}),
+    ...(type === 'hotspot_visible' ? { visible_hint: 'subtle', hint_delay_s: 5 } : {}),
+    ...(type === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
+    ...(type === 'jump' ? { jump_trigger: 'end' } : {}),
+  };
+  nodeData.interactions_v2.push(newItem);
+  renderTabInteractions(nodeId, nodeData);
+  // 展开新卡片
+  setTimeout(() => {
+    const card = document.getElementById('icard-' + newItem.id);
+    if (card && !card.classList.contains('expanded')) card.classList.add('expanded');
+  }, 50);
+}
+
+function deleteInteractionV2(nodeId, itemId) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData || !nodeData.interactions_v2) return;
+  nodeData.interactions_v2 = nodeData.interactions_v2.filter(it => it.id !== itemId);
+  renderTabInteractions(nodeId, nodeData);
+}
+
+function onInteractionTypeChange(nodeId, itemId, newType) {
+  const nodeData = state.gameData.nodes[nodeId];
+  const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
+  if (!item) return;
+  if (item.type === newType) return;
+  if (!confirm(`切换交互类型将重置「${INTERACTION_TYPE_NAMES[item.type] || item.type}」的专属配置，确认吗？`)) {
+    // 回滚 select
+    const card = document.getElementById('icard-' + itemId);
+    if (card) {
+      const sel = card.querySelector('.icard-type-row select');
+      if (sel) sel.value = item.type;
+    }
+    return;
+  }
+  // 保留通用字段，重置专属
+  const common = { id: item.id, type: newType, target_node: item.target_node, transition_fx: item.transition_fx, _expanded: true };
+  const idx = nodeData.interactions_v2.findIndex(it => it.id === itemId);
+  nodeData.interactions_v2[idx] = {
+    ...common,
+    ...(newType === 'button' ? { label: '新选项', sublabel: '', pos_x: '50%', pos_y: '65%' } : {}),
+    ...(newType === 'hotspot_hidden' || newType === 'hotspot_visible' ? { bbox: [0.1, 0.1, 0.2, 0.2], feedback_fx: 'ripple' } : {}),
+    ...(newType === 'hotspot_visible' ? { visible_hint: 'subtle', hint_delay_s: 5 } : {}),
+    ...(newType === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
+    ...(newType === 'jump' ? { jump_trigger: 'end' } : {}),
+  };
+  renderTabInteractions(nodeId, nodeData);
+}
+
+// ── Tab 3 · 🎵 音乐 ──────────────────────────────────────────────
+function renderTabMusic(nodeId, nodeData) {
+  const el = document.getElementById('itab-music');
+  if (!el) return;
+  const library = (state.gameData && state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
+  const bgm = nodeData.bgm || null;
+  const selId = bgm ? bgm.id : '';
+  const selVol = bgm ? (bgm.volume !== undefined ? bgm.volume : 0.3) : 0.3;
+  const selFadeIn = bgm ? (bgm.fade_in_ms !== undefined ? bgm.fade_in_ms : 1000) : 1000;
+  const selFadeOut = bgm ? (bgm.fade_out_ms !== undefined ? bgm.fade_out_ms : 1000) : 1000;
+
+  const ddOptions = [
+    `<option value="" ${!selId?'selected':''}>无背景音乐（默认）</option>`,
+    ...library.map(t => `<option value="${escHtml(t.id)}" ${selId===t.id?'selected':''}>${escHtml(t.name)}</option>`)
+  ].join('');
+
+  el.innerHTML = `
+    <div class="insp-field">
+      <div class="insp-label">🎼 背景音乐(BGM)</div>
+      <select class="insp-input" id="bgm-select-${escHtml(nodeId)}"
+        onchange="_onBgmSelect('${nodeId}',this.value)">
+        ${ddOptions}
+      </select>
+      ${library.length === 0 ? `<div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">
+        💡 请先在右侧面板的「音乐库」上传 BGM，此处才能选择</div>` : ''}
+    </div>
+    <div id="bgm-advanced-${escHtml(nodeId)}" style="${selId?'':'display:none'}">
+      <button class="bgm-adv-btn${bgm && bgm._advOpen?' open':''}" id="bgm-adv-btn-${escHtml(nodeId)}"
+        onclick="_toggleBgmAdv('${nodeId}')">▸ 高级设置</button>
+      <div class="bgm-adv-body${bgm && bgm._advOpen?' open':''}" id="bgm-adv-body-${escHtml(nodeId)}">
+        <div class="insp-field">
+          <div class="icard-label">音量</div>
+          <div class="bgm-vol-row">
+            <input type="range" min="0" max="1" step="0.05" value="${selVol}"
+              oninput="_saveBgmField('${nodeId}','volume',parseFloat(this.value));document.getElementById('bgm-vol-val-${escHtml(nodeId)}').textContent=parseFloat(this.value).toFixed(2)"/>
+            <span class="bgm-vol-val" id="bgm-vol-val-${escHtml(nodeId)}">${selVol.toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="icard-2col">
+          <div class="icard-field"><div class="icard-label">淡入(ms)</div>
+            <input class="icard-input" type="number" min="0" step="100" value="${selFadeIn}"
+              onchange="_saveBgmField('${nodeId}','fade_in_ms',parseInt(this.value))"/>
+          </div>
+          <div class="icard-field"><div class="icard-label">淡出(ms)</div>
+            <input class="icard-input" type="number" min="0" step="100" value="${selFadeOut}"
+              onchange="_saveBgmField('${nodeId}','fade_out_ms',parseInt(this.value))"/>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text-tertiary);padding:4px 0;">
+      💡 选择同一首 BGM(背景音乐)的 clip(片段)之间切换时，BGM 连续播放不中断
+    </div>
+    <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+      <div id="world-audio-library"></div>
+    </div>
+  `;
+}
+  renderWorldAudioLibrary();
+
+function _onBgmSelect(nodeId, trackId) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  if (!trackId) {
+    delete nodeData.bgm;
+    const adv = document.getElementById('bgm-advanced-' + nodeId);
+    if (adv) adv.style.display = 'none';
+    return;
+  }
+  const library = (state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
+  const track = library.find(t => t.id === trackId);
+  if (!track) return;
+  nodeData.bgm = {
+    id: track.id, name: track.name, url: track.url,
+    volume: (nodeData.bgm && nodeData.bgm.volume !== undefined) ? nodeData.bgm.volume : 0.3,
+    fade_in_ms: (nodeData.bgm && nodeData.bgm.fade_in_ms !== undefined) ? nodeData.bgm.fade_in_ms : 1000,
+    fade_out_ms: (nodeData.bgm && nodeData.bgm.fade_out_ms !== undefined) ? nodeData.bgm.fade_out_ms : 1000,
+  };
+  const adv = document.getElementById('bgm-advanced-' + nodeId);
+  if (adv) adv.style.display = '';
+}
+
+function _saveBgmField(nodeId, field, value) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (nodeData && nodeData.bgm) nodeData.bgm[field] = value;
+}
+
+function _toggleBgmAdv(nodeId) {
+  const btn = document.getElementById('bgm-adv-btn-' + nodeId);
+  const body = document.getElementById('bgm-adv-body-' + nodeId);
+  if (!btn || !body) return;
+  const isOpen = btn.classList.toggle('open');
+  body.classList.toggle('open', isOpen);
+  const nodeData = state.gameData.nodes[nodeId];
+  if (nodeData && nodeData.bgm) nodeData.bgm._advOpen = isOpen;
+}
+
+// ── Tab 4 · ⚙️ 高级 ──────────────────────────────────────────────
+function renderTabAdvanced(nodeId, nodeData) {
+  const el = document.getElementById('itab-advanced');
+  if (!el) return;
+  // 高级交互（text_hint / graphic_hint / hud_overlay）的原有列表
+  const advInteractions = (nodeData.interactions || []).filter(
+    it => ['text_hint', 'graphic_hint', 'hud_overlay'].includes(it.type)
+  );
+  // 时间触发效果（去掉 jump 能力）
+  const timeEvents = (nodeData.time_trigger_effects || []);
+
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:2px 0;">文字提示 / 图形提示 / HUD 看板</div>
+    <div id="adv-interactions-list"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;">
+      <button class="gp-micro-btn" onclick="openTextHintDialog(null)">+ 文字提示</button>
+      <button class="gp-micro-btn" onclick="openHudPanel(null)">+ HUD 看板</button>
+      <button class="gp-micro-btn" onclick="openGraphicHintPanel(null)">+ 图形提示</button>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:6px 0 2px;">时间触发效果</div>
+    <div id="adv-timeline-list"></div>
+    <button class="gp-micro-btn" onclick="addTimelineEvent('${nodeId}')">+ 添加时间触发</button>
+    <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">
+      💡 跳转类交互请使用「🔗 交互」Tab 中的「🎬 直接跳转」类型
+    </div>
+  `;
+  // 渲染高级交互列表（复用现有渲染函数）
+  renderAdvancedInteractionsList(nodeId, nodeData);
+  // 渲染时间轴事件列表（复用现有渲染函数）
+  renderTimelineEventsList(nodeId, nodeData);
+}
+
+// ── 节点下拉组件 ─────────────────────────────────────────────────
+let _ddCallbacks = {};
+let _ddCurrentOpen = null;
+
+function buildNodeDropdown(fieldId, currentId, onChangeFn) {
+  _ddCallbacks[fieldId] = onChangeFn;
+  const targetName = _getNodeDisplayName(currentId);
+  const thumbHtml = _getNodeThumbHtml(currentId, 32, 18);
+  return `
+    <div class="node-dd-wrap" id="ddwrap-${escHtml(fieldId)}">
+      <div class="node-dd-trigger" onclick="openNodeDropdown('${escHtml(fieldId)}',event)">
+        <div class="node-dd-trigger-thumb">${thumbHtml}</div>
+        <span class="node-dd-trigger-name" id="ddt-name-${escHtml(fieldId)}">${escHtml(targetName || '（未选择）')}</span>
+        <span class="node-dd-trigger-arrow">▾</span>
+      </div>
+      <div class="node-dd-popup" id="ddpop-${escHtml(fieldId)}">
+        <div class="node-dd-search-wrap">
+          <input class="node-dd-search-input" placeholder="🔍 搜索节点..."
+            oninput="filterNodeDropdown('${escHtml(fieldId)}',this.value)"/>
+        </div>
+        <div class="node-dd-list" id="ddlist-${escHtml(fieldId)}">
+          ${_buildNodeDdOptions(fieldId, currentId, '')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function _buildNodeDdOptions(fieldId, currentId, query) {
+  const nodes = Object.values((state.gameData && state.gameData.nodes) || {});
+  const q = query.trim().toLowerCase();
+  const filtered = nodes.filter(n => {
+    if (!q) return true;
+    const seq = String(state.nodeIndexMap[n.id] || '');
+    return seq.startsWith(q) || (n.title || '').toLowerCase().includes(q);
+  });
+  if (filtered.length === 0) return `<div class="node-dd-empty">没有匹配的节点</div>`;
+  const noneOpt = `<div class="node-dd-none-opt" onclick="selectNodeDropdown('${escHtml(fieldId)}','',event)">（无）</div>`;
+  const opts = filtered.map(n => {
+    const seq = state.nodeIndexMap[n.id] || '';
+    const thumb = _getNodeThumbHtml(n.id, 40, 23);
+    const sel = currentId === n.id ? ' sel' : '';
+    return `<div class="node-dd-opt${sel}" onclick="selectNodeDropdown('${escHtml(fieldId)}','${escHtml(n.id)}',event)">
+      <div class="node-dd-opt-thumb">${thumb}</div>
+      <span class="node-dd-opt-seq">[${escHtml(String(seq))}]</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(n.title || n.id)}</span>
+    </div>`;
+  }).join('');
+  return noneOpt + opts;
+}
+
+function openNodeDropdown(fieldId, evt) {
+  if (evt) evt.stopPropagation();
+  // 关闭其他已打开的下拉
+  if (_ddCurrentOpen && _ddCurrentOpen !== fieldId) {
+    const prev = document.getElementById('ddpop-' + _ddCurrentOpen);
+    if (prev) prev.classList.remove('open');
+  }
+  _ddCurrentOpen = fieldId;
+  const popup = document.getElementById('ddpop-' + fieldId);
+  if (!popup) return;
+  const trigger = document.getElementById('ddwrap-' + fieldId);
+  if (trigger) {
+    const rect = trigger.getBoundingClientRect();
+    popup.style.top = (rect.bottom + 2) + 'px';
+    popup.style.left = rect.left + 'px';
+  }
+  popup.classList.toggle('open');
+  if (popup.classList.contains('open')) {
+    const search = popup.querySelector('.node-dd-search-input');
+    if (search) { search.value = ''; search.focus(); }
+  }
+}
+
+function closeAllNodeDropdowns() {
+  document.querySelectorAll('.node-dd-popup.open').forEach(p => p.classList.remove('open'));
+  _ddCurrentOpen = null;
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.node-dd-wrap')) closeAllNodeDropdowns();
+});
+
+function filterNodeDropdown(fieldId, query) {
+  const list = document.getElementById('ddlist-' + fieldId);
+  if (!list) return;
+  // Read current selected ID from trigger name? No, read from stored callback.
+  // Find current nodeId from icard parent
+  const wrap = document.getElementById('ddwrap-' + fieldId);
+  const trigger = wrap && wrap.querySelector('.node-dd-trigger-name');
+  const currentName = trigger ? trigger.textContent : '';
+  // Rebuild options with filter
+  list.innerHTML = _buildNodeDdOptions(fieldId, '', query);
+}
+
+function selectNodeDropdown(fieldId, nodeId, evt) {
+  if (evt) evt.stopPropagation();
+  const popup = document.getElementById('ddpop-' + fieldId);
+  if (popup) popup.classList.remove('open');
+  _ddCurrentOpen = null;
+  // Update trigger display
+  const triggerName = document.getElementById('ddt-name-' + fieldId);
+  const triggerThumb = document.querySelector(`#ddwrap-${fieldId} .node-dd-trigger-thumb`);
+  if (triggerName) triggerName.textContent = _getNodeDisplayName(nodeId) || '（未选择）';
+  if (triggerThumb) triggerThumb.innerHTML = _getNodeThumbHtml(nodeId, 32, 18);
+  // Call stored callback
+  const fn = _ddCallbacks[fieldId];
+  if (fn) fn(nodeId);
+}
+
+function _getNodeDisplayName(nodeId) {
+  if (!nodeId) return '';
+  const n = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (!n) return nodeId;
+  const seq = state.nodeIndexMap[nodeId] || '';
+  return `[${seq}] ${n.title || nodeId}`;
+}
+
+function _getNodeThumbHtml(nodeId, w, h) {
+  if (!nodeId) return '🎯';
+  const n = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (!n || !n.poster_url) return '🎬';
+  return `<img src="${escHtml(n.poster_url)}" style="width:${w}px;height:${h}px;object-fit:cover;" loading="lazy"/>`;
+}
+
+// ── 辅助：渲染高级交互列表（Tab 4 中调用）────────────────────────
+function renderAdvancedInteractionsList(nodeId, nodeData) {
+  const container = document.getElementById('adv-interactions-list');
+  if (!container) return;
+  const items = (nodeData.interactions || []).filter(
+    it => ['text_hint', 'graphic_hint', 'hud_overlay'].includes(it.type)
+  );
+  if (items.length === 0) {
+    container.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);padding:4px 0;">暂无高级交互</div>';
+    return;
+  }
+  // 渲染简短列表（编辑仍走原有侧边栏/弹窗）
+  container.innerHTML = renderAdvancedInteractionsListHtml(nodeId, nodeData);
+}
+
+function renderTimelineEventsList(nodeId, nodeData) {
+  const container = document.getElementById('adv-timeline-list');
+  if (!container) return;
+  const header = document.createElement('div');
+  header.innerHTML = '';
+  renderTimelineEventsHtml(nodeId, nodeData, container);
+}
+
+// ── World 级音乐库 UI ─────────────────────────────────────────────
+function renderWorldAudioLibrary() {
+  const container = document.getElementById('world-audio-library');
+  if (!container) return;
+  const library = (state.gameData && state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <span style="font-size:12px;font-weight:600;color:var(--text-primary);">🎵 音乐库</span>
+    </div>
+    ${library.length === 0 ? `<div style="font-size:11px;color:var(--text-tertiary);padding:6px 0;">尚未上传 BGM，点击下方按钮上传</div>` : ''}
+    <div id="audio-tracks-list">
+      ${library.map(track => renderAudioTrackItem(track, worldId)).join('')}
+    </div>
+    <div class="audio-upload-area" onclick="document.getElementById('audio-file-input').click()">
+      🎵 点击上传 BGM（MP3 / M4A / AAC，≤ 10MB）
+    </div>
+    <input type="file" id="audio-file-input" accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,audio/x-mp3,.mp3,.m4a,.aac"
+      style="display:none" onchange="uploadAudioFile(event,'${worldId}')"/>
+    <div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">
+      💡 上传的 BGM 可被本 world(世界)下任意 clip(片段)选用
+    </div>
+    <audio id="audio-preview-player" style="display:none;"></audio>
+  `;
+}
+
+function renderAudioTrackItem(track, worldId) {
+  const dur = track.duration_s ? _fmtDuration(track.duration_s) : '';
+  const size = track.size_bytes ? _fmtBytes(track.size_bytes) : '';
+  return `<div class="audio-track-item" id="atitem-${escHtml(track.id)}">
+    <div class="audio-track-icon">🎵</div>
+    <div class="audio-track-info">
+      <div class="audio-track-name">${escHtml(track.name)}</div>
+      <div class="audio-track-meta">${dur ? dur + '  ' : ''}${size}</div>
+    </div>
+    <div class="audio-track-actions">
+      <button class="atbtn" onclick="toggleAudioPreview('${escHtml(track.id)}','${escHtml(track.url)}')">▶ 试听</button>
+      <button class="atbtn del" onclick="deleteAudioTrack('${worldId}','${escHtml(track.id)}')">🗑 删除</button>
+    </div>
+  </div>`;
+}
+
+function _fmtDuration(s) {
+  const m = Math.floor(s / 60), sec = Math.round(s % 60);
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+function _fmtBytes(b) {
+  if (b < 1024) return b + 'B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + 'KB';
+  return (b/(1024*1024)).toFixed(1) + 'MB';
+}
+
+let _previewingTrackId = null;
+function toggleAudioPreview(trackId, url) {
+  const player = document.getElementById('audio-preview-player');
+  if (!player) return;
+  if (_previewingTrackId === trackId && !player.paused) {
+    player.pause();
+    _previewingTrackId = null;
+    _updatePreviewBtn(trackId, '▶ 试听');
+    return;
+  }
+  if (_previewingTrackId && _previewingTrackId !== trackId) {
+    _updatePreviewBtn(_previewingTrackId, '▶ 试听');
+  }
+  player.src = url;
+  player.play().catch(() => {});
+  _previewingTrackId = trackId;
+  _updatePreviewBtn(trackId, '⏸ 暂停');
+  player.onended = () => { _previewingTrackId = null; _updatePreviewBtn(trackId, '▶ 试听'); };
+}
+function _updatePreviewBtn(trackId, text) {
+  const item = document.getElementById('atitem-' + trackId);
+  if (!item) return;
+  const btn = item.querySelector('.atbtn:first-child');
+  if (btn) btn.textContent = text;
+}
+
+async function uploadAudioFile(event, worldId) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { showToast('音频文件超过 10MB 限制', 'error'); return; }
+  const authStr = localStorage.getItem('infidive_auth');
+  const token = authStr ? JSON.parse(authStr).token : null;
+  if (!token) { showToast('请先登录', 'error'); return; }
+  showToast('正在上传 BGM...', 'info');
+  try {
+    // Step 1: upload file to S3
+    const fd = new FormData();
+    fd.append('file', file);
+    const upResp = await fetch('https://infidive.ai/api/v1/upload/file', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd
+    });
+    const upData = await upResp.json();
+    if (!upResp.ok || !upData.file_url) throw new Error(upData.error || '上传失败');
+
+    // Step 2: 获取音频时长（客户端读取）
+    let durationS = null;
+    try {
+      const audioEl = new Audio(upData.file_url);
+      await new Promise((res, rej) => {
+        audioEl.onloadedmetadata = () => { durationS = Math.round(audioEl.duration); res(); };
+        audioEl.onerror = rej;
+        setTimeout(rej, 5000);
+      });
+    } catch(e) { /* ignore */ }
+
+    // Step 3: 注册到 world audio_library
+    const trackId = 'bgm_' + Date.now();
+    const payload = {
+      id: trackId,
+      name: file.name.replace(/\.[^.]+$/, ''),
+      url: upData.file_url,
+      duration_s: durationS,
+      size_bytes: file.size,
+      uploaded_at: new Date().toISOString()
+    };
+    const regResp = await fetch(`https://infidive.ai/api/v1/worlds/${worldId}/audio`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const regData = await regResp.json();
+    if (!regResp.ok) throw new Error(regData.error || '注册失败');
+    if (!state.gameData.audio_library) state.gameData.audio_library = { tracks: [] };
+    state.gameData.audio_library.tracks = regData.data.audio_library.tracks;
+    renderWorldAudioLibrary();
+    showToast('✓ BGM 上传成功：' + payload.name, 'success');
+  } catch(err) {
+    showToast('上传 BGM 失败：' + err.message, 'error');
+  }
+}
+
+async function deleteAudioTrack(worldId, trackId) {
+  // 检查是否被引用
+  const usedIn = Object.values(state.gameData.nodes || {}).filter(n => n.bgm && n.bgm.id === trackId);
+  if (usedIn.length > 0) {
+    const names = usedIn.map(n => n.title || n.id).join('、');
+    if (!confirm(`此 BGM 正在被 ${usedIn.length} 个 clip(片段) 使用（${names}），删除后这些 clip 将失去背景音乐，确认删除？`)) return;
+  }
+  const authStr = localStorage.getItem('infidive_auth');
+  const token = authStr ? JSON.parse(authStr).token : null;
+  try {
+    const resp = await fetch(`https://infidive.ai/api/v1/worlds/${worldId}/audio/${trackId}`, {
+      method: 'DELETE', headers: { Authorization: 'Bearer ' + token }
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || '删除失败');
+    state.gameData.audio_library = data.data.audio_library;
+    // 清理引用了该 BGM 的节点
+    usedIn.forEach(n => { if (n.bgm && n.bgm.id === trackId) delete n.bgm; });
+    renderWorldAudioLibrary();
+    showToast('✓ BGM 已删除', 'success');
+  } catch(err) {
+    showToast('删除失败：' + err.message, 'error');
+  }
+}
+
+// ── 关闭 Inspector 时清理 ────────────────────────────────────────
+function closeInspector() {
+  document.getElementById('inspector').style.display = 'none';
+  closeAllNodeDropdowns();
+  document.querySelectorAll('.interaction-add-menu').forEach(m => m.remove());
+}
+
+// ── World 级音乐库懒加载 ─────────────────────────────────────────
+async function _loadWorldAudioLibrary() {
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  if (!worldId) return; // 尚未发布到 infidive，跳过
+  const authStr = localStorage.getItem('infidive_auth');
+  const token = authStr ? JSON.parse(authStr).token : null;
+  if (!token) return;
+  try {
+    const resp = await fetch('https://infidive.ai/api/v1/worlds/' + worldId + '/audio', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data && data.data && data.data.audio_library) {
+      state.gameData.audio_library = data.data.audio_library;
+    }
+  } catch(e) {
+    console.warn('[audio] 音乐库加载失败', e);
+  }
+}
+
 
 </script>
