@@ -1976,6 +1976,15 @@ body.immersive-mode #right-panel {
   margin-bottom: 2px;
 }
 .video-upload-action { font-size: 10px; color: var(--text-tertiary); }
+/* P0-C: 上传提示 + 转码状态徽章 */
+.video-upload-hint { font-size: 10px; color: var(--text-tertiary); margin-top: 5px; line-height: 1.6; }
+.video-upload-hint strong { color: var(--text-secondary); }
+.video-tc-badge { display:inline-flex; align-items:center; gap:5px; font-size:11px; padding:3px 9px; border-radius:4px; margin-top:6px; font-weight:500; }
+.video-tc-badge.tc-pending,.video-tc-badge.tc-processing { background:rgba(99,102,241,.12); color:#6366f1; }
+.video-tc-badge.tc-completed { background:rgba(34,197,94,.12); color:#15803d; }
+.video-tc-badge.tc-failed { background:rgba(239,68,68,.12); color:#dc2626; }
+.video-tc-badge.tc-skipped { background:rgba(107,114,128,.08); color:#6b7280; }
+.video-tc-retry { font-size:10px; color:#6366f1; text-decoration:underline; cursor:pointer; margin-left:4px; }
 
 /* 3D 打点模式提示 */
 #model3d-pick-hint {
@@ -4083,12 +4092,17 @@ function openInspector(nodeId) {
           <div class="upload-text"><strong>点击上传视频</strong><br/>支持 .mp4 / .mov / .webm 格式</div>
         `}
       </div>
+      <!-- P0-C: 文件格式推荐提示 -->
+      <div class="video-upload-hint">推荐源文件：<strong>1080p / H.264 / ≤ 100MB</strong>，超过 200MB 转码耗时较长</div>
+      <div class="video-upload-hint" style="margin-top:2px;">平台自动转码为三档清晰度（480p / 720p / 1080p）</div>
       <div id="video-upload-progress" style="display:none;margin-top:6px;">
         <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
           <div id="video-upload-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.3s;"></div>
         </div>
         <div id="video-upload-status" style="font-size:10px;color:var(--text-tertiary);margin-top:3px;">上传中...</div>
       </div>
+      <!-- P0-C: 转码状态显示区 -->
+      <div id="video-tc-status" style="display:none;"></div>
       <input type="file" id="video-file-input" accept="video/*" style="display:none" onchange="uploadVideoFile(event, '${nodeId}')"/>
       <!-- 隐藏的 URL 输入框，用于 applyInspector 读取 -->
       <input type="hidden" id="insp-video-url" value="${escHtml(nodeData.video_url||'')}"/>
@@ -4107,6 +4121,8 @@ function openInspector(nodeId) {
   }
   insp.style.display = 'block';
   insp.dataset.nodeId = nodeId;
+  // P0-C: check transcode status if this node has been published
+  _checkTcStatusOnInspectorOpen(nodeId);
 
   // Position inspector relative to right panel
   const rp = document.getElementById('right-panel');
@@ -4303,6 +4319,12 @@ async function uploadVideoFile(event, nodeId) {
   const file = event.target.files[0];
   if (!file) return;
 
+  // P0-C: 超过 200MB 提前告知用户转码耗时
+  const fileMB = file.size / 1024 / 1024;
+  if (fileMB > 200) {
+    showToast('⚠️ 文件较大（' + fileMB.toFixed(0) + 'MB），上传完成后转码可能需要 10 分钟以上', 'warning');
+  }
+
   const zone     = document.getElementById('video-upload-zone');
   const progress = document.getElementById('video-upload-progress');
   const bar      = document.getElementById('video-upload-bar');
@@ -4395,6 +4417,13 @@ async function uploadVideoFile(event, nodeId) {
     if (bar) bar.style.width = '100%';
     if (status) status.textContent = '上传成功！';
     showToast('✓ 视频上传成功', 'success');
+
+    // P0-C: 本地上传完毕 — 提示用户发布后将触发转码
+    const tcEl = document.getElementById('video-tc-status');
+    if (tcEl) {
+      tcEl.innerHTML = '<span class="video-tc-badge tc-pending">⏳ 待发布转码</span>';
+      tcEl.style.display = 'block';
+    }
 
     // 7. 刷新 Inspector 显示封面
     setTimeout(() => openInspector(nodeId), 300);
@@ -7900,9 +7929,14 @@ async function _doPublish(existingWorldId) {
     state.gameData._infidive_world_id = result.world_id;
     saveData();
 
+    // P0-C: store node→clip map for transcode status polling
+    if (result.node_clip_map) _onPublishTranscodeInit(result.node_clip_map);
+
+    const tcCount = result.node_clip_map ? Object.keys(result.node_clip_map).length : 0;
+    const tcNote = tcCount > 0 ? `，${tcCount} 个片段转码排队中` : '';
     const msg = result.is_update
-      ? `已更新！${result.clip_count} 个片段同步完成`
-      : `发布成功！${result.clip_count} 个片段已上线`;
+      ? `已更新！${result.clip_count} 个片段同步完成${tcNote}`
+      : `发布成功！${result.clip_count} 个片段已上线${tcNote}`;
     showToast(msg, 'success');
     console.log('[Bridge] Result:', result);
   } catch (e) {
@@ -8646,6 +8680,103 @@ function buildInteractionDsl(nodeData) {
 }
 
 // ==================== DSL v0 数据转换层结束 ====================
+// ==================== P0-C 转码状态轮询 ====================
+
+// node_id (Studio) → infidive clip_id (populated after Bridge publish)
+let _nodeClipMap = {};
+// Running poll timer handles: nodeId → intervalId
+const _tcPollTimers = {};
+
+/**
+ * Called after Bridge publish succeeds.
+ * Stores the node→clip map and shows initial status for currently open inspector.
+ */
+function _onPublishTranscodeInit(nodeClipMap) {
+  if (!nodeClipMap || typeof nodeClipMap !== 'object') return;
+  _nodeClipMap = nodeClipMap;
+  console.log('[TC] node_clip_map stored:', Object.keys(_nodeClipMap).length, 'entries');
+  // If inspector is open, refresh its transcode status immediately
+  const insp = document.getElementById('inspector');
+  if (insp && insp.style.display !== 'none') {
+    const openNodeId = insp.dataset.nodeId;
+    if (openNodeId && _nodeClipMap[openNodeId]) {
+      _startTcPoll(openNodeId, _nodeClipMap[openNodeId]);
+    }
+  }
+}
+
+/**
+ * Start polling transcode status for a given node.
+ * Stops automatically when status is completed/failed/skipped.
+ */
+function _startTcPoll(nodeId, clipId) {
+  if (_tcPollTimers[nodeId]) return; // already polling
+  _updateTcBadge(nodeId, clipId, 'pending'); // immediate first render
+  _fetchTcStatus(nodeId, clipId); // immediate first fetch
+  _tcPollTimers[nodeId] = setInterval(() => _fetchTcStatus(nodeId, clipId), 8000);
+}
+
+async function _fetchTcStatus(nodeId, clipId) {
+  try {
+    const resp = await _apiFetch(`https://infidive.ai/api/v1/clips/${clipId}/status`);
+    if (!resp || !resp.ok) return;
+    const body = await resp.json();
+    const tc = (body.clip && body.clip.transcode_status) || 'pending';
+    _updateTcBadge(nodeId, clipId, tc);
+    // Stop polling on terminal states
+    if (tc === 'completed' || tc === 'failed' || tc === 'skipped') {
+      clearInterval(_tcPollTimers[nodeId]);
+      delete _tcPollTimers[nodeId];
+    }
+  } catch(e) {
+    console.warn('[TC] poll error:', e.message);
+  }
+}
+
+function _updateTcBadge(nodeId, clipId, status) {
+  // Only update if this node's inspector is currently open
+  const insp = document.getElementById('inspector');
+  if (!insp || insp.dataset.nodeId !== nodeId) return;
+  const el = document.getElementById('video-tc-status');
+  if (!el) return;
+  const labels = {
+    pending:    '⏳ 转码排队中...',
+    processing: '⚙️ 转码中...',
+    completed:  '✅ 就绪',
+    failed:     '❌ 转码失败',
+    skipped:    '— 无需转码',
+  };
+  const label = labels[status] || ('状态: ' + status);
+  const retryHtml = status === 'failed'
+    ? `<span class="video-tc-retry" onclick="_retryTranscode('${clipId}')">重试</span>`
+    : '';
+  el.innerHTML = `<span class="video-tc-badge tc-${status}">${label}${retryHtml}</span>`;
+  el.style.display = 'block';
+}
+
+// Called when inspector is opened — check if this node has a known clip and start polling
+function _checkTcStatusOnInspectorOpen(nodeId) {
+  const clipId = _nodeClipMap[nodeId];
+  if (!clipId) return;
+  if (!_tcPollTimers[nodeId]) {
+    _startTcPoll(nodeId, clipId);
+  } else {
+    // Already polling — just refresh display
+    _fetchTcStatus(nodeId, clipId);
+  }
+}
+
+async function _retryTranscode(clipId) {
+  try {
+    const resp = await _apiFetch(`https://infidive.ai/api/v1/clips/${clipId}/retry-transcode`, { method: 'POST' });
+    showToast(resp && resp.ok ? '已重新排队转码' : '重试请求失败', resp && resp.ok ? 'info' : 'error');
+  } catch(e) {
+    showToast('重试失败: ' + e.message, 'error');
+  }
+}
+
+// ==================== P0-C 转码状态轮询结束 ====================
+
 // ==================== W5 客户端 DSL Schema 校验 ====================
 
 let _clientDslValidator = null;
