@@ -8917,7 +8917,6 @@ function buildInteractionDsl(nodeData) {
             transition_fx: jt.transition_fx || 'fade'
           }
         }],
-        metadata: { auto_execute: true }
       });
     });
   }
@@ -11932,16 +11931,34 @@ function renderAdvancedInteractionsList(nodeId, nodeData) {
     container.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);padding:4px 0;">暂无高级交互</div>';
     return;
   }
-  // 渲染简短列表（编辑仍走原有侧边栏/弹窗）
-  container.innerHTML = renderAdvancedInteractionsListHtml(nodeId, nodeData);
+  // 渲染简短摘要行（点击图标在原有侧边栏编辑）
+  container.innerHTML = items.map((it, i) => {
+    const icons = { text_hint: '💬', graphic_hint: '🖼', hud_overlay: '📊' };
+    const names = { text_hint: '文字提示', graphic_hint: '图形提示', hud_overlay: 'HUD 看板' };
+    return '<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--bg-canvas);border-radius:4px;margin-bottom:3px;">'
+      + '<span style="font-size:13px;">' + (icons[it.type]||'❓') + '</span>'
+      + '<span style="font-size:11px;color:var(--text-primary);flex:1;">' + (names[it.type]||it.type) + '</span>'
+      + '</div>';
+  }).join('');
 }
 
 function renderTimelineEventsList(nodeId, nodeData) {
   const container = document.getElementById('adv-timeline-list');
   if (!container) return;
-  const header = document.createElement('div');
-  header.innerHTML = '';
-  renderTimelineEventsHtml(nodeId, nodeData, container);
+  container.innerHTML = '';
+  // 复用现有 renderTimelineSection 渲染时间轴事件列表
+  const section = renderTimelineSection(nodeId);
+  if (section) {
+    // 只取事件卡片部分（跳过 section 标题行）
+    Array.from(section.childNodes).forEach(child => {
+      if (child.tagName === 'DIV' && child.querySelector('.eff-del-btn, input[type="radio"]')) {
+        container.appendChild(child.cloneNode(true));
+      }
+    });
+    if (container.children.length === 0) {
+      container.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);padding:4px 0;">暂无时间触发事件</div>';
+    }
+  }
 }
 
 // ── World 级音乐库 UI ─────────────────────────────────────────────
