@@ -1,13 +1,20 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://infidive.ai/dsl/v0/schema.json",
-  "title": "infiDive Interaction DSL v0",
+  "title": "infiDive Interaction DSL v0.2.0",
   "description": "Schema for infidive 3.0 interaction DSL stored in clips.interaction_dsl",
   "type": "object",
-  "required": ["dsl_version", "clip_id", "clip_duration_s", "interactions"],
+  "required": [
+    "dsl_version",
+    "clip_id",
+    "clip_duration_s",
+    "interactions"
+  ],
   "additionalProperties": true,
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
     "dsl_version": {
       "type": "string",
       "pattern": "^v0\\.",
@@ -24,131 +31,333 @@
     "interactions": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/definitions/interaction" }
+      "items": {
+        "$ref": "#/definitions/interaction"
+      }
     },
     "metadata": {
       "type": "object",
       "additionalProperties": true
+    },
+    "audio_tracks": {
+      "type": "array",
+      "description": "[v0.2] Optional BGM overlay tracks. Empty array = no BGM. Missing field treated as empty array (v0.1.x compat).",
+      "items": {
+        "$ref": "#/definitions/audioTrack"
+      }
     }
   },
   "definitions": {
     "interaction": {
       "type": "object",
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "additionalProperties": true,
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
         "type": {
           "type": "string",
-          "enum": ["qte", "hotspot", "branch", "text_hint", "graphic_hint", "hud_overlay"],
+          "enum": [
+            "qte",
+            "hotspot",
+            "branch",
+            "text_hint",
+            "graphic_hint",
+            "hud_overlay"
+          ],
           "description": "Strict enum — unknown type values are rejected (400)"
         },
-        "metadata": { "type": "object", "additionalProperties": true }
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "const": "qte" } }, "required": ["type"] },
-          "then": {
-            "required": ["trigger_time_s", "mode", "input_method", "time_limit_s", "outcomes"],
+          "if": {
             "properties": {
-              "trigger_time_s": { "type": "number", "minimum": 0 },
-              "mode": { "type": "string", "enum": ["dodge", "guard", "charge"] },
+              "type": {
+                "const": "qte"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "trigger_time_s",
+              "mode",
+              "input_method",
+              "time_limit_s",
+              "outcomes"
+            ],
+            "properties": {
+              "trigger_time_s": {
+                "type": "number",
+                "minimum": 0
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "dodge",
+                  "guard",
+                  "charge"
+                ]
+              },
               "input_method": {
                 "type": "string",
-                "enum": ["tap", "long_press", "swipe_left", "swipe_right", "shake", "charge_release"]
+                "enum": [
+                  "tap",
+                  "long_press",
+                  "swipe_left",
+                  "swipe_right",
+                  "shake",
+                  "charge_release"
+                ]
               },
-              "time_limit_s": { "type": "number", "minimum": 0.5, "maximum": 10 },
-              "slow_mo": { "type": "object", "additionalProperties": true },
-              "ui_theme": { "type": "object", "additionalProperties": true },
-              "hint": { "type": "object", "additionalProperties": true },
+              "time_limit_s": {
+                "type": "number",
+                "minimum": 0.5,
+                "maximum": 10
+              },
+              "slow_mo": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "ui_theme": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "hint": {
+                "type": "object",
+                "additionalProperties": true
+              },
               "outcomes": {
                 "type": "object",
-                "required": ["success", "fail"],
+                "required": [
+                  "success",
+                  "fail"
+                ],
                 "additionalProperties": true,
                 "properties": {
-                  "success": { "$ref": "#/definitions/outcome" },
-                  "fail": { "$ref": "#/definitions/outcome" }
+                  "success": {
+                    "$ref": "#/definitions/outcome"
+                  },
+                  "fail": {
+                    "$ref": "#/definitions/outcome"
+                  }
                 }
               },
-              "fail_behavior": { "type": "string", "enum": ["retry", "branch"] }
+              "fail_behavior": {
+                "type": "string",
+                "enum": [
+                  "retry",
+                  "branch"
+                ]
+              }
             }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "hotspot" } }, "required": ["type"] },
-          "then": {
-            "required": ["video_mode", "hotspots"],
+          "if": {
             "properties": {
-              "video_mode": { "type": "string", "enum": ["loop", "pause_at_end", "continue"] },
+              "type": {
+                "const": "hotspot"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "video_mode",
+              "hotspots"
+            ],
+            "properties": {
+              "video_mode": {
+                "type": "string",
+                "enum": [
+                  "loop",
+                  "pause_at_end",
+                  "continue"
+                ]
+              },
               "loop_range_s": {
                 "type": "array",
-                "items": { "type": "number", "minimum": 0 },
-                "minItems": 2, "maxItems": 2
+                "items": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "minItems": 2,
+                "maxItems": 2
               },
               "hotspots": {
                 "type": "array",
                 "minItems": 1,
                 "items": {
                   "type": "object",
-                  "required": ["id", "bbox", "on_click"],
+                  "required": [
+                    "id",
+                    "bbox",
+                    "on_click"
+                  ],
                   "additionalProperties": true,
                   "properties": {
-                    "id": { "type": "string" },
-                    "bbox": { "$ref": "#/definitions/bbox" },
+                    "id": {
+                      "type": "string"
+                    },
+                    "bbox": {
+                      "$ref": "#/definitions/bbox"
+                    },
                     "visible_hint": {
                       "type": "string",
-                      "enum": ["hidden", "subtle", "breathing_glow", "always"]
+                      "enum": [
+                        "hidden",
+                        "subtle",
+                        "breathing_glow",
+                        "always"
+                      ]
                     },
-                    "hint_delay_s": { "type": "number", "minimum": 0 },
-                    "hint_color": { "type": "string" },
+                    "hint_delay_s": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "hint_color": {
+                      "type": "string"
+                    },
                     "on_click": {
                       "type": "object",
-                      "required": ["action_outcome"],
+                      "required": [
+                        "action_outcome"
+                      ],
                       "additionalProperties": true,
                       "properties": {
                         "feedback_fx": {
                           "type": "string",
-                          "enum": ["ripple", "flash", "particle_burst", "none"]
+                          "enum": [
+                            "ripple",
+                            "flash",
+                            "particle_burst",
+                            "none"
+                          ]
                         },
-                        "action_outcome": { "$ref": "#/definitions/outcome" }
+                        "action_outcome": {
+                          "$ref": "#/definitions/outcome"
+                        }
+                      }
+                    },
+                    "timing": {
+                      "type": "object",
+                      "description": "Optional time window for this hotspot. Omit = active for full clip/loop.",
+                      "additionalProperties": false,
+                      "required": [
+                        "show_at_s",
+                        "duration_s"
+                      ],
+                      "properties": {
+                        "show_at_s": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "duration_s": {
+                          "type": "number",
+                          "exclusiveMinimum": 0
+                        }
                       }
                     }
                   }
                 }
               },
-              "help_after_s": { "type": "number", "minimum": 0 },
-              "fallback_outcome": { "$ref": "#/definitions/outcome" },
-              "max_wait_s": { "type": "number", "minimum": 0 }
+              "help_after_s": {
+                "type": "number",
+                "minimum": 0
+              },
+              "fallback_outcome": {
+                "$ref": "#/definitions/outcome"
+              },
+              "max_wait_s": {
+                "type": "number",
+                "minimum": 0
+              }
             }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "branch" } }, "required": ["type"] },
-          "then": {
-            "required": ["trigger_time_s", "options"],
+          "if": {
             "properties": {
-              "trigger_time_s": { "type": "number", "minimum": 0 },
+              "type": {
+                "const": "branch"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "trigger_time_s",
+              "options"
+            ],
+            "properties": {
+              "trigger_time_s": {
+                "type": "number",
+                "minimum": 0
+              },
               "ui_style": {
                 "type": "string",
-                "enum": ["bottom_sheet", "center_cards", "radial_menu"]
+                "enum": [
+                  "bottom_sheet",
+                  "center_cards",
+                  "radial_menu"
+                ]
               },
-              "timeout_s": { "type": "number", "minimum": 0 },
-              "timeout_action": { "$ref": "#/definitions/outcome" },
+              "timeout_s": {
+                "type": "number",
+                "minimum": 0
+              },
+              "timeout_action": {
+                "$ref": "#/definitions/outcome"
+              },
               "options": {
                 "type": "array",
-                "minItems": 2,
+                "minItems": 1,
                 "maxItems": 4,
                 "items": {
                   "type": "object",
-                  "required": ["id", "label", "on_choose"],
+                  "required": [
+                    "id",
+                    "label",
+                    "on_choose"
+                  ],
                   "additionalProperties": true,
                   "properties": {
-                    "id": { "type": "string" },
-                    "label": { "type": "string", "maxLength": 30 },
-                    "description": { "type": "string" },
-                    "icon_url": { "type": "string" },
-                    "cost_bubbles": { "type": "integer", "minimum": 0 },
-                    "on_choose": { "$ref": "#/definitions/outcome" }
+                    "id": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 30
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "icon_url": {
+                      "type": "string"
+                    },
+                    "cost_bubbles": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "on_choose": {
+                      "$ref": "#/definitions/outcome"
+                    }
                   }
                 }
               }
@@ -156,95 +365,241 @@
           }
         },
         {
-          "if": { "properties": { "type": { "const": "text_hint" } }, "required": ["type"] },
-          "then": {
-            "required": ["timing", "style", "content"],
+          "if": {
             "properties": {
-              "timing": { "$ref": "#/definitions/timing" },
+              "type": {
+                "const": "text_hint"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "timing",
+              "style",
+              "content"
+            ],
+            "properties": {
+              "timing": {
+                "$ref": "#/definitions/timing"
+              },
               "style": {
                 "type": "string",
-                "enum": ["monologue", "subtitle", "ar_label", "title_card", "narrator"]
+                "enum": [
+                  "monologue",
+                  "subtitle",
+                  "ar_label",
+                  "title_card",
+                  "narrator"
+                ]
               },
-              "content": { "type": "string", "maxLength": 140 },
-              "voice": { "type": "string", "enum": ["protagonist", "narrator", "world"] },
+              "content": {
+                "type": "string",
+                "maxLength": 140
+              },
+              "voice": {
+                "type": "string",
+                "enum": [
+                  "protagonist",
+                  "narrator",
+                  "world"
+                ]
+              },
               "position": {
                 "type": "string",
-                "enum": ["bottom", "center", "top", "near_bbox"]
+                "enum": [
+                  "bottom",
+                  "center",
+                  "top",
+                  "near_bbox"
+                ]
               },
-              "near_bbox": { "$ref": "#/definitions/bbox" },
-              "typography": { "type": "object", "additionalProperties": true },
-              "tts": { "type": "object", "additionalProperties": true }
+              "near_bbox": {
+                "$ref": "#/definitions/bbox"
+              },
+              "typography": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "tts": {
+                "type": "object",
+                "additionalProperties": true
+              }
             }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "graphic_hint" } }, "required": ["type"] },
-          "then": {
-            "required": ["timing", "graphic_type", "anchor"],
+          "if": {
             "properties": {
-              "timing": { "$ref": "#/definitions/timing" },
+              "type": {
+                "const": "graphic_hint"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "timing",
+              "graphic_type",
+              "anchor"
+            ],
+            "properties": {
+              "timing": {
+                "$ref": "#/definitions/timing"
+              },
               "graphic_type": {
                 "type": "string",
-                "enum": ["arrow", "gesture_demo", "glow_pulse", "tap_ripple", "custom_svg"]
+                "enum": [
+                  "arrow",
+                  "gesture_demo",
+                  "glow_pulse",
+                  "tap_ripple",
+                  "custom_svg"
+                ]
               },
               "anchor": {
                 "type": "object",
-                "required": ["mode"],
+                "required": [
+                  "mode"
+                ],
                 "additionalProperties": true,
                 "properties": {
-                  "mode": { "type": "string", "enum": ["fixed", "near_bbox", "follow_element"] },
-                  "bbox": { "$ref": "#/definitions/bbox" },
-                  "follow_interaction_id": { "type": "string" }
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "fixed",
+                      "near_bbox",
+                      "follow_element"
+                    ]
+                  },
+                  "bbox": {
+                    "$ref": "#/definitions/bbox"
+                  },
+                  "follow_interaction_id": {
+                    "type": "string"
+                  }
                 }
               },
               "gesture_type": {
                 "type": "string",
-                "enum": ["swipe_left", "swipe_right", "long_press", "shake", "tap", "charge"]
+                "enum": [
+                  "swipe_left",
+                  "swipe_right",
+                  "long_press",
+                  "shake",
+                  "tap",
+                  "charge"
+                ]
               },
-              "loop": { "type": "boolean" },
-              "loop_interval_ms": { "type": "number", "minimum": 0 },
-              "style": { "type": "object", "additionalProperties": true },
+              "loop": {
+                "type": "boolean"
+              },
+              "loop_interval_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "style": {
+                "type": "object",
+                "additionalProperties": true
+              },
               "show_strategy": {
                 "type": "string",
-                "enum": ["always", "first_time_only", "after_idle_s"]
+                "enum": [
+                  "always",
+                  "first_time_only",
+                  "after_idle_s"
+                ]
               },
-              "after_idle_s": { "type": "number", "minimum": 0 }
+              "after_idle_s": {
+                "type": "number",
+                "minimum": 0
+              }
             }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "hud_overlay" } }, "required": ["type"] },
-          "then": {
-            "required": ["trigger", "behavior", "panels"],
+          "if": {
             "properties": {
-              "trigger": { "type": "string", "enum": ["on_tap_pause", "auto_at_time"] },
-              "behavior": { "type": "string", "enum": ["soft_pause", "hard_pause"] },
-              "video_effect_while_hud": { "type": "object", "additionalProperties": true },
+              "type": {
+                "const": "hud_overlay"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "trigger",
+              "behavior",
+              "panels"
+            ],
+            "properties": {
+              "trigger": {
+                "type": "string",
+                "enum": [
+                  "on_tap_pause",
+                  "auto_at_time"
+                ]
+              },
+              "behavior": {
+                "type": "string",
+                "enum": [
+                  "soft_pause",
+                  "hard_pause"
+                ]
+              },
+              "video_effect_while_hud": {
+                "type": "object",
+                "additionalProperties": true
+              },
               "panels": {
                 "type": "array",
                 "minItems": 1,
                 "items": {
                   "type": "object",
-                  "required": ["id"],
+                  "required": [
+                    "id"
+                  ],
                   "additionalProperties": true,
                   "properties": {
-                    "id": { "type": "string" },
-                    "title": { "type": "string" },
-                    "content": { "type": "string" },
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": "string"
+                    },
                     "stats": {
                       "type": "array",
-                      "items": { "type": "object", "additionalProperties": true }
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
                     },
                     "items": {
                       "type": "array",
-                      "items": { "type": "object", "additionalProperties": true }
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
                     }
                   }
                 }
               },
               "close_on": {
                 "type": "string",
-                "enum": ["tap_outside", "close_button", "both"]
+                "enum": [
+                  "tap_outside",
+                  "close_button",
+                  "both"
+                ]
               }
             }
           }
@@ -253,44 +608,154 @@
     },
     "outcome": {
       "type": "object",
-      "required": ["action"],
+      "required": [
+        "action"
+      ],
       "additionalProperties": true,
       "properties": {
         "action": {
           "type": "string",
-          "enum": ["continue", "jump_to_clip", "jump_to_timestamp", "retry", "trigger_branch"]
+          "enum": [
+            "continue",
+            "jump_to_clip",
+            "jump_to_timestamp",
+            "retry",
+            "trigger_branch"
+          ]
         },
-        "target_clip_id": { "type": "string" },
-        "target_time_s": { "type": "number", "minimum": 0 },
-        "retry_from_time_s": { "type": "number", "minimum": 0 },
-        "branch_options": { "type": "array" },
+        "target_clip_id": {
+          "type": "string"
+        },
+        "target_time_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "retry_from_time_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "branch_options": {
+          "type": "array"
+        },
         "transition_fx": {
           "type": "string",
-          "enum": ["dash_blur", "screen_shatter_red", "fade", "none"]
+          "enum": [
+            "dash_blur",
+            "screen_shatter_red",
+            "fade",
+            "none"
+          ]
         },
         "haptic_pattern": {
           "type": "string",
-          "enum": ["short_buzz", "heartbeat", "triumph"]
+          "enum": [
+            "short_buzz",
+            "heartbeat",
+            "triumph"
+          ]
         },
-        "metadata": { "type": "object", "additionalProperties": true }
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
+        }
       }
     },
     "timing": {
       "type": "object",
-      "required": ["show_at_s"],
+      "required": [
+        "show_at_s"
+      ],
       "additionalProperties": true,
       "properties": {
-        "show_at_s": { "type": "number", "minimum": 0 },
-        "duration_s": { "type": "number", "minimum": 0 },
-        "fade_in_ms": { "type": "number", "minimum": 0 },
-        "fade_out_ms": { "type": "number", "minimum": 0 }
+        "show_at_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fade_in_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fade_out_ms": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "bbox": {
       "type": "array",
-      "items": { "type": "number", "minimum": 0, "maximum": 1 },
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      },
       "minItems": 4,
       "maxItems": 4
+    },
+    "audioTrack": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "url"
+      ],
+      "additionalProperties": true,
+      "description": "A single audio track overlay (v0.2: bgm only; sfx/voice/ambient reserved for Phase 2)",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Track ID. Same id across clips = continuous playback (no interruption)."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "bgm",
+            "sfx",
+            "voice",
+            "ambient"
+          ],
+          "description": "v0.2 enforces bgm only; sfx/voice/ambient are Phase 2 reserved values"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Audio file URL (CDN or S3 direct)"
+        },
+        "loop": {
+          "type": "boolean",
+          "description": "Loop playback. Default: true"
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Mix volume 0.0-1.0. Default: 0.3"
+        },
+        "fade_in_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Fade-in duration ms. Default: 1000"
+        },
+        "fade_out_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Fade-out duration ms. Default: 1000"
+        },
+        "trigger_time_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Start offset within clip (seconds). Default: 0"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Extension escape hatch"
+        }
+      }
     }
   }
 }
