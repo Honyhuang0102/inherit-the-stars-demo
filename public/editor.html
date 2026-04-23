@@ -7901,6 +7901,13 @@ function updateTimelineEffect(nodeId, evtIdx, effIdx, field, value) {
 }
 
 function _injectTimelineSection(nodeId) {
+  // v0.2: 同步刷新 Tab 4 的 #adv-timeline-list
+  const advList = document.getElementById('adv-timeline-list');
+  if (advList) {
+    const nd = state.gameData.nodes[nodeId];
+    if (nd) renderTimelineEventsList(nodeId, nd);
+  }
+  // 旧系统: 注入 #insp-body（特殊节点类型仍使用）
   setTimeout(() => {
     const saveBtn = document.querySelector('#insp-body .insp-save-btn');
     if (!saveBtn) return;
@@ -11946,19 +11953,17 @@ function renderTimelineEventsList(nodeId, nodeData) {
   const container = document.getElementById('adv-timeline-list');
   if (!container) return;
   container.innerHTML = '';
-  // 复用现有 renderTimelineSection 渲染时间轴事件列表
-  const section = renderTimelineSection(nodeId);
-  if (section) {
-    // 只取事件卡片部分（跳过 section 标题行）
-    Array.from(section.childNodes).forEach(child => {
-      if (child.tagName === 'DIV' && child.querySelector('.eff-del-btn, input[type="radio"]')) {
-        container.appendChild(child.cloneNode(true));
-      }
-    });
-    if (container.children.length === 0) {
-      container.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);padding:4px 0;">暂无时间触发事件</div>';
-    }
+  const nd = state.gameData.nodes[nodeId];
+  if (!nd) return;
+  const events = nd.timeline_events || [];
+  if (events.length === 0) {
+    container.innerHTML = '<div style="font-size:10px;color:var(--text-tertiary);padding:4px 0;">暂无时间触发事件</div>';
+    return;
   }
+  const section = renderTimelineSection(nodeId);
+  if (!section) return;
+  // 跳过第一个子节点（section 标题行），只取事件卡片
+  Array.from(section.childNodes).slice(1).forEach(child => container.appendChild(child.cloneNode(true)));
 }
 
 // ── World 级音乐库 UI ─────────────────────────────────────────────
