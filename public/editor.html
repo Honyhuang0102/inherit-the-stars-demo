@@ -4353,6 +4353,7 @@ function openInspector(nodeId) {
     document.getElementById('insp-tabs').style.display = 'flex';
     document.getElementById('insp-footer').style.display = 'block';
     migrateNodeToV2(nodeData);
+    syncChoiceHotspotsToAssets(nodeData);
     renderTabBasic(nodeId, nodeData);
     renderTabInteractions(nodeId, nodeData);
     renderTabMusic(nodeId, nodeData);
@@ -4372,6 +4373,7 @@ function refreshNodeEditorData(nodeId, opts = {}) {
   const nodeData = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
   if (!nodeData) return;
   migrateNodeToV2(nodeData);
+  syncChoiceHotspotsToAssets(nodeData);
   const activeTab = document.querySelector('.itab-btn.active');
   const nextTab = opts.forceInteractionTab ? 'interaction' : ((activeTab && activeTab.dataset.tab) || resolveDefaultTab(nodeData));
   const inspector = document.getElementById('inspector');
@@ -9443,7 +9445,7 @@ function collectMinigameConfig(nodeId) {
 
 /** 百分比字符串 -> 归一化浮点数 ("45.5%" -> 0.455) */
 function pctToNorm(s) {
-  if (typeof s === 'number') return Math.max(0, Math.min(1, s / 100));
+  if (typeof s === 'number') return Math.max(0, Math.min(1, s > 1 ? s / 100 : s));
   return Math.max(0, Math.min(1, parseFloat(s) / 100));
 }
 
@@ -12122,6 +12124,71 @@ function migrateNodeToV2(nodeData) {
   });
   nodeData.interactions_v2 = v2;
   nodeData._v2_migrated = true;
+}
+
+function syncChoiceHotspotsToAssets(nodeData) {
+  const choices = nodeData && Array.isArray(nodeData.choices) ? nodeData.choices : [];
+  if (!choices.length) return;
+  if (!Array.isArray(nodeData.hotspot_assets)) nodeData.hotspot_assets = [];
+  const usedChoiceIds = new Set();
+
+  choices.forEach((choice, idx) => {
+    if (!isChoiceHotspotResource(choice)) return;
+    const bbox = choiceToAssetBbox(choice);
+    if (!bbox) return;
+    const id = choice._hotspot_asset_id || ('hs_choice_' + safeAssetId(choice.id || ('choice_' + idx)));
+    choice._hotspot_asset_id = id;
+    usedChoiceIds.add(id);
+    const existing = nodeData.hotspot_assets.find(asset => asset.id === id);
+    if (existing) {
+      existing.name = choice.label || existing.name || ('已绘制热区 ' + (idx + 1));
+      existing.bbox = bbox;
+      existing.source = 'choice_hotspot';
+      existing.choice_id = choice.id || existing.choice_id || null;
+      return;
+    }
+    nodeData.hotspot_assets.push({
+      id,
+      name: choice.label || ('已绘制热区 ' + (idx + 1)),
+      bbox,
+      source: 'choice_hotspot',
+      choice_id: choice.id || null,
+    });
+  });
+
+  nodeData.hotspot_assets = nodeData.hotspot_assets.filter(asset =>
+    asset.source !== 'choice_hotspot' || usedChoiceIds.has(asset.id)
+  );
+}
+
+function isChoiceHotspotResource(choice) {
+  if (!choice) return false;
+  if (choice.type === 'polygon' && choice.points && choice.points.length >= 3) return true;
+  if (choice.bbox && choice.bbox.length === 4) return true;
+  return !!(choice.position && choice.timeWindow && choice.timeWindow[1] > choice.timeWindow[0]);
+}
+
+function choiceToAssetBbox(choice) {
+  const r = v => Math.round(Math.max(0, Math.min(1, Number(v) || 0)) * 1000) / 1000;
+  if (choice.bbox && choice.bbox.length === 4) {
+    const box = choice.bbox.map(v => typeof v === 'string' && v.includes('%') ? pctToNorm(v) : Number(v));
+    return [r(box[0]), r(box[1]), r(box[2]), r(box[3])];
+  }
+  if (choice.type === 'polygon' && choice.points && choice.points.length >= 3) {
+    return polygonToBbox(choice.points);
+  }
+  if (choice.position && choice.position.x != null && choice.position.y != null) {
+    const xN = pctToNorm(choice.position.x);
+    const yN = pctToNorm(choice.position.y);
+    const x = Math.max(0, xN - 0.12);
+    const y = Math.max(0, yN - 0.09);
+    return [r(x), r(y), r(Math.min(0.25, 1 - x)), r(Math.min(0.18, 1 - y))];
+  }
+  return null;
+}
+
+function safeAssetId(raw) {
+  return String(raw || 'asset').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 // ── Tab 1 · 📝 基础 ──────────────────────────────────────────────
