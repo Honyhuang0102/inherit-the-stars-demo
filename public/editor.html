@@ -2929,8 +2929,8 @@ body.immersive-mode #right-panel {
         <div class="w3-field">
           <label>唤起方式</label>
           <select id="hud-trigger" onchange="onHudTriggerChange()">
-            <option value="on_tap_pause" selected>点击暂停唤起</option>
-            <option value="auto_at_time">时间轴自动唤起</option>
+            <option value="on_tap_pause" selected>点击暂停时唤起(on_tap_pause)</option>
+            <option value="auto_at_time">自动在指定时间唤起(auto_at_time)</option>
           </select>
         </div>
         <div class="w3-field" id="hud-auto-at-wrap" style="display:none">
@@ -2942,16 +2942,16 @@ body.immersive-mode #right-panel {
         <div class="w3-field">
           <label>暂停行为</label>
           <select id="hud-behavior">
-            <option value="soft_pause" selected>软暂停（视频模糊不停）</option>
-            <option value="hard_pause">硬暂停</option>
+            <option value="soft_pause" selected>软暂停(视频模糊)(soft_pause)</option>
+            <option value="hard_pause">硬暂停(完全停止)(hard_pause)</option>
           </select>
         </div>
         <div class="w3-field">
           <label>关闭方式</label>
           <select id="hud-close-on">
-            <option value="both" selected>点遮罩或关闭按钮</option>
-            <option value="tap_outside">点遮罩</option>
-            <option value="close_button">关闭按钮</option>
+            <option value="both" selected>两种都可(both)</option>
+            <option value="tap_outside">点击面板外(tap_outside)</option>
+            <option value="close_button">关闭按钮(close_button)</option>
           </select>
         </div>
       </div>
@@ -2978,11 +2978,11 @@ body.immersive-mode #right-panel {
       <div class="w3-field">
         <label>图形类型</label>
         <select id="gh-type" onchange="onGhTypeChange()">
-          <option value="gesture_demo" selected>手势演示</option>
-          <option value="arrow">箭头指示</option>
-          <option value="glow_pulse">光效脉冲</option>
-          <option value="tap_ripple">点击涟漪</option>
-          <option value="custom_svg">自定义 SVG</option>
+          <option value="gesture_demo" selected>手势演示(gesture_demo)</option>
+          <option value="arrow">箭头(arrow)</option>
+          <option value="glow_pulse">光效脉冲(glow_pulse)</option>
+          <option value="tap_ripple">点击涟漪(tap_ripple)</option>
+          <option value="custom_svg">自定义SVG(custom_svg)</option>
         </select>
       </div>
       <div class="w3-field" id="gh-gesture-wrap">
@@ -3012,9 +3012,9 @@ body.immersive-mode #right-panel {
         <div class="w3-field">
           <label>显示策略</label>
           <select id="gh-strategy">
-            <option value="first_time_only" selected>仅首次显示</option>
-            <option value="always">始终显示</option>
-            <option value="after_idle_s">空闲后显示</option>
+            <option value="first_time_only" selected>仅首次显示(first_time_only)</option>
+            <option value="always">始终显示(always)</option>
+            <option value="after_idle_s">空闲N秒后显示(after_idle_s)</option>
           </select>
         </div>
         <div class="w3-field">
@@ -3057,27 +3057,27 @@ body.immersive-mode #right-panel {
           <div class="w3-field">
             <label>模式</label>
             <select id="qte-mode" onchange="onQteModeChange()">
-              <option value="dodge">dodge 闪避</option>
-              <option value="guard">guard 格挡</option>
-              <option value="charge">charge 蓄力</option>
+              <option value="dodge">闪避(dodge)</option>
+              <option value="guard">格挡(guard)</option>
+              <option value="charge">蓄力(charge)</option>
             </select>
           </div>
           <div class="w3-field" id="qte-input-method-wrap">
             <label>输入方式</label>
             <select id="qte-input-method">
-              <option value="swipe_left">swipe_left 左滑</option>
-              <option value="swipe_right">swipe_right 右滑</option>
-              <option value="tap">tap 单击</option>
-              <option value="long_press">long_press 长按</option>
-              <option value="shake">shake 摇晃</option>
-              <option value="charge_release">charge_release 蓄力释放</option>
+              <option value="swipe_left">左滑(swipe_left)</option>
+              <option value="swipe_right">右滑(swipe_right)</option>
+              <option value="tap">点击(tap)</option>
+              <option value="long_press">长按(long_press)</option>
+              <option value="shake">摇晃(shake)</option>
+              <option value="charge_release">蓄力释放(charge_release)</option>
             </select>
           </div>
           <div class="w3-field">
             <label>失败行为</label>
             <select id="qte-fail-behavior">
-              <option value="branch">branch 走失败分支</option>
-              <option value="retry">retry 重试</option>
+              <option value="branch">走失败分支(branch)</option>
+              <option value="retry">回档重试(retry)</option>
             </select>
           </div>
         </div>
@@ -3436,7 +3436,7 @@ function createNodeCard(nodeData, x, y) {
     ${thumbHtml}
     <div class="node-footer">
       <div class="node-type-dot"></div>
-      ${state.gameData.start_node === nodeData.id ? '<span style="font-size:9px;background:#2563eb;color:#fff;border-radius:3px;padding:1px 4px;margin-right:4px;">起始</span>' : ''}<div class="node-title">${escHtml(String(nodeData.id))}：${escHtml(nodeData.title || '')}</div>
+      ${nodeData.node_type === 'loop' ? '<span style="font-size:9px;background:#7c3aed;color:#e9d5ff;border-radius:3px;padding:1px 4px;margin-right:4px;">🔁</span>' : ''}${state.gameData.start_node === nodeData.id ? '<span style="font-size:9px;background:#2563eb;color:#fff;border-radius:3px;padding:1px 4px;margin-right:4px;">起始</span>' : ''}<div class="node-title">${escHtml(String(nodeData.id))}：${escHtml(nodeData.title || '')}</div>
     </div>
     <div class="port port-in" data-node="${nodeData.id}" onmouseup="endConnect(event, '${nodeData.id}')"></div>
     ${nodeData.choices ? choicePortsHtml : `<div class="port port-out" data-node="${nodeData.id}" onmousedown="startConnect(event, '${nodeData.id}', -1)"></div>`}
@@ -6364,7 +6364,7 @@ function deleteGhHint(idx) {
 
 /** 枚举翻译 */
 function _ghTypeLabel(t) {
-  return { gesture_demo:'手势演示', arrow:'箭头', glow_pulse:'光效', tap_ripple:'点击涟漪', custom_svg:'SVG' }[t] || t;
+  return { gesture_demo:'手势演示', arrow:'箭头', glow_pulse:'光效脉冲', tap_ripple:'点击涟漪', custom_svg:'自定义SVG' }[t] || t;
 }
 function _ghGestureLabel(t) {
   return { swipe_left:'左滑', swipe_right:'右滑', tap:'点击', long_press:'长按', charge:'蓄力', shake:'摇晃' }[t] || t;
@@ -8140,7 +8140,7 @@ async function _doPublish(existingWorldId) {
   try {
     let publishData;
     try {
-      publishData = prepareGameDataForPublish(state.gameData);
+      publishData = await prepareGameDataForPublish(state.gameData);
     } catch (validErr) {
       showToast('发布校验失败：' + validErr.message, 'error');
       if (btn) btn.style.opacity = '1';
@@ -8858,7 +8858,7 @@ function buildInteractionDsl(nodeData) {
     interactions.push({
       id: 'hotspot_' + nodeData.id,
       type: 'hotspot',
-      video_mode: 'pause_at_end',
+      video_mode: nodeData.node_type === 'loop' ? 'loop' : 'pause_at_end',
       hotspots: hotspotItems,
       help_after_s: 15,
       max_wait_s: 60,
@@ -9132,7 +9132,7 @@ function _navigateToDslError(err) {
 // ==================== W5 客户端 DSL Schema 校验结束 ====================
 
 
-function prepareGameDataForPublish(gameData) {
+async function prepareGameDataForPublish(gameData) {
   const data = JSON.parse(JSON.stringify(gameData));
   const errors = [];
   Object.values(data.nodes || {}).forEach(node => {
@@ -9192,6 +9192,20 @@ function prepareGameDataForPublish(gameData) {
   // 3.0 W5: client-side Schema validation before publish
   let _dslPolygonCount = 0;
   const _dslNodeErrors = [];
+  // Pre-check: 循环节点无退出交互 → 警告（不阻断发布，尊重用户）
+  const _loopDeadlockNodes = [];
+  Object.values(data.nodes || {}).forEach(node => {
+    if (node.node_type !== 'loop') return;
+    const v2 = node.interactions_v2 || [];
+    const hasExit = v2.some(it => it.type === 'jump' || it.type === 'hotspot_hidden' || it.type === 'hotspot_visible');
+    if (!hasExit) _loopDeadlockNodes.push(node.title || node.id || '未命名节点');
+  });
+  if (_loopDeadlockNodes.length > 0) {
+    const confirmed = await _showLoopPublishWarning(_loopDeadlockNodes);
+    if (!confirmed) throw new Error('用户取消发布（循环节点无退出交互）');
+    console.warn('[Studio] 循环节点无退出交互，用户确认仍发布:', _loopDeadlockNodes);
+  }
+
   // Pre-check: warn about single-choice branch nodes (skipped, not blocked)
   const _singleChoiceNodes = [];
   Object.values(data.nodes || {}).forEach(node => {
@@ -11362,7 +11376,7 @@ function renderTabBasic(nodeId, nodeData) {
     <div class="insp-field">
       <div class="insp-label">节点类型</div>
       <div class="insp-node-type-group">
-        ${[['normal','普通'],['start','🚀 起始节点'],['checkpoint','📌 检查点']].map(([val,label]) =>
+        ${[['normal','普通'],['start','🚀 起始节点'],['checkpoint','📌 检查点'],['loop','🔁 循环播放']].map(([val,label]) =>
           `<label class="insp-type-radio${nodeType===val?' selected':''}">
             <input type="radio" name="insp-node-type" value="${val}" ${nodeType===val?'checked':''} onchange="onNodeTypeChange('${nodeId}',this.value)"/> ${escHtml(label)}
           </label>`).join('')}
@@ -11382,6 +11396,89 @@ function onNodeTypeChange(nodeId, newType) {
     const inp = el.querySelector('input');
     el.classList.toggle('selected', inp && inp.value === newType);
   });
+  // 更新节点卡片上的 🔁 badge
+  const card = state.nodes[nodeId]?.el;
+  if (card) {
+    const footer = card.querySelector('.node-footer');
+    if (footer) {
+      let badge = footer.querySelector('.node-loop-badge');
+      if (newType === 'loop' && !badge) {
+        badge = document.createElement('span');
+        badge.className = 'node-loop-badge';
+        badge.style.cssText = 'font-size:9px;background:#7c3aed;color:#e9d5ff;border-radius:3px;padding:1px 4px;margin-right:4px;';
+        badge.textContent = '🔁';
+        footer.prepend(badge);
+      } else if (newType !== 'loop' && badge) {
+        badge.remove();
+      }
+    }
+  }
+  // 切换到循环类型时，检查是否缺少退出交互
+  if (newType === 'loop') {
+    const items = nodeData.interactions_v2 || [];
+    if (items.length === 0) {
+      _showLoopNodeGuide(nodeId);
+    }
+  }
+}
+
+// ── 循环节点发布前警告 modal（返回 Promise<boolean>）────────────
+function _showLoopPublishWarning(nodeNames) {
+  return new Promise(resolve => {
+    const existing = document.getElementById('_loop_warn_modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = '_loop_warn_modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    const list = nodeNames.map(n => `<li style="margin:2px 0;">${escHtml(n)}</li>`).join('');
+    modal.innerHTML = `
+      <div style="background:var(--bg-panel);border:1px solid #f59e0b;border-radius:10px;padding:24px 28px;width:400px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+        <div style="font-size:15px;font-weight:600;color:#f59e0b;margin-bottom:8px;">⚠️ 循环节点会让用户卡死</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:10px;">
+          以下循环节点没有退出交互，用户到达后将无法继续：
+        </div>
+        <ul style="font-size:12px;color:var(--text-primary);margin:0 0 16px 16px;padding:0;">${list}</ul>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('_loop_warn_modal').remove()" id="_loop_warn_cancel" style="padding:7px 16px;font-size:12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;">取消</button>
+          <button onclick="document.getElementById('_loop_warn_modal').remove()" id="_loop_warn_confirm" style="padding:7px 16px;font-size:12px;background:#f59e0b;border:none;border-radius:6px;color:#000;font-weight:600;cursor:pointer;">仍发布</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('_loop_warn_confirm').onclick = () => { modal.remove(); resolve(true); };
+    document.getElementById('_loop_warn_cancel').onclick  = () => { modal.remove(); resolve(false); };
+  });
+}
+
+// ── 循环节点空交互引导 modal ──────────────────────────────────────
+function _showLoopNodeGuide(nodeId) {
+  const existing = document.getElementById('_loop_guide_modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = '_loop_guide_modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:24px 28px;width:380px;max-width:92vw;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🔁 循环节点需要退出交互</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px;">
+        循环节点会让视频循环播放，需要至少一个退出交互（隐形热区 / 直接跳转）。<br/>
+        <span style="color:#f59e0b;font-weight:500;">否则用户会卡死，无法继续剧情。</span>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('_loop_guide_modal').remove()" style="padding:7px 16px;font-size:12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-secondary);cursor:pointer;">确认</button>
+        <button onclick="document.getElementById('_loop_guide_modal').remove();_goToInteractionTab('${nodeId}')" style="padding:7px 16px;font-size:12px;background:var(--accent);border:none;border-radius:6px;color:#000;font-weight:600;cursor:pointer;">添加交互</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function _goToInteractionTab(nodeId) {
+  const tab = document.querySelector('[data-tab="itab-interaction"]') || document.querySelector('.itab-btn[onclick*="itab-interaction"]');
+  if (tab) tab.click();
+  // 聚焦到"+ 添加交互"按钮
+  setTimeout(() => {
+    const addBtn = document.querySelector('.insp-add-btn');
+    if (addBtn) addBtn.focus();
+  }, 100);
 }
 
 // ── Tab 2 · 🔗 交互 ──────────────────────────────────────────────
@@ -11391,8 +11488,9 @@ function renderTabInteractions(nodeId, nodeData) {
   const items = nodeData.interactions_v2 || [];
 
   const cardsHtml = items.map((item, idx) => renderInteractionCard(nodeId, item, idx)).join('');
+  const isLoopNode = nodeData.node_type === 'loop';
   const emptyHtml = items.length === 0
-    ? '<div class="interactions-empty">还没有交互，点击下方「添加交互」开始</div>'
+    ? `<div class="interactions-empty">${isLoopNode ? '⚠️ 循环节点没有退出交互，用户会卡死。点击下方「添加交互」添加隐形热区或直接跳转。' : '还没有交互，点击下方「添加交互」开始'}</div>`
     : '';
 
   el.innerHTML = `
@@ -11400,6 +11498,32 @@ function renderTabInteractions(nodeId, nodeData) {
     <button class="insp-add-btn" style="margin-top:2px;"
       onclick="openAddInteractionMenu('${nodeId}', this)">+ 添加交互</button>
   `;
+  // 循环节点 + 无交互时弹引导 modal（仅首次进入此 Tab）
+  if (isLoopNode && items.length === 0 && !nodeData._loop_guide_shown) {
+    nodeData._loop_guide_shown = true;
+    _showLoopNodeGuide(nodeId);
+  }
+}
+
+// ════ i18n 中文字典 (v0.2.2) ════
+const I18N_ZH = {
+  transition_fx: { none:'无', fade:'淡入淡出', dash_blur:'动态模糊', screen_shatter_red:'红色碎屏' },
+  visible_hint:  { hidden:'隐藏(彩蛋型)', subtle:'轻微提示', breathing_glow:'呼吸光效', always:'始终显示' },
+  feedback_fx:   { ripple:'涟漪', flash:'闪光', particle_burst:'粒子迸发', none:'无' },
+  input_method:  { tap:'点击', long_press:'长按', swipe_left:'左滑', swipe_right:'右滑', swipe_up:'上滑', swipe_down:'下滑', shake:'摇晃', charge_release:'蓄力释放' },
+  qte_mode:      { dodge:'闪避', guard:'格挡', charge:'蓄力' },
+  fail_behavior: { retry:'回档重试', branch:'走失败分支' },
+  video_mode:    { continue:'正常播放', loop:'循环播放', pause_at_end:'末帧暂停' },
+  graphic_type:  { arrow:'箭头', gesture_demo:'手势演示', glow_pulse:'光效脉冲', tap_ripple:'点击涟漪', custom_svg:'自定义SVG' },
+  show_strategy: { always:'始终显示', first_time_only:'仅首次显示', after_idle_s:'空闲N秒后显示' },
+  hud_trigger:   { on_tap_pause:'点击暂停时唤起', auto_at_time:'自动在指定时间唤起' },
+  hud_behavior:  { soft_pause:'软暂停(视频模糊)', hard_pause:'硬暂停(完全停止)' },
+  close_on:      { tap_outside:'点击面板外', close_button:'关闭按钮', both:'两种都可' },
+  node_type:     { normal:'普通', start:'🚀 起始节点', checkpoint:'📌 检查点', loop:'🔁 循环播放' },
+};
+function localizeEnum(field, value) {
+  const zh = I18N_ZH[field]?.[value];
+  return zh ? `${zh}(${value})` : value;
 }
 
 const INTERACTION_TYPE_ICONS = {
@@ -11416,21 +11540,21 @@ const INTERACTION_TYPE_NAMES = {
   hotspot_visible: '可见热区',
   qte: '快速反应(QTE)',
 };
-const FX_OPTIONS = ['none','fade','dash_blur','screen_shatter_red'];
+const FX_OPTIONS = [['none','无(none)'],['fade','淡入淡出(fade)'],['dash_blur','动态模糊(dash_blur)'],['screen_shatter_red','红色碎屏(screen_shatter_red)']];
 const TRIGGER_OPTIONS = [['end','片尾（默认）'],['start','片头'],['custom','指定秒数']];
-const INPUT_OPTIONS = [['tap','点击'],['long_press','长按'],['swipe_left','左滑'],['swipe_right','右滑'],['swipe_up','上滑'],['swipe_down','下滑'],['shake','摇晃'],['charge_release','蓄力释放']];
-const FEEDBACK_OPTIONS = [['ripple','涟漪'],['flash','闪光'],['particle_burst','粒子爆发'],['none','无']];
+const INPUT_OPTIONS = [['tap','点击(tap)'],['long_press','长按(long_press)'],['swipe_left','左滑(swipe_left)'],['swipe_right','右滑(swipe_right)'],['swipe_up','上滑(swipe_up)'],['swipe_down','下滑(swipe_down)'],['shake','摇晃(shake)'],['charge_release','蓄力释放(charge_release)']];
+const FEEDBACK_OPTIONS = [['ripple','涟漪(ripple)'],['flash','闪光(flash)'],['particle_burst','粒子迸发(particle_burst)'],['none','无(none)']];
 
 function renderInteractionCard(nodeId, item, idx) {
   const icon = INTERACTION_TYPE_ICONS[item.type] || '❓';
   const name = INTERACTION_TYPE_NAMES[item.type] || item.type;
   const targetName = _getNodeDisplayName(item.target_node);
-  const fxBadge = item.transition_fx && item.transition_fx !== 'none' ? item.transition_fx : '';
+  const fxBadge = item.transition_fx && item.transition_fx !== 'none' ? localizeEnum('transition_fx', item.transition_fx) : '';
 
   // 类型专属配置区
   let configHtml = '';
   const fxSelect = `<select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','transition_fx',this.value)">
-    ${FX_OPTIONS.map(v => `<option value="${v}" ${(item.transition_fx||'fade')===v?'selected':''}>${v}</option>`).join('')}
+    ${FX_OPTIONS.map(([v,l]) => `<option value="${v}" ${(item.transition_fx||'fade')===v?'selected':''}>${escHtml(l)}</option>`).join('')}
   </select>`;
   const targetDd = buildNodeDropdown('dd_target_' + item.id, item.target_node,
     (newId) => { _updateInteractionV2Field(nodeId, item.id, 'target_node', newId); refreshInteractionCard(nodeId, item.id); });
@@ -11499,7 +11623,7 @@ function renderInteractionCard(nodeId, item, idx) {
       ${item.type === 'hotspot_visible' ? `
         <div class="icard-field"><div class="icard-label">可见度策略</div>
           <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','visible_hint',this.value)">
-            ${[['subtle','subtle（轻微提示）'],['breathing_glow','breathing_glow（呼吸光效）'],['always','always（始终显示）']].map(([v,l]) =>
+            ${[['subtle','轻微提示(subtle)'],['breathing_glow','呼吸光效(breathing_glow)'],['always','始终显示(always)']].map(([v,l]) =>
               `<option value="${v}" ${(item.visible_hint||'subtle')===v?'selected':''}>${escHtml(l)}</option>`).join('')}
           </select>
         </div>
@@ -11533,8 +11657,8 @@ function renderInteractionCard(nodeId, item, idx) {
       </div>
       <div class="icard-field"><div class="icard-label">失败行为</div>
         <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','qte_fail_behavior',this.value)">
-          <option value="retry" ${(item.qte_fail_behavior||'retry')==='retry'?'selected':''}>retry（重试）</option>
-          <option value="branch" ${item.qte_fail_behavior==='branch'?'selected':''}>branch（走失败分支）</option>
+          <option value="retry" ${(item.qte_fail_behavior||'retry')==='retry'?'selected':''}>回档重试(retry)</option>
+          <option value="branch" ${item.qte_fail_behavior==='branch'?'selected':''}>走失败分支(branch)</option>
         </select>
       </div>
       <div class="icard-field"><div class="icard-label">成功→目标节点</div>${targetDd}</div>
