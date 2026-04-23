@@ -6237,6 +6237,7 @@ function _saveHotspotAssetId(nodeId, itemId, assetId, thumbCanvasId) {
   const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
   if (!item) return;
   item.hotspot_asset_id = assetId || null;
+  if (assetId) delete item._hotspot_asset_deleted;
   // 更新缩略图
   if (thumbCanvasId && assetId && nodeData.hotspot_assets) {
     const asset = nodeData.hotspot_assets.find(a => a.id === assetId);
@@ -6248,6 +6249,54 @@ function _saveHotspotAssetId(nodeId, itemId, assetId, thumbCanvasId) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   }
+}
+
+/**
+ * 删除热区 asset 前检查引用；被引用时由用户确认后再清空绑定。
+ */
+function deleteHotspotAsset(nodeId, assetId) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  if (!nodeData || !Array.isArray(nodeData.hotspot_assets)) return;
+  const asset = nodeData.hotspot_assets.find(a => a.id === assetId);
+  if (!asset) { showToast('热区不存在或已删除', 'warn'); return; }
+
+  const items = nodeData.interactions_v2 || [];
+  const refs = items
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) =>
+      (item.type === 'hotspot_hidden' || item.type === 'hotspot_visible')
+      && item.hotspot_asset_id === assetId
+    );
+
+  if (refs.length > 0) {
+    const refLines = refs.map(({ item, idx }) => {
+      const icon = INTERACTION_TYPE_ICONS[item.type] || '❓';
+      const name = INTERACTION_TYPE_NAMES[item.type] || item.type;
+      const target = _getNodeDisplayName(item.target_node) || '未选择目标节点';
+      return ` - 交互 ${idx + 1}:${icon} ${name} → ${target}`;
+    }).join('\n');
+    const ok = window.confirm(
+      `此热区被以下 ${refs.length} 个交互引用:
+${refLines}
+
+删除后这些交互将失去热区绑定,需要重新配置。确认删除?`
+    );
+    if (!ok) return;
+    refs.forEach(({ item }) => {
+      item.hotspot_asset_id = null;
+      item._hotspot_asset_deleted = true;
+    });
+  }
+
+  nodeData.hotspot_assets = nodeData.hotspot_assets.filter(a => a.id !== assetId);
+  if (immersiveNodeData && immersiveNodeData.id === nodeId) {
+    renderImmersiveHotspotAssets(nodeData);
+  }
+  if (state.selectedNode === nodeId) {
+    renderTabInteractions(nodeId, nodeData);
+    setTimeout(() => _postRenderHotspotThumbs(nodeId, nodeData), 80);
+  }
+  showToast('热区已删除', 'info');
 }
 
 /**
@@ -12118,12 +12167,23 @@ function renderInteractionCard(nodeId, item, idx) {
       const assetOpts = hsAssets.map(a =>
         '<option value="' + escHtml(a.id) + '"' + (a.id === selId ? ' selected' : '') + '>' + escHtml(a.name || a.id) + '</option>'
       ).join('');
+      const missingAsset = item._hotspot_asset_deleted || (selId && !hsAssets.some(a => a.id === selId));
+      const deleteBtnHtml = selId
+        ? '<button class="icard-hotspot-add-btn" style="border-color:#ef4444;color:#ef4444;" onclick="deleteHotspotAsset(' + JSON.stringify(nodeId) + ',' + JSON.stringify(selId) + ')">🗑 删除热区</button>'
+        : '';
+      const bindHintHtml = missingAsset
+        ? '<div class="icard-hotspot-draw-hint" style="margin-top:6px;color:#ef4444;">热区已删除,请重新绑定</div>'
+        : (!selId ? '<div class="icard-hotspot-draw-hint" style="margin-top:6px;">请选择一个已绘制热区</div>' : '');
       hotspotZoneHtml = '<div class="icard-hotspot-asset-row">'
         + '<canvas class="icard-hotspot-thumb" id="' + thumbId + '" width="72" height="40"></canvas>'
         + '<select class="icard-hotspot-asset-select" onchange="_saveHotspotAssetId(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',this.value,' + JSON.stringify(thumbId) + ')">'
         + '<option value="">— 未选择热区 —</option>'
         + assetOpts + '</select></div>'
-        + '<button class="icard-hotspot-add-btn" onclick="onDrawHotspotClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">+ 绘制新热区</button>';
+        + bindHintHtml
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">'
+        + '<button class="icard-hotspot-add-btn" onclick="onDrawHotspotClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">+ 绘制新热区</button>'
+        + deleteBtnHtml
+        + '</div>';
     }
     const visHtml = item.type === 'hotspot_visible' ? (
       '<div class="icard-field"><div class="icard-label">可见度策略</div>'
