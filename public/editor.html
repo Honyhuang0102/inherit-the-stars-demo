@@ -2169,6 +2169,71 @@ body.immersive-mode #right-panel {
   transition: color var(--transition); flex-shrink: 0;
 }
 .icard-del:hover { color: var(--accent-red); }
+/* v0.2.3 热区资源池 UI */
+.icard-hotspot-draw-zone {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  border: 1.5px dashed var(--border-strong); border-radius: var(--radius-sm);
+  padding: 10px 8px; background: rgba(239,68,68,0.04);
+}
+.icard-hotspot-draw-hint { font-size: 11px; color: var(--text-secondary); }
+.icard-hotspot-draw-btn {
+  padding: 5px 14px; font-size: 12px; font-weight: 600;
+  background: var(--accent-purple); color: #fff;
+  border: none; border-radius: var(--radius-sm); cursor: pointer;
+}
+.icard-hotspot-draw-btn:hover { opacity: 0.85; }
+.icard-hotspot-asset-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.icard-hotspot-thumb {
+  border-radius: 3px; border: 1px solid var(--border);
+  background: #1a1a1a; flex-shrink: 0;
+}
+.icard-hotspot-asset-select {
+  flex: 1; min-width: 80px; padding: 3px 6px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 11px; color: var(--text-primary); background: var(--bg-panel); outline: none;
+}
+.icard-hotspot-add-btn {
+  padding: 3px 8px; font-size: 11px; font-weight: 500;
+  background: transparent; color: var(--accent-purple);
+  border: 1px solid var(--accent-purple); border-radius: var(--radius-sm); cursor: pointer;
+}
+.icard-hotspot-add-btn:hover { background: rgba(139,92,246,0.1); }
+.icard-hotspot-del-btn {
+  padding: 3px 6px; font-size: 11px;
+  background: transparent; color: var(--text-tertiary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+}
+.icard-hotspot-del-btn:hover { color: var(--accent-red); border-color: var(--accent-red); }
+.icard-hotspot-legacy {
+  font-size: 10px; font-family: monospace; color: var(--text-secondary);
+  background: rgba(0,0,0,0.06); padding: 2px 6px; border-radius: 3px;
+}
+.icard-hotspot-migrate-btn {
+  font-size: 11px; padding: 3px 8px;
+  background: rgba(245,158,11,0.1); color: #f59e0b;
+  border: 1px solid #f59e0b; border-radius: var(--radius-sm); cursor: pointer;
+}
+/* 沉浸式编辑 - 热区资源框 */
+.imm-hs-asset-rect {
+  position: absolute; border: 2px solid #ef4444; border-radius: 3px;
+  pointer-events: none; box-sizing: border-box;
+}
+.imm-hs-asset-label {
+  position: absolute; top: -18px; left: 0;
+  font-size: 10px; color: #ef4444; background: rgba(0,0,0,0.65);
+  padding: 1px 5px; border-radius: 2px; white-space: nowrap; pointer-events: none;
+}
+/* 绘制模式 - 拖拽预览框 */
+#bbox-draw-preview {
+  position: absolute; border: 2px solid #a78bfa;
+  background: rgba(167,139,250,0.15);
+  pointer-events: none; display: none; box-sizing: border-box;
+}
+/* 绘制模式 - 光标 + 遮罩 */
+body.bbox-drawing-mode #immersive-screen { cursor: crosshair !important; }
+body.bbox-drawing-mode #immersive-screen * { pointer-events: none !important; }
+body.bbox-drawing-mode #immersive-screen { pointer-events: all !important; }
+/* end v0.2.3 */
 .icard-body {
   display: none; padding: 10px;
   border-top: 1px solid var(--border-light);
@@ -5356,6 +5421,7 @@ function loadImmersiveNode(nodeData) {
     }
 
     renderImmersiveChoices(nodeData);
+    renderImmersiveHotspotAssets(nodeData);
   } else if (nodeData.type === 'minigame') {
     // ── 小游戏 iframe 模式 ──（Fix #2）
     screen.classList.remove('model3d-active', 'model3d-picking', 'panorama-active');
@@ -5432,6 +5498,7 @@ function loadImmersiveNode(nodeData) {
     }
 
     renderImmersiveChoices(nodeData);
+    renderImmersiveHotspotAssets(nodeData);
   }
 }
 
@@ -5634,6 +5701,9 @@ function renderImmersiveChoices(nodeData) {
 
   // 默认选中第一个 choice 的 timeWindow
   if (nodeData.choices.length > 0) syncRangeSliderToChoice(0);
+
+  // v0.2.3: 渲染节点 hotspot_assets 红框
+  renderImmersiveHotspotAssets(nodeData);
 }
 
 /**
@@ -5939,6 +6009,337 @@ function clearImmersiveChoices() {
   updatePreviewPanel(immersiveNodeData);
   showToast('热点已清空', 'info');
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// v0.2.3 — 热区可视化绘制引擎 (Hotspot Asset Drawing Engine)
+// ═══════════════════════════════════════════════════════════════
+
+/** 发起绘制的交互意图 */
+let _pendingHotspotIntent = null; // { nodeId, interactionId }
+
+/** bbox 绘制状态 */
+let _bboxDrawState = {
+  active: false,
+  startX: 0, startY: 0,  // 归一化 0-1
+  previewEl: null,
+};
+
+/**
+ * Tab 2 点击"绘制热区"按钮 → 记录意图 → 进入沉浸模式 → 激活绘制
+ */
+function onDrawHotspotClick(nodeId, interactionId) {
+  if (!state.gameData || !state.gameData.nodes[nodeId]) {
+    showToast('请先选中节点', 'error');
+    return;
+  }
+  _pendingHotspotIntent = { nodeId, interactionId };
+  enterImmersiveMode();
+  // 延迟激活（等沉浸屏渲染完成）
+  requestAnimationFrame(() => startBboxDrawing());
+}
+
+/**
+ * 激活矩形 bbox 绘制模式
+ */
+function startBboxDrawing() {
+  if (_bboxDrawState.active) return;
+  const screen = document.getElementById('immersive-screen');
+  if (!screen) return;
+
+  _bboxDrawState.active = true;
+  document.body.classList.add('bbox-drawing-mode');
+
+  // 创建预览矩形
+  let preview = document.getElementById('bbox-draw-preview');
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.id = 'bbox-draw-preview';
+    screen.querySelector('.imm-screen-content').appendChild(preview);
+  }
+  _bboxDrawState.previewEl = preview;
+
+  screen.addEventListener('mousedown', _onBboxMousedown, { capture: true });
+  showToast('🎨 拖拽画出热区矩形 · ESC 取消', 'info');
+}
+
+/**
+ * 取消 bbox 绘制模式
+ */
+function cancelBboxDrawing() {
+  if (!_bboxDrawState.active) return;
+  _bboxDrawState.active = false;
+  document.body.classList.remove('bbox-drawing-mode');
+  const screen = document.getElementById('immersive-screen');
+  if (screen) screen.removeEventListener('mousedown', _onBboxMousedown, { capture: true });
+  document.removeEventListener('mousemove', _onBboxMousemove);
+  document.removeEventListener('mouseup', _onBboxMouseup);
+  if (_bboxDrawState.previewEl) {
+    _bboxDrawState.previewEl.style.display = 'none';
+  }
+}
+
+function _onBboxMousedown(e) {
+  if (!_bboxDrawState.active) return;
+  e.stopPropagation();
+  e.preventDefault();
+  const screen = document.getElementById('immersive-screen');
+  const rect = screen.getBoundingClientRect();
+  _bboxDrawState.startX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  _bboxDrawState.startY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+
+  if (_bboxDrawState.previewEl) {
+    _bboxDrawState.previewEl.style.display = 'block';
+    _bboxDrawState.previewEl.style.left = (Math.round(_bboxDrawState.startX * 1000) / 10) + '%';
+    _bboxDrawState.previewEl.style.top  = (Math.round(_bboxDrawState.startY * 1000) / 10) + '%';
+    _bboxDrawState.previewEl.style.width  = '0';
+    _bboxDrawState.previewEl.style.height = '0';
+  }
+  document.addEventListener('mousemove', _onBboxMousemove);
+  document.addEventListener('mouseup', _onBboxMouseup);
+}
+
+function _onBboxMousemove(e) {
+  if (!_bboxDrawState.active || !_bboxDrawState.previewEl) return;
+  const screen = document.getElementById('immersive-screen');
+  const rect = screen.getBoundingClientRect();
+  const curX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const curY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+  const bx = Math.min(_bboxDrawState.startX, curX);
+  const by = Math.min(_bboxDrawState.startY, curY);
+  const bw = Math.abs(curX - _bboxDrawState.startX);
+  const bh = Math.abs(curY - _bboxDrawState.startY);
+  _bboxDrawState.previewEl.style.left   = (Math.round(bx * 1000) / 10) + '%';
+  _bboxDrawState.previewEl.style.top    = (Math.round(by * 1000) / 10) + '%';
+  _bboxDrawState.previewEl.style.width  = (Math.round(bw * 1000) / 10) + '%';
+  _bboxDrawState.previewEl.style.height = (Math.round(bh * 1000) / 10) + '%';
+}
+
+function _onBboxMouseup(e) {
+  if (!_bboxDrawState.active) return;
+  document.removeEventListener('mousemove', _onBboxMousemove);
+  document.removeEventListener('mouseup', _onBboxMouseup);
+
+  const screen = document.getElementById('immersive-screen');
+  const rect = screen.getBoundingClientRect();
+  const endX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const endY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+  const bx = Math.round(Math.min(_bboxDrawState.startX, endX) * 1000) / 1000;
+  const by = Math.round(Math.min(_bboxDrawState.startY, endY) * 1000) / 1000;
+  const bw = Math.round(Math.abs(endX - _bboxDrawState.startX) * 1000) / 1000;
+  const bh = Math.round(Math.abs(endY - _bboxDrawState.startY) * 1000) / 1000;
+
+  cancelBboxDrawing();
+
+  if (bw < 0.02 || bh < 0.02) {
+    showToast('热区太小，请拖拽更大的区域', 'warn');
+    return;
+  }
+
+  const bbox = [bx, by, bw, bh];
+  const intent = _pendingHotspotIntent;
+  if (!intent) {
+    // 无意图，直接添加到资源池
+    _promptHotspotName(bbox, null, null);
+    return;
+  }
+  _promptHotspotName(bbox, intent.nodeId, intent.interactionId);
+}
+
+/**
+ * 弹命名 prompt，保存热区 asset，绑定到交互
+ */
+function _promptHotspotName(bbox, nodeId, interactionId) {
+  const nodeData = nodeId ? (state.gameData && state.gameData.nodes[nodeId]) : immersiveNodeData;
+  if (!nodeData) return;
+  const assets = nodeData.hotspot_assets || [];
+  const defaultName = '热区 ' + (assets.length + 1);
+  const name = window.prompt('为此热区命名：', defaultName);
+  if (!name) {
+    showToast('已取消热区绘制', 'info');
+    _pendingHotspotIntent = null;
+    return;
+  }
+
+  if (!nodeData.hotspot_assets) nodeData.hotspot_assets = [];
+  const newAsset = { id: 'hs_' + Date.now() + '_' + Math.random().toString(36).slice(2,5), name: name.trim(), bbox };
+  nodeData.hotspot_assets.push(newAsset);
+
+  if (interactionId && nodeId) {
+    const item = nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === interactionId);
+    if (item) {
+      item.hotspot_asset_id = newAsset.id;
+      delete item._v2_legacy; // 已迁移，不再是旧数据
+    }
+  }
+
+  _pendingHotspotIntent = null;
+  renderImmersiveHotspotAssets(nodeData);
+
+  // 有意图时：自动返回 Tab 2
+  if (interactionId && nodeId) {
+    showToast('✅ 热区"' + newAsset.name + '"已保存，已绑定到交互', 'success');
+    setTimeout(() => {
+      exitImmersiveMode();
+      // 刷新 Tab 2
+      const activeNodeId = nodeId;
+      if (state.selectedNode === activeNodeId) {
+        renderTabInteractions(activeNodeId, nodeData);
+        setTimeout(() => _postRenderHotspotThumbs(activeNodeId, nodeData), 80);
+      }
+    }, 300);
+  } else {
+    showToast('✅ 热区"' + newAsset.name + '"已添加到资源池', 'success');
+  }
+}
+
+/**
+ * 渲染节点 hotspot_assets 为沉浸屏红框
+ */
+function renderImmersiveHotspotAssets(nodeData) {
+  const screen = document.getElementById('immersive-screen');
+  if (!screen) return;
+  // 清除旧红框
+  screen.querySelectorAll('.imm-hs-asset-rect').forEach(el => el.remove());
+  const assets = (nodeData && nodeData.hotspot_assets) || [];
+  assets.forEach((asset, i) => {
+    if (!asset.bbox || asset.bbox.length < 4) return;
+    const [bx, by, bw, bh] = asset.bbox;
+    const div = document.createElement('div');
+    div.className = 'imm-hs-asset-rect';
+    div.style.left   = (bx * 100) + '%';
+    div.style.top    = (by * 100) + '%';
+    div.style.width  = (bw * 100) + '%';
+    div.style.height = (bh * 100) + '%';
+    div.title = asset.name || ('热区 ' + (i + 1));
+
+    const label = document.createElement('span');
+    label.className = 'imm-hs-asset-label';
+    label.textContent = asset.name || ('HS' + (i + 1));
+    div.appendChild(label);
+
+    // 点击选中（高亮）
+    div.addEventListener('click', (e) => {
+      e.stopPropagation();
+      screen.querySelectorAll('.imm-hs-asset-rect').forEach(r => r.style.borderColor = '#ef4444');
+      div.style.borderColor = '#6366f1';
+    });
+
+    screen.querySelector('.imm-screen-content').appendChild(div);
+  });
+}
+
+/**
+ * 保存下拉选择的 hotspot_asset_id，并更新缩略图
+ */
+function _saveHotspotAssetId(nodeId, itemId, assetId, thumbCanvasId) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
+  if (!item) return;
+  item.hotspot_asset_id = assetId || null;
+  // 更新缩略图
+  if (thumbCanvasId && assetId && nodeData.hotspot_assets) {
+    const asset = nodeData.hotspot_assets.find(a => a.id === assetId);
+    if (asset) _drawHotspotThumb(thumbCanvasId, nodeData, asset);
+  } else if (thumbCanvasId) {
+    const canvas = document.getElementById(thumbCanvasId);
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+}
+
+/**
+ * 在 canvas 上绘制热区缩略图（视频帧 + 红框）
+ */
+function _drawHotspotThumb(canvasId, nodeData, asset) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // 尝试从沉浸屏视频截帧
+  const vid = document.querySelector('#immersive-screen .imm-video-el');
+  if (vid && vid.readyState >= 2 && immersiveNodeData && immersiveNodeData.id === nodeData.id) {
+    try { ctx.drawImage(vid, 0, 0, W, H); } catch(e) { _thumbBgFallback(ctx, W, H); }
+  } else {
+    _thumbBgFallback(ctx, W, H);
+  }
+
+  if (!asset.bbox || asset.bbox.length < 4) return;
+  const [bx, by, bw, bh] = asset.bbox;
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 2;
+  ctx.fillStyle = 'rgba(239,68,68,0.22)';
+  const rx = bx * W, ry = by * H, rw = bw * W, rh = bh * H;
+  ctx.fillRect(rx, ry, rw, rh);
+  ctx.strokeRect(rx, ry, rw, rh);
+}
+
+function _thumbBgFallback(ctx, W, H) {
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  for (let i = 0; i < W; i += 8) ctx.fillRect(i, 0, 4, H);
+}
+
+/**
+ * 渲染完 Tab 2 后，批量填充所有缩略图 canvas
+ */
+function _postRenderHotspotThumbs(nodeId, nodeData) {
+  const assets = (nodeData && nodeData.hotspot_assets) || [];
+  if (assets.length === 0) return;
+  const items = (nodeData && nodeData.interactions_v2) || [];
+  items.forEach(item => {
+    if (item.type !== 'hotspot_hidden' && item.type !== 'hotspot_visible') return;
+    const thumbId = 'hs_thumb_' + item.id.replace(/[^a-zA-Z0-9]/g, '_');
+    if (!document.getElementById(thumbId)) return;
+    const selId = item.hotspot_asset_id || '';
+    if (!selId) return;
+    const asset = assets.find(a => a.id === selId);
+    if (asset) setTimeout(() => _drawHotspotThumb(thumbId, nodeData, asset), 0);
+  });
+}
+
+/**
+ * 迁移老数据 hotspot（有 bbox 无 hotspot_asset_id）为资源池 asset
+ */
+function migrateLegacyHotspot(nodeId, itemId) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
+  if (!item || !item.bbox) { showToast('该交互没有可迁移的坐标', 'warn'); return; }
+  const name = window.prompt('为此热区命名（迁移自旧数据）：', item.label || '热区 1');
+  if (!name) return;
+  if (!nodeData.hotspot_assets) nodeData.hotspot_assets = [];
+  const newAsset = { id: 'hs_legacy_' + Date.now(), name: name.trim(), bbox: item.bbox };
+  nodeData.hotspot_assets.push(newAsset);
+  item.hotspot_asset_id = newAsset.id;
+  delete item._v2_legacy;
+  // 刷新 Tab 2
+  if (state.selectedNode === nodeId) {
+    renderTabInteractions(nodeId, nodeData);
+    setTimeout(() => _postRenderHotspotThumbs(nodeId, nodeData), 80);
+  }
+  showToast('✅ 已迁移为热区资源"' + newAsset.name + '"', 'success');
+}
+
+// ─── ESC 退出时，同时取消 bbox 绘制 ───────────────────────────────
+const _origOnImmersiveKeyDown = typeof onImmersiveKeyDown === 'function' ? onImmersiveKeyDown : null;
+(function() {
+  const origFn = window.onImmersiveKeyDown;
+  document.addEventListener('keydown', function _bboxKeyDown(e) {
+    if (e.key === 'Escape' && _bboxDrawState.active) {
+      cancelBboxDrawing();
+      _pendingHotspotIntent = null;
+    }
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// /v0.2.3 热区可视化绘制引擎结束
+// ═══════════════════════════════════════════════════════════════
 
 // ==================== DSL text_hint 编辑层 (3.0 W2) ====================
 
@@ -11694,46 +12095,55 @@ function renderInteractionCard(nodeId, item, idx) {
       <div class="icard-field"><div class="icard-label">目标节点</div>${targetDd}</div>
       <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>`;
   } else if (item.type === 'hotspot_hidden' || item.type === 'hotspot_visible') {
-    const bbox = item.bbox || [0.1, 0.1, 0.2, 0.2];
-    configHtml = `
-      <div class="icard-field"><div class="icard-label">热区坐标（归一化 0-1）</div>
-        <div class="icard-2col">
-          <div class="icard-field"><div class="icard-label">X</div>
-            <input class="icard-input" type="number" min="0" max="1" step="0.01" value="${bbox[0]}"
-              onchange="_saveBbox('${nodeId}','${item.id}',0,parseFloat(this.value))"/>
-          </div>
-          <div class="icard-field"><div class="icard-label">Y</div>
-            <input class="icard-input" type="number" min="0" max="1" step="0.01" value="${bbox[1]}"
-              onchange="_saveBbox('${nodeId}','${item.id}',1,parseFloat(this.value))"/>
-          </div>
-          <div class="icard-field"><div class="icard-label">宽</div>
-            <input class="icard-input" type="number" min="0.01" max="1" step="0.01" value="${bbox[2]}"
-              onchange="_saveBbox('${nodeId}','${item.id}',2,parseFloat(this.value))"/>
-          </div>
-          <div class="icard-field"><div class="icard-label">高</div>
-            <input class="icard-input" type="number" min="0.01" max="1" step="0.01" value="${bbox[3]}"
-              onchange="_saveBbox('${nodeId}','${item.id}',3,parseFloat(this.value))"/>
-          </div>
-        </div>
-      </div>
-      ${item.type === 'hotspot_visible' ? `
-        <div class="icard-field"><div class="icard-label">可见度策略</div>
-          <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','visible_hint',this.value)">
-            ${[['subtle','轻微提示(subtle)'],['breathing_glow','呼吸光效(breathing_glow)'],['always','始终显示(always)']].map(([v,l]) =>
-              `<option value="${v}" ${(item.visible_hint||'subtle')===v?'selected':''}>${escHtml(l)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="icard-field"><div class="icard-label">提示延迟（秒）</div>
-          <input class="icard-input" type="number" min="0" step="1" value="${item.hint_delay_s||5}"
-            onchange="_saveIcardField('${nodeId}','${item.id}','hint_delay_s',parseFloat(this.value))"/>
-        </div>` : ''}
-      <div class="icard-field"><div class="icard-label">点击反馈</div>
-        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','feedback_fx',this.value)">
-          ${FEEDBACK_OPTIONS.map(([v,l]) => `<option value="${v}" ${(item.feedback_fx||'ripple')===v?'selected':''}>${escHtml(l)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="icard-field"><div class="icard-label">目标节点</div>${targetDd}</div>
-      <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>`;
+    // v0.2.3: 三态热区 UI（引导绘制，不填坐标）
+    const nodeData_hs = state.gameData && state.gameData.nodes[nodeId];
+    const hsAssets = (nodeData_hs && nodeData_hs.hotspot_assets) || [];
+    const isLegacy = !!item._v2_legacy;
+    let hotspotZoneHtml = '';
+    if (isLegacy) {
+      const legacyBbox = item.bbox || [0, 0, 0, 0];
+      hotspotZoneHtml = '<div class="icard-hotspot-draw-zone" style="border-style:solid;background:rgba(245,158,11,0.05);border-color:#f59e0b;">'
+        + '<div class="icard-hotspot-draw-hint" style="color:#f59e0b;">⚠️ 旧数据格式（坐标只读）</div>'
+        + '<code class="icard-hotspot-legacy">X:' + legacyBbox[0].toFixed(2) + ' Y:' + legacyBbox[1].toFixed(2)
+          + ' 宽:' + legacyBbox[2].toFixed(2) + ' 高:' + legacyBbox[3].toFixed(2) + '</code>'
+        + '<button class="icard-hotspot-migrate-btn" onclick="migrateLegacyHotspot(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">⬆ 迁移为资源（可选）</button>'
+        + '</div>';
+    } else if (hsAssets.length === 0) {
+      hotspotZoneHtml = '<div class="icard-hotspot-draw-zone">'
+        + '<div class="icard-hotspot-draw-hint">节点还没有绘制任何热区</div>'
+        + '<button class="icard-hotspot-draw-btn" onclick="onDrawHotspotClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">🎨 在视频上绘制热区</button>'
+        + '</div>';
+    } else {
+      const selId = item.hotspot_asset_id || '';
+      const thumbId = 'hs_thumb_' + item.id.replace(/[^a-zA-Z0-9]/g, '_');
+      const assetOpts = hsAssets.map(a =>
+        '<option value="' + escHtml(a.id) + '"' + (a.id === selId ? ' selected' : '') + '>' + escHtml(a.name || a.id) + '</option>'
+      ).join('');
+      hotspotZoneHtml = '<div class="icard-hotspot-asset-row">'
+        + '<canvas class="icard-hotspot-thumb" id="' + thumbId + '" width="72" height="40"></canvas>'
+        + '<select class="icard-hotspot-asset-select" onchange="_saveHotspotAssetId(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',this.value,' + JSON.stringify(thumbId) + ')">'
+        + '<option value="">— 未选择热区 —</option>'
+        + assetOpts + '</select></div>'
+        + '<button class="icard-hotspot-add-btn" onclick="onDrawHotspotClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">+ 绘制新热区</button>';
+    }
+    const visHtml = item.type === 'hotspot_visible' ? (
+      '<div class="icard-field"><div class="icard-label">可见度策略</div>'
+      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'visible_hint\',this.value)">'
+      + [['subtle','轻微提示(subtle)'],['breathing_glow','呼吸光效(breathing_glow)'],['always','始终显示(always)']].map(([v,l]) =>
+          '<option value="' + v + '"' + ((item.visible_hint||'subtle')===v?' selected':'') + '>' + l + '</option>').join('')
+      + '</select></div>'
+      + '<div class="icard-field"><div class="icard-label">提示延迟（秒）</div>'
+      + '<input class="icard-input" type="number" min="0" step="1" value="' + (item.hint_delay_s||5) + '"'
+      + ' onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'hint_delay_s\',parseFloat(this.value))"/></div>'
+    ) : '';
+    configHtml = '<div class="icard-field"><div class="icard-label">🎯 热区绑定</div>' + hotspotZoneHtml + '</div>'
+      + visHtml
+      + '<div class="icard-field"><div class="icard-label">点击反馈</div>'
+      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'feedback_fx\',this.value)">'
+      + FEEDBACK_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.feedback_fx||'ripple')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
+      + '</select></div>'
+      + '<div class="icard-field"><div class="icard-label">目标节点</div>' + targetDd + '</div>'
+      + '<div class="icard-field"><div class="icard-label">过渡效果</div>' + fxSelect + '</div>';
   } else if (item.type === 'qte') {
     configHtml = `
       <div class="icard-2col">
@@ -12005,10 +12415,12 @@ function addInteractionV2(nodeId, type) {
   nodeData._v2_migrated = true;
   nodeData.interactions_v2.push(newItem);
   renderTabInteractions(nodeId, nodeData);
+  _postRenderHotspotThumbs(nodeId, nodeData);
   // 展开新卡片
   setTimeout(() => {
     const card = document.getElementById('icard-' + newItem.id);
     if (card && !card.classList.contains('expanded')) card.classList.add('expanded');
+    _postRenderHotspotThumbs(nodeId, nodeData);
   }, 50);
 }
 
