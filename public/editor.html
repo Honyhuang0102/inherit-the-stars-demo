@@ -4361,10 +4361,27 @@ function openInspector(nodeId) {
   }
   insp.style.display = 'block';
   insp.dataset.nodeId = nodeId;
+  setTimeout(() => _postRenderHotspotThumbs(nodeId, nodeData), 80);
   _checkTcStatusOnInspectorOpen(nodeId);
   const rp = document.getElementById('right-panel');
   const rpRect = rp.getBoundingClientRect();
   insp.style.right = (window.innerWidth - rpRect.left + 8) + 'px';
+}
+
+function refreshNodeEditorData(nodeId, opts = {}) {
+  const nodeData = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  migrateNodeToV2(nodeData);
+  const activeTab = document.querySelector('.itab-btn.active');
+  const nextTab = opts.forceInteractionTab ? 'interaction' : ((activeTab && activeTab.dataset.tab) || resolveDefaultTab(nodeData));
+  const inspector = document.getElementById('inspector');
+  if (!inspector || inspector.dataset.nodeId !== nodeId || inspector.style.display === 'none') return;
+  renderTabBasic(nodeId, nodeData);
+  renderTabInteractions(nodeId, nodeData);
+  renderTabMusic(nodeId, nodeData);
+  renderTabAdvanced(nodeId, nodeData);
+  switchInspTab(nextTab);
+  setTimeout(() => _postRenderHotspotThumbs(nodeId, nodeData), 80);
 }
 
 // 特殊节点类型(minigame/panorama/3d_model/ending)使用旧版 insp-body 渲染
@@ -5178,7 +5195,11 @@ async function saveData() {
     });
     if (!r) return;
     const result = await r.json();
-    if (r.ok) showToast('✓ 保存成功', 'success');
+    if (r.ok) {
+      showToast('✓ 保存成功', 'success');
+      const activeNodeId = (immersiveNodeData && immersiveNodeData.id) || state.selectedNode || document.getElementById('inspector')?.dataset.nodeId;
+      if (activeNodeId) refreshNodeEditorData(activeNodeId, { forceInteractionTab: !!immersiveNodeData });
+    }
     else showToast('保存失败: ' + (result.error || '未知错误'), 'error');
   } catch(e) {
     showToast('网络错误，保存失败', 'error');
@@ -5343,6 +5364,7 @@ function exitImmersiveMode() {
   // 将沉浸屏中的热点位置同步回小预览屏
   if (immersiveNodeData) {
     updatePreviewPanel(immersiveNodeData);
+    refreshNodeEditorData(immersiveNodeData.id, { forceInteractionTab: true });
   }
 }
 
@@ -12262,7 +12284,7 @@ function _showLoopNodeGuide(nodeId) {
 }
 
 function _goToInteractionTab(nodeId) {
-  const tab = document.querySelector('[data-tab="itab-interaction"]') || document.querySelector('.itab-btn[onclick*="itab-interaction"]');
+  const tab = document.querySelector('[data-tab="interaction"]') || document.querySelector('.itab-btn[onclick*="interaction"]');
   if (tab) tab.click();
   // 聚焦到"+ 添加交互"按钮
   setTimeout(() => {
