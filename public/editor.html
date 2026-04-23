@@ -8988,6 +8988,55 @@ function buildInteractionDsl(nodeData) {
     });
   }
 
+  // v0.2.3: interactions_v2 中的 hotspot_hidden/hotspot_visible → DSL hotspot
+  // fix(3.0/studio-hotspot-drawing): v2 hotspot → DSL 断点修复（附带价值，见 inventory-v0.2.3）
+  if (nodeData.interactions_v2) {
+    const hsItems = nodeData.interactions_v2.filter(
+      it => (it.type === 'hotspot_hidden' || it.type === 'hotspot_visible') && it.target_node
+    );
+    if (hsItems.length > 0) {
+      const hotspotEntries = hsItems.map((hs, i) => {
+        // lookup bbox：优先 hotspot_asset_id → hotspot_assets 资源池；fallback 到老数据 bbox
+        let bbox = hs.bbox || [0.1, 0.1, 0.2, 0.2];
+        if (hs.hotspot_asset_id && nodeData.hotspot_assets) {
+          const asset = nodeData.hotspot_assets.find(a => a.id === hs.hotspot_asset_id);
+          if (asset && asset.bbox) bbox = asset.bbox;
+        }
+        const entry = {
+          id: hs.id || ('hs_v2_' + i),
+          bbox,
+          visible_hint: hs.type === 'hotspot_visible' ? (hs.visible_hint || 'subtle') : 'hidden',
+          on_click: {
+            feedback_fx: hs.feedback_fx || 'ripple',
+            action_outcome: {
+              action: 'jump_to_clip',
+              target_clip_id: hs.target_node,
+              transition_fx: hs.transition_fx || 'fade',
+            }
+          }
+        };
+        if (hs.hint_delay_s) entry.hint_delay_s = hs.hint_delay_s;
+        if (hs.type === 'hotspot_visible' && hs.visible_hint) entry.visible_hint = hs.visible_hint;
+        return entry;
+      });
+      // 合并进已有 hotspot interaction，或新建一个
+      const existingHotspot = interactions.find(it => it.type === 'hotspot');
+      if (existingHotspot) {
+        existingHotspot.hotspots.push(...hotspotEntries);
+      } else {
+        interactions.push({
+          id: 'hotspot_v2_' + nodeData.id,
+          type: 'hotspot',
+          video_mode: nodeData.node_type === 'loop' ? 'loop' : 'pause_at_end',
+          hotspots: hotspotEntries,
+          help_after_s: 15,
+          max_wait_s: 60,
+          metadata: {}
+        });
+      }
+    }
+  }
+
   if (interactions.length === 0 && audioTracks.length === 0) return null;
   const dslVersion = audioTracks.length > 0 ? 'v0.2.0' : 'v0.1.0';
 
@@ -11310,7 +11359,7 @@ function migrateNodeToV2(nodeData) {
       const xs = c.points.map(p => p[0] || 0), ys = c.points.map(p => p[1] || 0);
       const x = Math.min(...xs), y = Math.min(...ys);
       const w = Math.max(...xs) - x, h = Math.max(...ys) - y;
-      v2.push({ ...common, type: 'hotspot_hidden', bbox: [x, y, w, h], feedback_fx: 'ripple', label: c.label || '' });
+      v2.push({ ...common, type: 'hotspot_hidden', bbox: [x, y, w, h], feedback_fx: 'ripple', label: c.label || '', _v2_legacy: true });
     } else if (c.timeWindow && c.timeWindow[1] > c.timeWindow[0]) {
       const hint = c.visible_hint || 'hidden';
       v2.push({ ...common,
@@ -11319,7 +11368,8 @@ function migrateNodeToV2(nodeData) {
         feedback_fx: c.feedback_fx || 'ripple',
         visible_hint: hint,
         hint_delay_s: c.hint_delay_s || 0,
-        label: c.label || ''
+        label: c.label || '',
+        _v2_legacy: true
       });
     } else {
       // 普通按钮
@@ -11946,7 +11996,7 @@ function addInteractionV2(nodeId, type) {
     transition_fx: 'fade',
     _expanded: true,
     ...(type === 'button' ? { label: '新选项', sublabel: '', pos_x: '50%', pos_y: '65%' } : {}),
-    ...(type === 'hotspot_hidden' || type === 'hotspot_visible' ? { bbox: [0.1, 0.1, 0.2, 0.2], feedback_fx: 'ripple' } : {}),
+    ...(type === 'hotspot_hidden' || type === 'hotspot_visible' ? { hotspot_asset_id: null, feedback_fx: 'ripple' } : {}),
     ...(type === 'hotspot_visible' ? { visible_hint: 'subtle', hint_delay_s: 5 } : {}),
     ...(type === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
     ...(type === 'jump' ? { jump_trigger: 'end' } : {}),
@@ -11989,7 +12039,7 @@ function onInteractionTypeChange(nodeId, itemId, newType) {
   nodeData.interactions_v2[idx] = {
     ...common,
     ...(newType === 'button' ? { label: '新选项', sublabel: '', pos_x: '50%', pos_y: '65%' } : {}),
-    ...(newType === 'hotspot_hidden' || newType === 'hotspot_visible' ? { bbox: [0.1, 0.1, 0.2, 0.2], feedback_fx: 'ripple' } : {}),
+    ...(newType === 'hotspot_hidden' || newType === 'hotspot_visible' ? { hotspot_asset_id: null, feedback_fx: 'ripple' } : {}),
     ...(newType === 'hotspot_visible' ? { visible_hint: 'subtle', hint_delay_s: 5 } : {}),
     ...(newType === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
     ...(newType === 'jump' ? { jump_trigger: 'end' } : {}),
