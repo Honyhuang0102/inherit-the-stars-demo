@@ -11698,8 +11698,16 @@ function renderTabMusic(nodeId, nodeData) {
         onchange="_onBgmSelect('${nodeId}',this.value)">
         ${ddOptions}
       </select>
-      ${library.length === 0 ? `<div style="font-size:10px;color:var(--text-tertiary);margin-top:4px;">
-        💡 请先在右侧面板的「音乐库」上传 BGM，此处才能选择</div>` : ''}
+      <div style="margin-top:6px;">
+        <button class="gp-micro-btn" style="width:100%;padding:5px 0;font-size:11px;"
+          onclick="document.getElementById('bgm-quick-upload-${escHtml(nodeId)}').click()">
+          🎵 + 上传新 BGM
+        </button>
+        <input type="file" id="bgm-quick-upload-${escHtml(nodeId)}"
+          accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,.mp3,.m4a,.aac"
+          style="display:none"
+          onchange="_quickUploadBgm('${nodeId}', this)"/>
+      </div>
     </div>
     <div id="bgm-advanced-${escHtml(nodeId)}" style="${selId?'':'display:none'}">
       <button class="bgm-adv-btn${bgm && bgm._advOpen?' open':''}" id="bgm-adv-btn-${escHtml(nodeId)}"
@@ -12095,6 +12103,59 @@ async function uploadAudioFile(event, worldId) {
     state.gameData.audio_library.tracks = regData.data.audio_library.tracks;
     renderWorldAudioLibrary();
     showToast('✓ BGM 上传成功：' + payload.name, 'success');
+  } catch(err) {
+    showToast('上传 BGM 失败：' + err.message, 'error');
+  }
+}
+
+// ── Clip 级快速上传 BGM（不离开 Inspector）────────────────────────
+async function _quickUploadBgm(nodeId, inputEl) {
+  const file = inputEl.files && inputEl.files[0];
+  inputEl.value = '';
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { showToast('文件超过 10MB，请压缩后再上传', 'error'); return; }
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  if (!worldId) { showToast('请先发布世界后再上传 BGM', 'error'); return; }
+  const authStr = localStorage.getItem('infidive_auth');
+  const token = authStr ? JSON.parse(authStr).token : null;
+  if (!token) { showToast('请先登录', 'error'); return; }
+  showToast('⏳ 上传中...', 'info');
+  try {
+    // Step 1: 上传文件
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('type', 'audio');
+    const uploadResp = await fetch('https://infidive.ai/api/v1/upload/file', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd
+    });
+    const uploadData = await uploadResp.json();
+    if (!uploadResp.ok) throw new Error(uploadData.error || '上传失败');
+    const fileUrl = uploadData.file_url || uploadData.url;
+    if (!fileUrl) throw new Error('上传返回 URL 为空');
+    // Step 2: 注册到 world audio_library
+    const name = file.name.replace(/\.[^.]+$/, '');
+    const payload = { id: 'bgm_' + Date.now(), name, url: fileUrl, size_bytes: file.size, uploaded_at: new Date().toISOString() };
+    const regResp = await fetch('https://infidive.ai/api/v1/worlds/' + worldId + '/audio', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const regData = await regResp.json();
+    if (!regResp.ok) throw new Error(regData.error || '注册失败');
+    if (!state.gameData.audio_library) state.gameData.audio_library = { tracks: [] };
+    state.gameData.audio_library.tracks = regData.data.audio_library.tracks;
+    // Step 3: 自动选中新 BGM 到当前 clip
+    _onBgmSelect(nodeId, payload.id);
+    // Step 4: 刷新 Tab3（BGM 下拉 + 音乐库）
+    const nodeData = state.gameData.nodes[nodeId];
+    if (nodeData) renderTabMusic(nodeId, nodeData);
+    // 确保选中刚上传的 track
+    setTimeout(() => {
+      const sel = document.getElementById('bgm-select-' + nodeId);
+      if (sel) sel.value = payload.id;
+      const advDiv = document.getElementById('bgm-advanced-' + nodeId);
+      if (advDiv) advDiv.style.display = '';
+    }, 50);
+    showToast('✓ 已上传并选中：' + payload.name, 'success');
   } catch(err) {
     showToast('上传 BGM 失败：' + err.message, 'error');
   }
