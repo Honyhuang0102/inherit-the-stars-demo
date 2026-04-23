@@ -6029,12 +6029,22 @@ let _bboxDrawState = {
  * Tab 2 点击"绘制热区"按钮 → 记录意图 → 进入沉浸模式 → 激活绘制
  */
 function onDrawHotspotClick(nodeId, interactionId) {
-  if (!state.gameData || !state.gameData.nodes[nodeId]) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  if (!nodeData) {
     showToast('请先选中节点', 'error');
     return;
   }
+  if (!nodeData.video_url) {
+    showToast('请先在「基础」Tab 上传视频，再绘制热区', 'warn');
+    return;
+  }
+  if (state.selectedNode !== nodeId) {
+    state.selectedNode = nodeId;
+  }
   _pendingHotspotIntent = { nodeId, interactionId };
+  showToast('正在进入沉浸绘制模式...', 'info');
   enterImmersiveMode();
+  loadImmersiveNode(nodeData);
   // 延迟激活（等沉浸屏渲染完成）
   requestAnimationFrame(() => startBboxDrawing());
 }
