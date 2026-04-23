@@ -6017,6 +6017,7 @@ function clearImmersiveChoices() {
 
 /** 发起绘制的交互意图 */
 let _pendingHotspotIntent = null; // { nodeId, interactionId }
+let _pendingGraphicAnchorIntent = null; // { nodeId, interactionId }
 
 /** bbox 绘制状态 */
 let _bboxDrawState = {
@@ -6046,6 +6047,28 @@ function onDrawHotspotClick(nodeId, interactionId) {
   enterImmersiveMode();
   loadImmersiveNode(nodeData);
   // 延迟激活（等沉浸屏渲染完成）
+  requestAnimationFrame(() => startBboxDrawing());
+}
+
+/**
+ * Tab 2 点击“绘制图形提示位置” → 记录意图 → 进入沉浸模式 → 激活绘制。
+ */
+function onDrawGraphicAnchorClick(nodeId, interactionId) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  if (!nodeData) {
+    showToast('请先选中节点', 'error');
+    return;
+  }
+  if (!nodeData.video_url) {
+    showToast('请先在「基础」Tab 上传视频，再绘制图形提示位置', 'warn');
+    return;
+  }
+  if (state.selectedNode !== nodeId) state.selectedNode = nodeId;
+  _pendingGraphicAnchorIntent = { nodeId, interactionId };
+  _pendingHotspotIntent = null;
+  showToast('正在进入图形提示位置绘制模式...', 'info');
+  enterImmersiveMode();
+  loadImmersiveNode(nodeData);
   requestAnimationFrame(() => startBboxDrawing());
 }
 
@@ -6147,6 +6170,12 @@ function _onBboxMouseup(e) {
   }
 
   const bbox = [bx, by, bw, bh];
+  const graphicIntent = _pendingGraphicAnchorIntent;
+  if (graphicIntent) {
+    _saveGraphicAnchorBbox(graphicIntent.nodeId, graphicIntent.interactionId, bbox);
+    _pendingGraphicAnchorIntent = null;
+    return;
+  }
   const intent = _pendingHotspotIntent;
   if (!intent) {
     // 无意图，直接添加到资源池
@@ -6154,6 +6183,19 @@ function _onBboxMouseup(e) {
     return;
   }
   _promptHotspotName(bbox, intent.nodeId, intent.interactionId);
+}
+
+function _saveGraphicAnchorBbox(nodeId, interactionId, bbox) {
+  const nodeData = state.gameData && state.gameData.nodes[nodeId];
+  const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === interactionId);
+  if (!item) { showToast('图形提示不存在，请重新选择', 'error'); return; }
+  item.gh_anchor_mode = 'fixed';
+  item.gh_anchor_bbox = bbox;
+  showToast('✅ 图形提示位置已保存', 'success');
+  setTimeout(() => {
+    exitImmersiveMode();
+    if (state.selectedNode === nodeId) renderTabInteractions(nodeId, nodeData);
+  }, 250);
 }
 
 /**
@@ -6392,6 +6434,7 @@ const _origOnImmersiveKeyDown = typeof onImmersiveKeyDown === 'function' ? onImm
     if (e.key === 'Escape' && _bboxDrawState.active) {
       cancelBboxDrawing();
       _pendingHotspotIntent = null;
+      _pendingGraphicAnchorIntent = null;
     }
   });
 })();
@@ -9447,6 +9490,46 @@ function buildInteractionDsl(nodeData) {
     });
   }
 
+  // v0.2.4: 从 interactions_v2 提取图形提示
+  if (nodeData.interactions_v2) {
+    const ghItems = nodeData.interactions_v2.filter(it => it.type === 'graphic_hint');
+    ghItems.forEach((gh, gi) => {
+      const anchorMode = gh.gh_anchor_mode || 'fixed';
+      const anchor = { mode: anchorMode };
+      if (anchorMode === 'fixed') {
+        if (!Array.isArray(gh.gh_anchor_bbox) || gh.gh_anchor_bbox.length !== 4) return;
+        anchor.bbox = gh.gh_anchor_bbox;
+      } else if (anchorMode === 'follow_element') {
+        if (!gh.gh_follow_interaction_id) return;
+        anchor.follow_interaction_id = gh.gh_follow_interaction_id;
+      }
+      const item = {
+        id: gh.id || ('graphic_' + gi),
+        type: 'graphic_hint',
+        timing: {
+          show_at_s: gh.gh_show_at_s || 0,
+          duration_s: gh.gh_duration_s || 2.5,
+          fade_in_ms: gh.gh_fade_in_ms !== undefined ? gh.gh_fade_in_ms : 400,
+          fade_out_ms: gh.gh_fade_out_ms !== undefined ? gh.gh_fade_out_ms : 400,
+        },
+        graphic_type: gh.gh_graphic_type || 'arrow',
+        anchor,
+        loop: gh.gh_loop !== false,
+        loop_interval_ms: gh.gh_loop_interval_ms || 2000,
+        style: {
+          color: gh.gh_color || '#FFD700',
+          size: gh.gh_size || 'medium',
+          opacity: gh.gh_opacity !== undefined ? gh.gh_opacity : 0.8,
+        },
+        show_strategy: gh.gh_show_strategy || 'first_time_only',
+        metadata: {}
+      };
+      if (item.graphic_type === 'gesture_demo') item.gesture_type = gh.gh_gesture_type || 'swipe_left';
+      if (item.show_strategy === 'after_idle_s') item.after_idle_s = gh.gh_after_idle_s || 5;
+      interactions.push(item);
+    });
+  }
+
   // v0.2.3: interactions_v2 中的 hotspot_hidden/hotspot_visible → DSL hotspot
   // fix(3.0/studio-hotspot-drawing): v2 hotspot → DSL 断点修复（附带价值，见 inventory-v0.2.3）
   if (nodeData.interactions_v2) {
@@ -12062,6 +12145,7 @@ const I18N_ZH = {
   fail_behavior: { retry:'回档重试', branch:'走失败分支' },
   video_mode:    { continue:'正常播放', loop:'循环播放', pause_at_end:'末帧暂停' },
   graphic_type:  { arrow:'箭头', gesture_demo:'手势演示', glow_pulse:'光效脉冲', tap_ripple:'点击涟漪', custom_svg:'自定义SVG' },
+  anchor_mode:   { fixed:'固定位置', near_bbox:'贴近热区', follow_element:'跟随交互元素' },
   show_strategy: { always:'始终显示', first_time_only:'仅首次显示', after_idle_s:'空闲N秒后显示' },
   hud_trigger:   { on_tap_pause:'点击暂停时唤起', auto_at_time:'自动在指定时间唤起' },
   hud_behavior:  { soft_pause:'软暂停(视频模糊)', hard_pause:'硬暂停(完全停止)' },
@@ -12084,6 +12168,7 @@ const INTERACTION_TYPE_ICONS = {
   hotspot_visible: '✨',
   qte: '⚡',
   text_hint: '💬',
+  graphic_hint: '🎨',
 };
 const INTERACTION_TYPE_NAMES = {
   jump: '直接跳转',
@@ -12092,19 +12177,27 @@ const INTERACTION_TYPE_NAMES = {
   hotspot_visible: '可见热区',
   qte: '快速反应(QTE)',
   text_hint: '文字提示',
+  graphic_hint: '图形提示',
 };
 const FX_OPTIONS = [['none','无(none)'],['fade','淡入淡出(fade)'],['dash_blur','动态模糊(dash_blur)'],['screen_shatter_red','红色碎屏(screen_shatter_red)']];
 const TRIGGER_OPTIONS = [['end','片尾（默认）'],['start','片头'],['custom','指定秒数']];
 const INPUT_OPTIONS = [['tap','点击(tap)'],['long_press','长按(long_press)'],['swipe_left','左滑(swipe_left)'],['swipe_right','右滑(swipe_right)'],['swipe_up','上滑(swipe_up)'],['swipe_down','下滑(swipe_down)'],['shake','摇晃(shake)'],['charge_release','蓄力释放(charge_release)']];
 const FEEDBACK_OPTIONS = [['ripple','涟漪(ripple)'],['flash','闪光(flash)'],['particle_burst','粒子迸发(particle_burst)'],['none','无(none)']];
+const GRAPHIC_TYPE_OPTIONS = [['arrow','箭头(arrow)'],['gesture_demo','手势演示(gesture_demo)'],['glow_pulse','光效脉冲(glow_pulse)'],['tap_ripple','点击涟漪(tap_ripple)'],['custom_svg','自定义 SVG(custom_svg)']];
+const ANCHOR_MODE_OPTIONS = [['fixed','固定位置(fixed)'],['near_bbox','贴近热区(near_bbox)'],['follow_element','跟随交互元素(follow_element)']];
+const GRAPHIC_GESTURE_OPTIONS = [['swipe_left','左滑(swipe_left)'],['swipe_right','右滑(swipe_right)'],['swipe_up','上滑(swipe_up)'],['swipe_down','下滑(swipe_down)'],['long_press','长按(long_press)'],['shake','摇晃(shake)'],['tap','点击(tap)'],['charge','蓄力(charge)']];
+const GRAPHIC_SIZE_OPTIONS = [['small','小(small)'],['medium','中(medium)'],['large','大(large)']];
+const SHOW_STRATEGY_OPTIONS = [['always','始终显示(always)'],['first_time_only','仅首次显示(first_time_only)'],['after_idle_s','空闲 N 秒后显示(after_idle_s)']];
 
 function renderInteractionCard(nodeId, item, idx) {
   const icon = INTERACTION_TYPE_ICONS[item.type] || '❓';
   const name = INTERACTION_TYPE_NAMES[item.type] || item.type;
   const targetName = item.type === 'text_hint'
     ? (item.th_content ? '"' + item.th_content.substring(0, 16) + (item.th_content.length > 16 ? '…' : '') + '"' : '（未填内容）')
-    : _getNodeDisplayName(item.target_node);
-  const fxBadge = item.type !== 'text_hint' && item.transition_fx && item.transition_fx !== 'none' ? localizeEnum('transition_fx', item.transition_fx) : '';
+    : item.type === 'graphic_hint'
+      ? localizeEnum('graphic_type', item.gh_graphic_type || 'arrow')
+      : _getNodeDisplayName(item.target_node);
+  const fxBadge = (item.type !== 'text_hint' && item.type !== 'graphic_hint') && item.transition_fx && item.transition_fx !== 'none' ? localizeEnum('transition_fx', item.transition_fx) : '';
 
   // 类型专属配置区
   let configHtml = '';
@@ -12243,6 +12336,81 @@ function renderInteractionCard(nodeId, item, idx) {
             (nid) => _updateInteractionV2Field(nodeId, item.id, 'target_node_fail', nid))}
         </div>` : ''}
       <div class="icard-field"><div class="icard-label">过渡效果（成功）</div>${fxSelect}</div>`;
+  } else if (item.type === 'graphic_hint') {
+    const gType = item.gh_graphic_type || 'arrow';
+    const aMode = item.gh_anchor_mode || 'fixed';
+    const bbox = item.gh_anchor_bbox;
+    const bboxText = bbox && bbox.length === 4
+      ? `X:${Number(bbox[0]).toFixed(2)} Y:${Number(bbox[1]).toFixed(2)} 宽:${Number(bbox[2]).toFixed(2)} 高:${Number(bbox[3]).toFixed(2)}`
+      : '尚未绘制提示位置';
+    const otherItems = ((state.gameData && state.gameData.nodes[nodeId] && state.gameData.nodes[nodeId].interactions_v2) || [])
+      .filter(it => it.id !== item.id);
+    const followOpts = otherItems.map((it, oi) => {
+      const label = '交互 ' + (oi + 1) + ':' + (INTERACTION_TYPE_ICONS[it.type] || '❓') + ' ' + (INTERACTION_TYPE_NAMES[it.type] || it.type);
+      return '<option value="' + escHtml(it.id) + '"' + ((item.gh_follow_interaction_id || '') === it.id ? ' selected' : '') + '>' + escHtml(label) + '</option>';
+    }).join('');
+    const fixedHtml = aMode === 'fixed' ? (
+      '<div class="icard-hotspot-draw-zone" style="margin-top:6px;">'
+      + '<div class="icard-hotspot-draw-hint">' + escHtml(bboxText) + '</div>'
+      + '<button class="icard-hotspot-draw-btn" onclick="onDrawGraphicAnchorClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">🎨 在视频上绘制提示位置</button>'
+      + '</div>'
+    ) : '';
+    const followHtml = aMode === 'follow_element' ? (
+      '<div class="icard-field"><div class="icard-label">跟随交互</div>'
+      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_follow_interaction_id\',this.value)">'
+      + '<option value="">— 请选择交互 —</option>' + followOpts + '</select></div>'
+    ) : '';
+    const gestureHtml = gType === 'gesture_demo' ? (
+      '<div class="icard-field"><div class="icard-label">手势类型</div>'
+      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_gesture_type\',this.value)">'
+      + GRAPHIC_GESTURE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.gh_gesture_type||'swipe_left')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
+      + '</select></div>'
+    ) : '';
+    const idleHtml = (item.gh_show_strategy || 'first_time_only') === 'after_idle_s' ? (
+      '<div class="icard-field"><div class="icard-label">空闲秒数</div><input class="icard-input" type="number" min="0" step="0.5" value="' + (item.gh_after_idle_s||5) + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_after_idle_s\',parseFloat(this.value))"/></div>'
+    ) : '';
+    configHtml = `
+      <div class="icard-2col">
+        <div class="icard-field"><div class="icard-label">开始秒数</div>
+          <input class="icard-input" type="number" min="0" step="0.5" value="${item.gh_show_at_s||0}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','gh_show_at_s',parseFloat(this.value))"/>
+        </div>
+        <div class="icard-field"><div class="icard-label">持续秒数</div>
+          <input class="icard-input" type="number" min="0.1" step="0.5" value="${item.gh_duration_s||2.5}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','gh_duration_s',parseFloat(this.value))"/>
+        </div>
+      </div>
+      <div class="icard-2col">
+        <div class="icard-field"><div class="icard-label">淡入(ms)</div>
+          <input class="icard-input" type="number" min="0" step="100" value="${item.gh_fade_in_ms||400}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','gh_fade_in_ms',parseInt(this.value))"/>
+        </div>
+        <div class="icard-field"><div class="icard-label">淡出(ms)</div>
+          <input class="icard-input" type="number" min="0" step="100" value="${item.gh_fade_out_ms||400}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','gh_fade_out_ms',parseInt(this.value))"/>
+        </div>
+      </div>`
+      + '<div class="icard-field"><div class="icard-label">图形类型</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_graphic_type\',this.value);refreshInteractionCard(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">'
+      + GRAPHIC_TYPE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + (gType===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
+      + '</select></div>'
+      + gestureHtml
+      + '<div class="icard-field"><div class="icard-label">锚点模式</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_anchor_mode\',this.value);refreshInteractionCard(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">'
+      + ANCHOR_MODE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + (aMode===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
+      + '</select></div>'
+      + fixedHtml + followHtml
+      + '<div class="icard-2col"><div class="icard-field"><label style="font-size:12px;"><input type="checkbox" ' + (item.gh_loop !== false ? 'checked' : '') + ' onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_loop\',this.checked)"/> 循环播放</label></div>'
+      + '<div class="icard-field"><div class="icard-label">循环间隔(ms)</div><input class="icard-input" type="number" min="100" step="100" value="' + (item.gh_loop_interval_ms||2000) + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_loop_interval_ms\',parseInt(this.value))"/></div></div>'
+      + '<div class="icard-field"><div class="icard-label">显示策略</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_show_strategy\',this.value);refreshInteractionCard(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">'
+      + SHOW_STRATEGY_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.gh_show_strategy||'first_time_only')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
+      + '</select></div>'
+      + idleHtml
+      + '<details class="th-typo-details"><summary>样式（高级）</summary><div class="th-typo-body">'
+      + '<div class="icard-2col"><div class="icard-field"><div class="icard-label">颜色</div><input class="icard-input" type="color" value="' + (item.gh_color||'#FFD700') + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_color\',this.value)" style="height:32px;padding:2px 4px;cursor:pointer;"/></div>'
+      + '<div class="icard-field"><div class="icard-label">大小</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_size\',this.value)">'
+      + GRAPHIC_SIZE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.gh_size||'medium')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
+      + '</select></div></div>'
+      + '<div class="icard-field"><div class="icard-label">透明度</div><input class="icard-input" type="number" min="0" max="1" step="0.05" value="' + (item.gh_opacity!==undefined?item.gh_opacity:0.8) + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_opacity\',parseFloat(this.value))"/></div>'
+      + '</div></details>';
   } else if (item.type === 'text_hint') {
     const thStyleOpts = Object.entries(I18N_ZH.th_style||{}).map(([v,zh])=>
       `<option value="${v}" ${(item.th_style||'monologue')===v?'selected':''}>${zh}(${v})</option>`).join('');
@@ -12451,6 +12619,8 @@ function openAddInteractionMenu(nodeId, btn) {
     ['hotspot_hidden','👻','隐形热区'],
     ['hotspot_visible','✨','可见热区'],
     ['qte','⚡','快速反应(QTE)'],
+    ['text_hint','💬','文字提示'],
+    ['graphic_hint','🎨','图形提示'],
   ];
   menu.innerHTML = types.map(([type,icon,label]) =>
     `<div class="interaction-add-item" onclick="addInteractionV2('${nodeId}','${type}');this.closest('.interaction-add-menu').remove()">
@@ -12480,6 +12650,7 @@ function addInteractionV2(nodeId, type) {
     ...(type === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
     ...(type === 'jump' ? { jump_trigger: 'end' } : {}),
     ...(type === 'text_hint' ? { show_at_s: 0, duration_s: 3, fade_in_ms: 800, fade_out_ms: 600, th_style: 'monologue', th_content: '', th_voice: 'protagonist', th_position: 'bottom', th_font_size: 'medium', th_color: '#FFFFFF', th_bg_opacity: 0.5 } : {}),
+    ...(type === 'graphic_hint' ? { gh_show_at_s: 0, gh_duration_s: 2.5, gh_fade_in_ms: 400, gh_fade_out_ms: 400, gh_graphic_type: 'arrow', gh_anchor_mode: 'fixed', gh_anchor_bbox: null, gh_gesture_type: 'swipe_left', gh_loop: true, gh_loop_interval_ms: 2000, gh_color: '#FFD700', gh_size: 'medium', gh_opacity: 0.8, gh_show_strategy: 'first_time_only', gh_after_idle_s: 5 } : {}),
   };
   nodeData._v2_migrated = true;
   nodeData.interactions_v2.push(newItem);
@@ -12525,6 +12696,7 @@ function onInteractionTypeChange(nodeId, itemId, newType) {
     ...(newType === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
     ...(newType === 'jump' ? { jump_trigger: 'end' } : {}),
     ...(newType === 'text_hint' ? { show_at_s: 0, duration_s: 3, fade_in_ms: 800, fade_out_ms: 600, th_style: 'monologue', th_content: '', th_voice: 'protagonist', th_position: 'bottom', th_font_size: 'medium', th_color: '#FFFFFF', th_bg_opacity: 0.5 } : {}),
+    ...(newType === 'graphic_hint' ? { gh_show_at_s: 0, gh_duration_s: 2.5, gh_fade_in_ms: 400, gh_fade_out_ms: 400, gh_graphic_type: 'arrow', gh_anchor_mode: 'fixed', gh_anchor_bbox: null, gh_gesture_type: 'swipe_left', gh_loop: true, gh_loop_interval_ms: 2000, gh_color: '#FFD700', gh_size: 'medium', gh_opacity: 0.8, gh_show_strategy: 'first_time_only', gh_after_idle_s: 5 } : {}),
   };
   renderTabInteractions(nodeId, nodeData);
 }
@@ -12646,12 +12818,10 @@ function renderTabAdvanced(nodeId, nodeData) {
   const timeEvents = (nodeData.time_trigger_effects || []);
 
   el.innerHTML = `
-    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:2px 0;">文字提示 / 图形提示 / 浮层菜单</div>
+    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:2px 0;">浮层菜单</div>
     <div id="adv-interactions-list"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;">
-      <button class="gp-micro-btn" onclick="openTextHintPanel(null)">+ 文字提示</button>
       <button class="gp-micro-btn" onclick="openHudPanel(null)">+ 浮层菜单</button>
-      <button class="gp-micro-btn" onclick="openGhPanel(null)">+ 图形提示</button>
     </div>
     <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:6px 0 2px;">时间触发效果</div>
     <div id="adv-timeline-list"></div>
