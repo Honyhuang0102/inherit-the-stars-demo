@@ -12192,6 +12192,8 @@ const SHOW_STRATEGY_OPTIONS = [['always','始终显示(always)'],['first_time_on
 function renderInteractionCard(nodeId, item, idx) {
   const icon = INTERACTION_TYPE_ICONS[item.type] || '❓';
   const name = INTERACTION_TYPE_NAMES[item.type] || item.type;
+  const nodeArg = escHtml(JSON.stringify(nodeId));
+  const itemArg = escHtml(JSON.stringify(item.id));
   const targetName = item.type === 'text_hint'
     ? (item.th_content ? '"' + item.th_content.substring(0, 16) + (item.th_content.length > 16 ? '…' : '') + '"' : '（未填内容）')
     : item.type === 'graphic_hint'
@@ -12257,12 +12259,12 @@ function renderInteractionCard(nodeId, item, idx) {
         + '<div class="icard-hotspot-draw-hint" style="color:#f59e0b;">⚠️ 旧数据格式（坐标只读）</div>'
         + '<code class="icard-hotspot-legacy">X:' + legacyBbox[0].toFixed(2) + ' Y:' + legacyBbox[1].toFixed(2)
           + ' 宽:' + legacyBbox[2].toFixed(2) + ' 高:' + legacyBbox[3].toFixed(2) + '</code>'
-        + '<button class="icard-hotspot-migrate-btn" onclick="migrateLegacyHotspot(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">⬆ 迁移为资源（可选）</button>'
+        + '<button class="icard-hotspot-migrate-btn" onclick="migrateLegacyHotspot(' + nodeArg + ',' + itemArg + ')">⬆ 迁移为资源（可选）</button>'
         + '</div>';
     } else if (hsAssets.length === 0) {
       hotspotZoneHtml = '<div class="icard-hotspot-draw-zone">'
         + '<div class="icard-hotspot-draw-hint">节点还没有绘制任何热区</div>'
-        + '<button class="icard-hotspot-draw-btn" onclick="onDrawHotspotClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">🎨 在视频上绘制热区</button>'
+        + '<button class="icard-hotspot-draw-btn" onclick="onDrawHotspotClick(' + nodeArg + ',' + itemArg + ')">🎨 在视频上绘制热区</button>'
         + '</div>';
     } else {
       const selId = item.hotspot_asset_id || '';
@@ -12272,36 +12274,36 @@ function renderInteractionCard(nodeId, item, idx) {
       ).join('');
       const missingAsset = item._hotspot_asset_deleted || (selId && !hsAssets.some(a => a.id === selId));
       const deleteBtnHtml = selId
-        ? '<button class="icard-hotspot-add-btn" style="border-color:#ef4444;color:#ef4444;" onclick="deleteHotspotAsset(' + JSON.stringify(nodeId) + ',' + JSON.stringify(selId) + ')">🗑 删除热区</button>'
+        ? '<button class="icard-hotspot-add-btn" style="border-color:#ef4444;color:#ef4444;" onclick="deleteHotspotAsset(' + nodeArg + ',' + escHtml(JSON.stringify(selId)) + ')">🗑 删除热区</button>'
         : '';
       const bindHintHtml = missingAsset
         ? '<div class="icard-hotspot-draw-hint" style="margin-top:6px;color:#ef4444;">热区已删除,请重新绑定</div>'
         : (!selId ? '<div class="icard-hotspot-draw-hint" style="margin-top:6px;">请选择一个已绘制热区</div>' : '');
       hotspotZoneHtml = '<div class="icard-hotspot-asset-row">'
         + '<canvas class="icard-hotspot-thumb" id="' + thumbId + '" width="72" height="40"></canvas>'
-        + '<select class="icard-hotspot-asset-select" onchange="_saveHotspotAssetId(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',this.value,' + JSON.stringify(thumbId) + ')">'
+        + '<select class="icard-hotspot-asset-select" onchange="_saveHotspotAssetId(' + nodeArg + ',' + itemArg + ',this.value,' + escHtml(JSON.stringify(thumbId)) + ')">'
         + '<option value="">— 未选择热区 —</option>'
         + assetOpts + '</select></div>'
         + bindHintHtml
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">'
-        + '<button class="icard-hotspot-add-btn" onclick="onDrawHotspotClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">+ 绘制新热区</button>'
+        + '<button class="icard-hotspot-add-btn" onclick="onDrawHotspotClick(' + nodeArg + ',' + itemArg + ')">+ 绘制新热区</button>'
         + deleteBtnHtml
         + '</div>';
     }
     const visHtml = item.type === 'hotspot_visible' ? (
       '<div class="icard-field"><div class="icard-label">可见度策略</div>'
-      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'visible_hint\',this.value)">'
+      + '<select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'visible_hint\',this.value)">'
       + [['subtle','轻微提示(subtle)'],['breathing_glow','呼吸光效(breathing_glow)'],['always','始终显示(always)']].map(([v,l]) =>
           '<option value="' + v + '"' + ((item.visible_hint||'subtle')===v?' selected':'') + '>' + l + '</option>').join('')
       + '</select></div>'
       + '<div class="icard-field"><div class="icard-label">提示延迟（秒）</div>'
       + '<input class="icard-input" type="number" min="0" step="1" value="' + (item.hint_delay_s||5) + '"'
-      + ' onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'hint_delay_s\',parseFloat(this.value))"/></div>'
+      + ' onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'hint_delay_s\',parseFloat(this.value))"/></div>'
     ) : '';
     configHtml = '<div class="icard-field"><div class="icard-label">🎯 热区绑定</div>' + hotspotZoneHtml + '</div>'
       + visHtml
       + '<div class="icard-field"><div class="icard-label">点击反馈</div>'
-      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'feedback_fx\',this.value)">'
+      + '<select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'feedback_fx\',this.value)">'
       + FEEDBACK_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.feedback_fx||'ripple')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
       + '</select></div>'
       + '<div class="icard-field"><div class="icard-label">目标节点</div>' + targetDd + '</div>'
@@ -12352,22 +12354,22 @@ function renderInteractionCard(nodeId, item, idx) {
     const fixedHtml = aMode === 'fixed' ? (
       '<div class="icard-hotspot-draw-zone" style="margin-top:6px;">'
       + '<div class="icard-hotspot-draw-hint">' + escHtml(bboxText) + '</div>'
-      + '<button class="icard-hotspot-draw-btn" onclick="onDrawGraphicAnchorClick(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">🎨 在视频上绘制提示位置</button>'
+      + '<button class="icard-hotspot-draw-btn" onclick="onDrawGraphicAnchorClick(' + nodeArg + ',' + itemArg + ')">🎨 在视频上绘制提示位置</button>'
       + '</div>'
     ) : '';
     const followHtml = aMode === 'follow_element' ? (
       '<div class="icard-field"><div class="icard-label">跟随交互</div>'
-      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_follow_interaction_id\',this.value)">'
+      + '<select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_follow_interaction_id\',this.value)">'
       + '<option value="">— 请选择交互 —</option>' + followOpts + '</select></div>'
     ) : '';
     const gestureHtml = gType === 'gesture_demo' ? (
       '<div class="icard-field"><div class="icard-label">手势类型</div>'
-      + '<select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_gesture_type\',this.value)">'
+      + '<select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_gesture_type\',this.value)">'
       + GRAPHIC_GESTURE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.gh_gesture_type||'swipe_left')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
       + '</select></div>'
     ) : '';
     const idleHtml = (item.gh_show_strategy || 'first_time_only') === 'after_idle_s' ? (
-      '<div class="icard-field"><div class="icard-label">空闲秒数</div><input class="icard-input" type="number" min="0" step="0.5" value="' + (item.gh_after_idle_s||5) + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_after_idle_s\',parseFloat(this.value))"/></div>'
+      '<div class="icard-field"><div class="icard-label">空闲秒数</div><input class="icard-input" type="number" min="0" step="0.5" value="' + (item.gh_after_idle_s||5) + '" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_after_idle_s\',parseFloat(this.value))"/></div>'
     ) : '';
     configHtml = `
       <div class="icard-2col">
@@ -12390,26 +12392,26 @@ function renderInteractionCard(nodeId, item, idx) {
             onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','gh_fade_out_ms',parseInt(this.value))"/>
         </div>
       </div>`
-      + '<div class="icard-field"><div class="icard-label">图形类型</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_graphic_type\',this.value);refreshInteractionCard(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">'
+      + '<div class="icard-field"><div class="icard-label">图形类型</div><select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_graphic_type\',this.value);refreshInteractionCard(' + nodeArg + ',' + itemArg + ')">'
       + GRAPHIC_TYPE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + (gType===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
       + '</select></div>'
       + gestureHtml
-      + '<div class="icard-field"><div class="icard-label">锚点模式</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_anchor_mode\',this.value);refreshInteractionCard(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">'
+      + '<div class="icard-field"><div class="icard-label">锚点模式</div><select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_anchor_mode\',this.value);refreshInteractionCard(' + nodeArg + ',' + itemArg + ')">'
       + ANCHOR_MODE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + (aMode===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
       + '</select></div>'
       + fixedHtml + followHtml
-      + '<div class="icard-2col"><div class="icard-field"><label style="font-size:12px;"><input type="checkbox" ' + (item.gh_loop !== false ? 'checked' : '') + ' onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_loop\',this.checked)"/> 循环播放</label></div>'
-      + '<div class="icard-field"><div class="icard-label">循环间隔(ms)</div><input class="icard-input" type="number" min="100" step="100" value="' + (item.gh_loop_interval_ms||2000) + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_loop_interval_ms\',parseInt(this.value))"/></div></div>'
-      + '<div class="icard-field"><div class="icard-label">显示策略</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_show_strategy\',this.value);refreshInteractionCard(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ')">'
+      + '<div class="icard-2col"><div class="icard-field"><label style="font-size:12px;"><input type="checkbox" ' + (item.gh_loop !== false ? 'checked' : '') + ' onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_loop\',this.checked)"/> 循环播放</label></div>'
+      + '<div class="icard-field"><div class="icard-label">循环间隔(ms)</div><input class="icard-input" type="number" min="100" step="100" value="' + (item.gh_loop_interval_ms||2000) + '" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_loop_interval_ms\',parseInt(this.value))"/></div></div>'
+      + '<div class="icard-field"><div class="icard-label">显示策略</div><select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_show_strategy\',this.value);refreshInteractionCard(' + nodeArg + ',' + itemArg + ')">'
       + SHOW_STRATEGY_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.gh_show_strategy||'first_time_only')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
       + '</select></div>'
       + idleHtml
       + '<details class="th-typo-details"><summary>样式（高级）</summary><div class="th-typo-body">'
-      + '<div class="icard-2col"><div class="icard-field"><div class="icard-label">颜色</div><input class="icard-input" type="color" value="' + (item.gh_color||'#FFD700') + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_color\',this.value)" style="height:32px;padding:2px 4px;cursor:pointer;"/></div>'
-      + '<div class="icard-field"><div class="icard-label">大小</div><select class="icard-input" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_size\',this.value)">'
+      + '<div class="icard-2col"><div class="icard-field"><div class="icard-label">颜色</div><input class="icard-input" type="color" value="' + (item.gh_color||'#FFD700') + '" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_color\',this.value)" style="height:32px;padding:2px 4px;cursor:pointer;"/></div>'
+      + '<div class="icard-field"><div class="icard-label">大小</div><select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_size\',this.value)">'
       + GRAPHIC_SIZE_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.gh_size||'medium')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
       + '</select></div></div>'
-      + '<div class="icard-field"><div class="icard-label">透明度</div><input class="icard-input" type="number" min="0" max="1" step="0.05" value="' + (item.gh_opacity!==undefined?item.gh_opacity:0.8) + '" onchange="_saveIcardField(' + JSON.stringify(nodeId) + ',' + JSON.stringify(item.id) + ',\'gh_opacity\',parseFloat(this.value))"/></div>'
+      + '<div class="icard-field"><div class="icard-label">透明度</div><input class="icard-input" type="number" min="0" max="1" step="0.05" value="' + (item.gh_opacity!==undefined?item.gh_opacity:0.8) + '" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'gh_opacity\',parseFloat(this.value))"/></div>'
       + '</div></details>';
   } else if (item.type === 'text_hint') {
     const thStyleOpts = Object.entries(I18N_ZH.th_style||{}).map(([v,zh])=>
