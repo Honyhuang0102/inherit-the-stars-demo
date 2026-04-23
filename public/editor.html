@@ -11814,7 +11814,7 @@ function renderInteractionCard(nodeId, item, idx) {
         <label class="icard-label">类型：</label>
         <select onchange="onInteractionTypeChange('${nodeId}','${escHtml(item.id)}',this.value)">
           ${Object.entries(INTERACTION_TYPE_NAMES).map(([v,l]) =>
-            `<option value="${v}" ${item.type===v?'selected':''}>${icon} ${escHtml(l)}</option>`).join('')}
+            `<option value="${v}" ${item.type===v?'selected':''}>${INTERACTION_TYPE_ICONS[v]||'❓'} ${escHtml(l)}</option>`).join('')}
         </select>
       </div>
       ${configHtml}
