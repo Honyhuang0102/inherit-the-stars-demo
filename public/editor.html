@@ -2814,9 +2814,9 @@ body.bbox-drawing-mode #immersive-screen { pointer-events: all !important; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       添加独白
     </button>
-    <button class="imm-top-btn" id="btn-add-hud" onclick="openHudPanel(null)" title="添加信息看板（外星生物收集进度 / 机甲能量等 DSL hud_overlay）">
+    <button class="imm-top-btn" id="btn-add-hud" onclick="openHudPanel(null)" title="添加浮层菜单（外星生物收集进度 / 机甲能量等 DSL hud_overlay）">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-      添加信息看板
+      添加浮层菜单
     </button>
     <button class="imm-top-btn" id="btn-add-gh" onclick="openGhPanel(null)" title="添加图形引导（手势演示 / 箭头 / 光效，DSL graphic_hint）">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
@@ -2994,7 +2994,7 @@ body.bbox-drawing-mode #immersive-screen { pointer-events: all !important; }
   <!-- hud_overlay 编辑侧边栏 (W3) -->
   <div id="hud-sidebar">
     <div class="w3-sidebar-header">
-      <h4>添加信息看板</h4>
+      <h4>添加浮层菜单</h4>
       <button class="w3-sidebar-close" onclick="closeHudPanel()" title="关闭">&times;</button>
     </div>
     <div class="w3-sidebar-body" id="hud-sidebar-body">
@@ -6697,10 +6697,10 @@ function saveHudOverlay() {
   if (!immersiveNodeData.interactions) immersiveNodeData.interactions = [];
   if (_hudEditIdx >= 0 && _hudEditIdx < immersiveNodeData.interactions.length) {
     immersiveNodeData.interactions[_hudEditIdx] = item;
-    showToast('信息看板已更新', 'success');
+    showToast('浮层菜单已更新', 'success');
   } else {
     immersiveNodeData.interactions.push(item);
-    showToast('信息看板已添加', 'success');
+    showToast('浮层菜单已添加', 'success');
   }
   renderImmersiveAdvanced(immersiveNodeData);
   updatePreviewPanel(immersiveNodeData);
@@ -6709,11 +6709,11 @@ function saveHudOverlay() {
 
 function deleteHudOverlay(idx) {
   if (!immersiveNodeData || !immersiveNodeData.interactions) return;
-  if (!confirm('删除此信息看板?')) return;
+  if (!confirm('删除此浮层菜单?')) return;
   immersiveNodeData.interactions.splice(idx, 1);
   renderImmersiveAdvanced(immersiveNodeData);
   updatePreviewPanel(immersiveNodeData);
-  showToast('信息看板已删除', 'info');
+  showToast('浮层菜单已删除', 'info');
 }
 
 // ─────────────────────────── graphic_hint ────────────────────────────
@@ -6845,7 +6845,7 @@ function renderImmersiveAdvanced(nodeData) {
   huds.forEach(hud => {
     const badge = document.createElement('div');
     badge.className = 'imm-hud-badge';
-    badge.textContent = '[信息看板] ' + ((hud.panels && hud.panels[0] && hud.panels[0].title) || '信息看板');
+    badge.textContent = '[浮层菜单] ' + ((hud.panels && hud.panels[0] && hud.panels[0].title) || '浮层菜单');
     screen.appendChild(badge);
   });
 
@@ -6866,13 +6866,13 @@ function renderImmersiveAdvanced(nodeData) {
     const hudItems = interactions.map((it, i) => ({ it, i })).filter(({ it }) => it.type === 'hud_overlay');
     hudList.innerHTML = '';
     if (hudItems.length === 0) {
-      hudList.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:8px 0;">暂无信息看板，点击上方"添加信息看板"</div>';
+      hudList.innerHTML = '<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:8px 0;">暂无浮层菜单，点击上方"添加浮层菜单"</div>';
     } else {
       hudItems.forEach(({ it, i }) => {
         const d = document.createElement('div');
         d.className = 'th-list-item';
         d.onclick = () => openHudPanel(i);
-        const pTitle = (it.panels && it.panels[0] && it.panels[0].title) || '信息看板';
+        const pTitle = (it.panels && it.panels[0] && it.panels[0].title) || '浮层菜单';
         d.innerHTML = `<span class="th-li-icon">🎮</span><div class="th-li-text"><div class="th-li-content">${escHtml(pTitle)}</div><div class="th-li-meta">${it.trigger === 'auto_at_time' ? it.auto_at_s+'s 自动唤起' : '点击暂停唤起'} · ${it.panels ? it.panels.length : 0}个面板</div></div><button class="th-li-del" onclick="event.stopPropagation();deleteHudOverlay(${i})" title="删除">&times;</button>`;
         hudList.appendChild(d);
       });
@@ -12636,11 +12636,11 @@ function renderTabAdvanced(nodeId, nodeData) {
   const timeEvents = (nodeData.time_trigger_effects || []);
 
   el.innerHTML = `
-    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:2px 0;">文字提示 / 图形提示 / 信息看板</div>
+    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:2px 0;">文字提示 / 图形提示 / 浮层菜单</div>
     <div id="adv-interactions-list"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;">
       <button class="gp-micro-btn" onclick="openTextHintPanel(null)">+ 文字提示</button>
-      <button class="gp-micro-btn" onclick="openHudPanel(null)">+ 信息看板</button>
+      <button class="gp-micro-btn" onclick="openHudPanel(null)">+ 浮层菜单</button>
       <button class="gp-micro-btn" onclick="openGhPanel(null)">+ 图形提示</button>
     </div>
     <div style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:6px 0 2px;">时间触发效果</div>
@@ -12793,7 +12793,7 @@ function renderAdvancedInteractionsList(nodeId, nodeData) {
   // 渲染简短摘要行；点击可打开对应侧边栏编辑。
   container.innerHTML = items.map((it, i) => {
     const icons = { text_hint: '💬', graphic_hint: '🖼', hud_overlay: '📊' };
-    const names = { text_hint: '文字提示', graphic_hint: '图形提示', hud_overlay: '信息看板' };
+    const names = { text_hint: '文字提示', graphic_hint: '图形提示', hud_overlay: '浮层菜单' };
     const openers = { text_hint: 'openTextHintPanel', graphic_hint: 'openGhPanel', hud_overlay: 'openHudPanel' };
     const idx = (nodeData.interactions || []).indexOf(it);
     const onclick = openers[it.type] ? `${openers[it.type]}(${idx})` : '';
