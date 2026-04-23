@@ -7074,11 +7074,12 @@ function initCanvasZoomPan() {
   const moreBtn = document.getElementById('tool-more-btn');
   if (moreBtn && moreBtn.parentNode) {
     const sep = document.createElement('div');
+    sep.id = 'settings-group-sep';
     sep.className = 'tool-divider';
     const btn = document.createElement('button');
     btn.className = 'tool-btn';
     btn.title = '游戏系统设置';
-    btn.innerHTML = '<span style="font-size:14px;">⚙️</span><span class="tool-tip">游戏设置</span>';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span class="tool-tip">游戏设置</span>';
     btn.setAttribute("onclick", "openGamePanel()");
     moreBtn.parentNode.insertBefore(sep, moreBtn);
     moreBtn.parentNode.insertBefore(btn, sep);
@@ -7104,6 +7105,27 @@ function initCanvasZoomPan() {
     <button class="gp-tab" data-tab="info" onclick="renderGamePanelTab('info')" title="基本信息">📋</button>
   </div>
   <div id="gp-body" style="overflow-y:auto;flex:1;padding:8px 10px;"></div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     MUSIC LIBRARY MODAL (Task 2)
+═══════════════════════════════════════════════════════ -->
+<div id="music-lib-modal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+  <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);width:420px;max-height:80vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-size:13px;font-weight:600;color:var(--text-primary);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>音乐管理</span>
+      <button onclick="closeMusicLibModal()" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:16px;line-height:1;">✕</button>
+    </div>
+    <div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);font-size:12px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        上传 BGM（MP3 / M4A / AAC，≤10MB）
+        <input type="file" id="music-lib-modal-upload" accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,.mp3,.m4a,.aac" style="display:none" onchange="_musicLibModalUpload(this)"/>
+      </label>
+    </div>
+    <div id="music-lib-modal-list" style="overflow-y:auto;flex:1;padding:8px 14px;min-height:80px;"></div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
@@ -10338,10 +10360,26 @@ function saveChatTrigger(nodeId, idx) {
     btn.className = 'tool-btn';
     btn.title = '角色管理';
     btn.style.position = 'relative';
-    btn.innerHTML = '<span style="font-size:14px;">👤</span><span class="tool-tip">角色管理</span>';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg><span class="tool-tip">角色管理</span>';
     btn.setAttribute('onclick', 'openCharLib()');
-    moreBtn.parentNode.insertBefore(btn, moreBtn);
+    const sep = document.getElementById('settings-group-sep') || moreBtn;
+    moreBtn.parentNode.insertBefore(btn, sep);
   }
+})();
+
+
+(function addMusicLibBtn() {
+  const moreBtn = document.getElementById('tool-more-btn');
+  if (!moreBtn || !moreBtn.parentNode) return;
+  const btn = document.createElement('button');
+  btn.id = 'toolbar-btn-music';
+  btn.className = 'tool-btn';
+  btn.title = '音乐管理';
+  btn.style.position = 'relative';
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span class="tool-tip">音乐管理</span>';
+  btn.setAttribute('onclick', 'openMusicLibModal()');
+  const sep = document.getElementById('settings-group-sep') || moreBtn;
+  moreBtn.parentNode.insertBefore(btn, sep);
 })();
 
 // toggleCharAddMenu: see fixed-position version below
@@ -11975,6 +12013,118 @@ function renderTimelineEventsList(nodeId, nodeData) {
 }
 
 // ── World 级音乐库 UI ─────────────────────────────────────────────
+
+// ── 音乐管理 Modal (Task 2) ──────────────────────────────────────────
+function openMusicLibModal() {
+  const modal = document.getElementById('music-lib-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  const btn = document.getElementById('toolbar-btn-music');
+  if (btn) btn.classList.add('active');
+  renderMusicLibModal();
+}
+
+function closeMusicLibModal() {
+  const modal = document.getElementById('music-lib-modal');
+  if (modal) modal.style.display = 'none';
+  const btn = document.getElementById('toolbar-btn-music');
+  if (btn) btn.classList.remove('active');
+}
+
+function renderMusicLibModal() {
+  const list = document.getElementById('music-lib-modal-list');
+  if (!list) return;
+  const tracks = (state.gameData && state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
+  if (tracks.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:20px 8px;color:var(--text-muted);font-size:12px;">暂无 BGM，点击上方上传</div>';
+    return;
+  }
+  list.innerHTML = tracks.map((t, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(t.name || t.filename || '未命名')}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:1px;">${escHtml(t.id || '')}</div>
+      </div>
+      <button onclick="_musicLibPlayPreview('${escHtml(t.url || '')}', this)" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;color:var(--text-secondary);cursor:pointer;white-space:nowrap;">▶ 试听</button>
+      <button onclick="_musicLibDelete('${escHtml(t.id || '')}', ${i})" style="background:none;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;color:#e55;cursor:pointer;">🗑</button>
+    </div>`).join('');
+}
+
+let _musicLibPreviewAudio = null;
+function _musicLibPlayPreview(url, btn) {
+  if (_musicLibPreviewAudio) { _musicLibPreviewAudio.pause(); _musicLibPreviewAudio = null; }
+  if (!url) return;
+  _musicLibPreviewAudio = new Audio(url);
+  _musicLibPreviewAudio.play().catch(() => {});
+}
+
+function _musicLibDelete(trackId, idx) {
+  if (!trackId) return;
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  if (!worldId) {
+    const tracks = (state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
+    tracks.splice(idx, 1);
+    renderMusicLibModal();
+    renderWorldAudioLibrary();
+    return;
+  }
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : (window._infidive_token || localStorage.getItem('token'));
+  fetch(`/api/v1/worlds/${worldId}/audio/${trackId}`, {
+    method: 'DELETE',
+    headers: token ? { Authorization: 'Bearer ' + token } : {}
+  }).then(r => r.json()).then(resp => {
+    if (resp.error) { alert('删除失败：' + resp.error); return; }
+    const tracks = (state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
+    const fi = tracks.findIndex(t => t.id === trackId);
+    if (fi !== -1) tracks.splice(fi, 1);
+    renderMusicLibModal();
+    renderWorldAudioLibrary();
+  }).catch(e => alert('删除失败：' + e.message));
+}
+
+function _musicLibModalUpload(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  const list = document.getElementById('music-lib-modal-list');
+  if (list) list.insertAdjacentHTML('afterbegin', '<div id="music-upload-progress" style="font-size:11px;color:var(--text-secondary);padding:6px 0;">上传中…</div>');
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('filename', file.name);
+  if (worldId) formData.append('world_id', worldId);
+  const token = typeof getAuthToken === 'function' ? getAuthToken() : (window._infidive_token || localStorage.getItem('token'));
+  const headers = token ? { Authorization: 'Bearer ' + token } : {};
+  fetch('/api/v1/upload', { method: 'POST', headers, body: formData })
+    .then(r => r.json())
+    .then(resp => {
+      const prog = document.getElementById('music-upload-progress');
+      if (prog) prog.remove();
+      if (resp.error) { alert('上传失败：' + resp.error); return; }
+      const url = resp.url || (resp.data && resp.data.url);
+      if (!url) { alert('上传失败：无 URL 返回'); return; }
+      const newTrack = { id: 'bgm_' + Date.now(), name: file.name.replace(/\.[^.]+$/, ''), filename: file.name, url };
+      if (!state.gameData.audio_library) state.gameData.audio_library = { tracks: [] };
+      if (!state.gameData.audio_library.tracks) state.gameData.audio_library.tracks = [];
+      state.gameData.audio_library.tracks.push(newTrack);
+      if (worldId) {
+        fetch(`/api/v1/worlds/${worldId}/audio`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+          body: JSON.stringify({ track: newTrack })
+        }).catch(() => {});
+      }
+      renderMusicLibModal();
+      renderWorldAudioLibrary();
+      input.value = '';
+    })
+    .catch(e => { const p = document.getElementById('music-upload-progress'); if (p) p.remove(); alert('上传失败：' + e.message); });
+}
+
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('music-lib-modal');
+  if (modal && modal.style.display === 'flex' && e.target === modal) closeMusicLibModal();
+});
+
 function renderWorldAudioLibrary() {
   const container = document.getElementById('world-audio-library');
   if (!container) return;
