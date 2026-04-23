@@ -767,6 +767,13 @@ html, body {
   box-shadow: 0 6px 20px rgba(0,0,0,0.5);
   opacity: 0.9;
 }
+.screen-choice-btn.selected,
+.poly-zone.selected,
+.imm-hs-asset-rect.selected {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(139,92,246,0.18);
+}
 /* Position indicator badge shown while dragging */
 .hotspot-pos-badge {
   position: absolute;
@@ -1345,6 +1352,7 @@ html, body {
   position: relative;
   height: 20px;
   display: flex; align-items: center;
+  cursor: pointer;
 }
 .range-slider-track {
   position: absolute;
@@ -1367,6 +1375,7 @@ html, body {
   appearance: none;
   background: transparent;
   pointer-events: none;
+  cursor: pointer;
   height: 2px;
   outline: none;
   margin: 0;
@@ -1852,6 +1861,13 @@ body.immersive-mode #right-panel {
   /* 继承父类样式，无需重写 */
   pointer-events: all;
 }
+body.immersive-select-mode #immersive-screen,
+body.immersive-select-mode #immersive-screen .screen-choice-btn,
+body.immersive-select-mode #polygon-draw-svg.has-zones,
+body.immersive-select-mode #polygon-draw-svg.has-zones .poly-zone,
+body.immersive-select-mode #immersive-screen .imm-hs-asset-rect {
+  cursor: pointer;
+}
 
 /* ── Hotspot count badge in preview header ───────────────────── */
 #preview-hotspot-count {
@@ -2216,8 +2232,10 @@ body.immersive-mode #right-panel {
 /* 沉浸式编辑 - 热区资源框 */
 .imm-hs-asset-rect {
   position: absolute; border: 2px solid #ef4444; border-radius: 3px;
-  pointer-events: none; box-sizing: border-box;
+  pointer-events: all; box-sizing: border-box;
+  cursor: pointer;
 }
+.imm-hs-asset-rect:hover { border-color: #8b5cf6; }
 .imm-hs-asset-label {
   position: absolute; top: -18px; left: 0;
   font-size: 10px; color: #ef4444; background: rgba(0,0,0,0.65);
@@ -2233,6 +2251,11 @@ body.immersive-mode #right-panel {
 body.bbox-drawing-mode #immersive-screen { cursor: crosshair !important; }
 body.bbox-drawing-mode #immersive-screen * { pointer-events: none !important; }
 body.bbox-drawing-mode #immersive-screen { pointer-events: all !important; }
+body.bbox-drawing-mode #immersive-screen .imm-video-el,
+body.bbox-drawing-mode #immersive-screen .imm-video-el * {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
 /* end v0.2.3 */
 .icard-body {
   display: none; padding: 10px;
@@ -2904,18 +2927,14 @@ body.bbox-drawing-mode #immersive-screen { pointer-events: all !important; }
     <!-- 工具按鈕行 -->
     <div id="micro-toolbar-btns">
       <span class="micro-tool-label" id="micro-tool-layer-label">层级</span>
-      <button class="micro-btn active" id="micro-btn-hotspot" onclick="setMicroTool('hotspot')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-        文字热点
-      </button>
-      <button class="micro-btn" id="micro-btn-trigger" onclick="setMicroTool('trigger')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"/></svg>
-        隐形触发区
+      <button class="micro-btn active" id="micro-btn-select" onclick="setMicroTool('select')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 3l7 17 2.5-7L20 10 4 3z"/></svg>
+        选择交互
       </button>
       <div class="micro-btn-divider"></div>
-      <button class="micro-btn" onclick="clearImmersiveChoices()">
+      <button class="micro-btn" onclick="clearImmersiveInteractions()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-        清空热点
+        清空交互
       </button>
     </div>
     <!-- 双头区间滑块行 -->
@@ -2924,9 +2943,9 @@ body.bbox-drawing-mode #immersive-screen { pointer-events: all !important; }
       <div class="range-slider-wrap" id="range-slider-wrap">
         <div class="range-slider-track"></div>
         <div class="range-slider-fill" id="range-slider-fill"></div>
-        <input type="range" id="micro-tl-start" min="0" max="100" value="10"
+        <input type="range" id="micro-tl-start" min="0" max="100" value="0"
           oninput="onRangeSliderInput()" title="热点出现时间" />
-        <input type="range" id="micro-tl-end" min="0" max="100" value="90"
+        <input type="range" id="micro-tl-end" min="0" max="100" value="100"
           oninput="onRangeSliderInput()" title="热点消失时间" />
       </div>
       <span class="range-tl-time" id="range-tl-display">0.0s – 30.0s</span>
@@ -5246,8 +5265,9 @@ function autoResize(el) {
 
 // 当前处于沉浸模式的节点数据
 let immersiveNodeData = null;
-// 当前微观工具模式: 'hotspot' | 'trigger'
-let microTool = 'hotspot';
+// 当前微观工具模式: 'select'
+let microTool = 'select';
+let selectedImmersiveInteraction = null; // { kind: 'choice' | 'asset', index?: number, assetId?: string }
 
 /**
  * 计算沉浸屏尺寸：尽量充满 stage，保持 9:16 竖屏比例
@@ -5275,6 +5295,7 @@ function enterImmersiveMode() {
   const overlay = document.getElementById('immersive-overlay');
   overlay.classList.add('active');
   document.body.classList.add('immersive-mode');
+  setMicroTool('select', { silent: true });
 
   // 如果当前有选中节点，同步进入沉浸屏
   if (state.selectedNode && state.gameData) {
@@ -5304,6 +5325,8 @@ function exitImmersiveMode() {
   const overlay = document.getElementById('immersive-overlay');
   overlay.classList.remove('active');
   document.body.classList.remove('immersive-mode');
+  document.body.classList.remove('immersive-select-mode');
+  clearImmersiveSelection();
   document.removeEventListener('keydown', onImmersiveKeyDown);
 
   // 退出时重置画布变换
@@ -5323,8 +5346,18 @@ function exitImmersiveMode() {
   }
 }
 
+function isTypingTarget(el) {
+  return !!el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+}
+
 function onImmersiveKeyDown(e) {
   if (e.key === 'Escape') exitImmersiveMode();
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedImmersiveInteraction && !isTypingTarget(e.target)) {
+      e.preventDefault();
+      deleteSelectedImmersiveInteraction();
+    }
+  }
 }
 
 /**
@@ -5482,7 +5515,18 @@ function loadImmersiveNode(nodeData) {
       vid.controls = true;
       vid.loop = false;
       if (nodeData.poster_url) vid.poster = nodeData.poster_url;
-      vid.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:1;border-radius:inherit;';
+      vid.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;z-index:1;border-radius:inherit;cursor:pointer;';
+      vid.addEventListener('loadedmetadata', () => {
+        const dur = isFinite(vid.duration) && vid.duration > 0 ? vid.duration : null;
+        if (dur && nodeData) {
+          nodeData._sliderMaxSec = dur;
+          if (selectedChoiceIdx !== null && nodeData.choices && nodeData.choices[selectedChoiceIdx]) {
+            syncRangeSliderToChoice(selectedChoiceIdx);
+          } else {
+            syncRangeSliderToVideoTail();
+          }
+        }
+      });
       // 插入到 immersive-choices 层之前，确保热点在视频上方
       const choicesLayer = document.getElementById('immersive-choices');
       screen.querySelector('.imm-screen-content').insertBefore(vid, choicesLayer);
@@ -5662,6 +5706,8 @@ function renderImmersiveChoices(nodeData) {
 
   if (!nodeData.choices || !nodeData.choices.length) {
     updateHotspotCountBadge(0);
+    selectedChoiceIdx = null;
+    syncRangeSliderToVideoTail();
     return;
   }
 
@@ -5691,6 +5737,7 @@ function renderImmersiveChoices(nodeData) {
       // 点击按鈕同步双头滑块
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        selectImmersiveInteraction('choice', { index: i });
         syncRangeSliderToChoice(i);
       });
     }
@@ -5704,6 +5751,35 @@ function renderImmersiveChoices(nodeData) {
 
   // v0.2.3: 渲染节点 hotspot_assets 红框
   renderImmersiveHotspotAssets(nodeData);
+}
+
+function clearImmersiveSelection() {
+  selectedImmersiveInteraction = null;
+  document.querySelectorAll('.screen-choice-btn.selected, .poly-zone.selected, .imm-hs-asset-rect.selected')
+    .forEach(el => el.classList.remove('selected'));
+}
+
+function selectImmersiveInteraction(kind, payload) {
+  if (microTool !== 'select') setMicroTool('select', { silent: true });
+  clearImmersiveSelection();
+  selectedImmersiveInteraction = { kind, ...payload };
+
+  if (kind === 'choice') {
+    const idx = payload.index;
+    const btn = document.getElementById(`imm-choice-btn-${idx}`);
+    if (btn) btn.classList.add('selected');
+    const poly = document.querySelector(`.poly-zone[data-choice-idx="${idx}"]`);
+    if (poly) poly.classList.add('selected');
+    syncRangeSliderToChoice(idx);
+  } else if (kind === 'asset') {
+    const rect = document.querySelector(`.imm-hs-asset-rect[data-asset-id="${cssEscape(payload.assetId)}"]`);
+    if (rect) rect.classList.add('selected');
+  }
+}
+
+function cssEscape(value) {
+  if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value));
+  return String(value).replace(/["\\]/g, '\\$&');
 }
 
 /**
@@ -5793,6 +5869,7 @@ function addImmersiveHotspot() {
     label: `选项 ${i + 1}`,
     target: '',
     position: DEFAULT_HOTSPOT_POSITIONS[i] || { x: '50%', y: `${50 + i * 12}%` },
+    timeWindow: [0, getImmersiveTimelineMaxSec()],
   };
   immersiveNodeData.choices.push(newChoice);
   renderImmersiveChoices(immersiveNodeData);
@@ -5937,7 +6014,7 @@ function finishPolygon() {
     hotkey: '',
     type: 'polygon',
     points: vertices.map(v => ({ x: v.x + '%', y: v.y + '%' })),
-    timeWindow: [0, 30],
+    timeWindow: [0, getImmersiveTimelineMaxSec()],
   };
   immersiveNodeData.choices.push(newChoice);
 
@@ -5989,25 +6066,74 @@ function renderPolygonZone(choice, idx) {
   // 点击选中，同步双头滑块到对应 choice 的独立 timeWindow
   polygon.addEventListener('click', (e) => {
     e.stopPropagation();
-    svg.querySelectorAll('.poly-zone').forEach(p => p.classList.remove('selected'));
-    polygon.classList.add('selected');
-    syncRangeSliderToChoice(idx);
+    selectImmersiveInteraction('choice', { index: idx });
   });
 
   // 确保 SVG 层可交互（有多边形时始终保持 pointer-events）
   svg.classList.add('has-zones');
 }
 
+function deleteSelectedImmersiveInteraction() {
+  if (!immersiveNodeData || !selectedImmersiveInteraction) return;
+
+  if (selectedImmersiveInteraction.kind === 'choice') {
+    const idx = selectedImmersiveInteraction.index;
+    if (!Array.isArray(immersiveNodeData.choices) || !immersiveNodeData.choices[idx]) return;
+    const label = immersiveNodeData.choices[idx].label || ('交互 ' + (idx + 1));
+    immersiveNodeData.choices.splice(idx, 1);
+    selectedImmersiveInteraction = null;
+    renderImmersiveChoices(immersiveNodeData);
+    updatePreviewPanel(immersiveNodeData);
+    showToast('已删除交互：' + label, 'info');
+    return;
+  }
+
+  if (selectedImmersiveInteraction.kind === 'asset') {
+    const assetId = selectedImmersiveInteraction.assetId;
+    deleteHotspotAssetFromImmersive(assetId);
+  }
+}
+
+function deleteHotspotAssetFromImmersive(assetId) {
+  if (!immersiveNodeData || !assetId || !Array.isArray(immersiveNodeData.hotspot_assets)) return;
+  const asset = immersiveNodeData.hotspot_assets.find(a => a.id === assetId);
+  if (!asset) return;
+  if (!confirm('确认删除热区“' + (asset.name || assetId) + '”？引用它的热区交互将失去绑定。')) return;
+
+  immersiveNodeData.hotspot_assets = immersiveNodeData.hotspot_assets.filter(a => a.id !== assetId);
+  (immersiveNodeData.interactions_v2 || []).forEach(item => {
+    if ((item.type === 'hotspot_hidden' || item.type === 'hotspot_visible') && item.hotspot_asset_id === assetId) {
+      item.hotspot_asset_id = null;
+      item._hotspot_asset_deleted = true;
+    }
+  });
+  selectedImmersiveInteraction = null;
+  renderImmersiveHotspotAssets(immersiveNodeData);
+  if (state.selectedNode === immersiveNodeData.id) renderTabInteractions(immersiveNodeData.id, immersiveNodeData);
+  showToast('已删除热区，请重新绑定相关交互', 'info');
+}
+
 /**
- * 清空沉浸屏热点
+ * 清空沉浸屏交互
  */
-function clearImmersiveChoices() {
+function clearImmersiveInteractions() {
   if (!immersiveNodeData) return;
-  if (!confirm('确认清空该节点的所有热点？')) return;
+  if (!confirm('确认清空该节点的所有交互？这会删除文字热点、隐形触发区、热区资源和 Tab 2 交互。')) return;
   immersiveNodeData.choices = [];
+  immersiveNodeData.interactions_v2 = [];
+  immersiveNodeData.hotspot_assets = [];
+  immersiveNodeData.interactions = [];
+  selectedChoiceIdx = null;
+  selectedImmersiveInteraction = null;
   renderImmersiveChoices(immersiveNodeData);
+  renderImmersiveHotspotAssets(immersiveNodeData);
   updatePreviewPanel(immersiveNodeData);
-  showToast('热点已清空', 'info');
+  if (state.selectedNode === immersiveNodeData.id) renderTabInteractions(immersiveNodeData.id, immersiveNodeData);
+  showToast('交互已清空', 'info');
+}
+
+function clearImmersiveChoices() {
+  clearImmersiveInteractions();
 }
 
 
@@ -6114,6 +6240,7 @@ function cancelBboxDrawing() {
 
 function _onBboxMousedown(e) {
   if (!_bboxDrawState.active) return;
+  if (_isImmersiveVideoControlHit(e)) return;
   e.stopPropagation();
   e.preventDefault();
   const screen = document.getElementById('immersive-screen');
@@ -6130,6 +6257,14 @@ function _onBboxMousedown(e) {
   }
   document.addEventListener('mousemove', _onBboxMousemove);
   document.addEventListener('mouseup', _onBboxMouseup);
+}
+
+function _isImmersiveVideoControlHit(e) {
+  const vid = e.target && e.target.closest ? e.target.closest('.imm-video-el') : null;
+  if (!vid) return false;
+  const rect = vid.getBoundingClientRect();
+  const controlBandTop = rect.bottom - 58;
+  return e.clientY >= controlBandTop && e.clientY <= rect.bottom;
 }
 
 function _onBboxMousemove(e) {
@@ -6259,6 +6394,7 @@ function renderImmersiveHotspotAssets(nodeData) {
     const [bx, by, bw, bh] = asset.bbox;
     const div = document.createElement('div');
     div.className = 'imm-hs-asset-rect';
+    div.dataset.assetId = asset.id || '';
     div.style.left   = (bx * 100) + '%';
     div.style.top    = (by * 100) + '%';
     div.style.width  = (bw * 100) + '%';
@@ -6273,8 +6409,7 @@ function renderImmersiveHotspotAssets(nodeData) {
     // 点击选中（高亮）
     div.addEventListener('click', (e) => {
       e.stopPropagation();
-      screen.querySelectorAll('.imm-hs-asset-rect').forEach(r => r.style.borderColor = '#ef4444');
-      div.style.borderColor = '#6366f1';
+      selectImmersiveInteraction('asset', { assetId: asset.id });
     });
 
     screen.querySelector('.imm-screen-content').appendChild(div);
@@ -7227,10 +7362,14 @@ function attachListDragDrop(listEl, nodeData, interactionType) {
 /**
  * 微观工具切换
  */
-function setMicroTool(tool) {
+function setMicroTool(tool, opts = {}) {
   microTool = tool;
-  document.getElementById('micro-btn-hotspot').classList.toggle('active', tool === 'hotspot');
-  document.getElementById('micro-btn-trigger').classList.toggle('active', tool === 'trigger');
+  document.body.classList.toggle('immersive-select-mode', tool === 'select');
+  const selectBtn = document.getElementById('micro-btn-select');
+  if (selectBtn) selectBtn.classList.toggle('active', tool === 'select');
+  if (tool === 'select' && !opts.silent) {
+    showToast('选择交互模式：点击画面交互选中，按 Delete 删除', 'info');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -7239,6 +7378,32 @@ function setMicroTool(tool) {
 
 // 当前选中的 choice 索引（用于双头滑块绑定）
 let selectedChoiceIdx = null;
+
+function getImmersiveTimelineMaxSec() {
+  const immVid = document.querySelector('#immersive-screen .imm-video-el');
+  const videoDur = (immVid && isFinite(immVid.duration) && immVid.duration > 0) ? immVid.duration : null;
+  const branchSec = (immersiveNodeData && (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second)) || 30;
+  return videoDur || (immersiveNodeData && immersiveNodeData._sliderMaxSec) || branchSec;
+}
+
+function seekImmersiveVideoTo(sec) {
+  const immVid = document.querySelector('#immersive-screen .imm-video-el');
+  if (!immVid || !isFinite(sec)) return;
+  const dur = isFinite(immVid.duration) && immVid.duration > 0 ? immVid.duration : sec;
+  const next = Math.max(0, Math.min(dur, sec));
+  try { immVid.currentTime = next; } catch (err) {}
+}
+
+function syncRangeSliderToVideoTail() {
+  const maxSec = getImmersiveTimelineMaxSec();
+  const startEl = document.getElementById('micro-tl-start');
+  const endEl = document.getElementById('micro-tl-end');
+  if (!startEl || !endEl) return;
+  startEl.value = 0;
+  endEl.value = 100;
+  document.getElementById('range-tl-display').textContent = '0.0s – ' + maxSec.toFixed(1) + 's';
+  updateRangeSliderFill(0, 100);
+}
 
 /**
  * 双头区间滑块输入事件
@@ -7257,11 +7422,7 @@ function onRangeSliderInput() {
   }
 
   // 根据视频实际时长计算秒数
-  // 优先从沉浸屏 video 元素读取真实时长，避免 maxSec == timeWindow 上限导致滑块叠在一起
-  const immVid2 = document.querySelector('#immersive-screen .imm-video-el');
-  const videoDur2 = (immVid2 && isFinite(immVid2.duration) && immVid2.duration > 0) ? immVid2.duration : null;
-  const branchSec2 = (immersiveNodeData && (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second)) || 30;
-  const maxSec = videoDur2 ? videoDur2 : (immersiveNodeData && immersiveNodeData._sliderMaxSec) || (branchSec2 + 5);
+  const maxSec = getImmersiveTimelineMaxSec();
   const startSec = (s / 100 * maxSec);
   const endSec   = (e / 100 * maxSec);
 
@@ -7271,6 +7432,9 @@ function onRangeSliderInput() {
 
   // 更新填充条颜色
   updateRangeSliderFill(s, e);
+
+  // 创作者拖动入点/出点时，预览画面实时定位到对应帧
+  seekImmersiveVideoTo(document.activeElement === endEl ? endSec : startSec);
 
   // 写入 JSON
   if (selectedChoiceIdx !== null && immersiveNodeData) {
@@ -7297,14 +7461,10 @@ function syncRangeSliderToChoice(choiceIdx) {
   if (!choice) return;
 
   selectedChoiceIdx = choiceIdx;
-  // 从沉浸屏 video 元素读取真实时长，确保 maxSec 严格大于 timeWindow 上限，滑块才有拖动空间
-  const immVid = document.querySelector('#immersive-screen .imm-video-el');
-  const videoDur = (immVid && isFinite(immVid.duration) && immVid.duration > 0) ? immVid.duration : null;
-  const branchSec = (immersiveNodeData.branch_time || immersiveNodeData.branch_at_second) || 30;
-  // maxSec = 视频时长（若可用），否则 branch_time + 5 秒缓冲，确保滑块末端不会贴到 100%
-  const maxSec = videoDur ? videoDur : (branchSec + 5);
+  // maxSec = 视频时长（若可用），否则 branch_time
+  const maxSec = getImmersiveTimelineMaxSec();
   immersiveNodeData._sliderMaxSec = maxSec; // 缓存供 onRangeSliderInput 使用
-  const tw = choice.timeWindow || [0, branchSec];
+  const tw = choice.timeWindow || [0, maxSec];
   const startPct = Math.min(99, Math.round(tw[0] / maxSec * 100));
   const endPct   = Math.min(100, Math.round(tw[1] / maxSec * 100));
 
