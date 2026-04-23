@@ -2206,6 +2206,15 @@ body.immersive-mode #right-panel {
 .icard-advanced-btn.open::before { transform: rotate(90deg); }
 .icard-advanced-body { display: none; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--border-light); }
 .icard-advanced-body.open { display: flex; }
+.th-typo-details { border-top: 1px solid var(--border-light); padding-top: 6px; }
+.th-typo-details > summary {
+  list-style: none; cursor: pointer; font-size: 10px; color: var(--text-secondary);
+  padding: 2px 0; user-select: none;
+}
+.th-typo-details > summary::-webkit-details-marker { display: none; }
+.th-typo-details > summary::before { content: '▶ '; font-size: 8px; opacity: .6; transition: transform .15s; display: inline-block; }
+.th-typo-details[open] > summary::before { transform: rotate(90deg); }
+.th-typo-body { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
 
 .interactions-empty {
   text-align: center; padding: 20px 10px;
@@ -8827,7 +8836,8 @@ function buildInteractionDsl(nodeData) {
   if (!nodeData.video_url) return null;
   const choices = nodeData.choices || [];
   const hasAdvanced = nodeData.interactions && nodeData.interactions.length > 0;
-  if (choices.length === 0 && !hasAdvanced) return null;
+  const hasV2 = nodeData.interactions_v2 && nodeData.interactions_v2.length > 0;
+  if (choices.length === 0 && !hasAdvanced && !hasV2) return null;
 
   const duration = nodeData._videoDuration
     || nodeData.branch_at_second
@@ -8946,6 +8956,34 @@ function buildInteractionDsl(nodeData) {
             transition_fx: jt.transition_fx || 'fade'
           }
         }],
+      });
+    });
+  }
+
+
+  // v0.2.2: 从 interactions_v2 提取文字提示
+  if (nodeData.interactions_v2) {
+    const thItems = nodeData.interactions_v2.filter(it => it.type === 'text_hint');
+    thItems.forEach((th, ti) => {
+      if (!th.th_content) return;
+      interactions.push({
+        id: th.id || ('th_' + ti),
+        type: 'text_hint',
+        timing: {
+          show_at_s: th.show_at_s || 0,
+          duration_s: th.duration_s || 3,
+          fade_in_ms: th.fade_in_ms || 800,
+          fade_out_ms: th.fade_out_ms || 600,
+        },
+        style: th.th_style || 'monologue',
+        content: th.th_content,
+        voice: th.th_voice || 'protagonist',
+        position: th.th_position || 'bottom',
+        typography: {
+          font_size: th.th_font_size || 'medium',
+          color: th.th_color || '#FFFFFF',
+          bg_opacity: th.th_bg_opacity !== undefined ? th.th_bg_opacity : 0.5,
+        },
       });
     });
   }
@@ -11520,6 +11558,10 @@ const I18N_ZH = {
   hud_behavior:  { soft_pause:'软暂停(视频模糊)', hard_pause:'硬暂停(完全停止)' },
   close_on:      { tap_outside:'点击面板外', close_button:'关闭按钮', both:'两种都可' },
   node_type:     { normal:'普通', start:'🚀 起始节点', checkpoint:'📌 检查点', loop:'🔁 循环播放' },
+  th_style:      { monologue:'主角独白', subtitle:'字幕', ar_label:'AR空间标签', title_card:'章节标题卡', narrator:'旁白' },
+  th_voice:      { protagonist:'主角', narrator:'旁白者', world:'世界(环境)' },
+  th_position:   { bottom:'底部', center:'居中', top:'顶部', near_bbox:'贴近热区' },
+  th_font_size:  { large:'大', medium:'中', small:'小' },
 };
 function localizeEnum(field, value) {
   const zh = I18N_ZH[field]?.[value];
@@ -11532,6 +11574,7 @@ const INTERACTION_TYPE_ICONS = {
   hotspot_hidden: '👻',
   hotspot_visible: '✨',
   qte: '⚡',
+  text_hint: '💬',
 };
 const INTERACTION_TYPE_NAMES = {
   jump: '直接跳转',
@@ -11539,6 +11582,7 @@ const INTERACTION_TYPE_NAMES = {
   hotspot_hidden: '隐形热区',
   hotspot_visible: '可见热区',
   qte: '快速反应(QTE)',
+  text_hint: '文字提示',
 };
 const FX_OPTIONS = [['none','无(none)'],['fade','淡入淡出(fade)'],['dash_blur','动态模糊(dash_blur)'],['screen_shatter_red','红色碎屏(screen_shatter_red)']];
 const TRIGGER_OPTIONS = [['end','片尾（默认）'],['start','片头'],['custom','指定秒数']];
@@ -11548,8 +11592,10 @@ const FEEDBACK_OPTIONS = [['ripple','涟漪(ripple)'],['flash','闪光(flash)'],
 function renderInteractionCard(nodeId, item, idx) {
   const icon = INTERACTION_TYPE_ICONS[item.type] || '❓';
   const name = INTERACTION_TYPE_NAMES[item.type] || item.type;
-  const targetName = _getNodeDisplayName(item.target_node);
-  const fxBadge = item.transition_fx && item.transition_fx !== 'none' ? localizeEnum('transition_fx', item.transition_fx) : '';
+  const targetName = item.type === 'text_hint'
+    ? (item.th_content ? '"' + item.th_content.substring(0, 16) + (item.th_content.length > 16 ? '…' : '') + '"' : '（未填内容）')
+    : _getNodeDisplayName(item.target_node);
+  const fxBadge = item.type !== 'text_hint' && item.transition_fx && item.transition_fx !== 'none' ? localizeEnum('transition_fx', item.transition_fx) : '';
 
   // 类型专属配置区
   let configHtml = '';
@@ -11668,6 +11714,90 @@ function renderInteractionCard(nodeId, item, idx) {
             (nid) => _updateInteractionV2Field(nodeId, item.id, 'target_node_fail', nid))}
         </div>` : ''}
       <div class="icard-field"><div class="icard-label">过渡效果（成功）</div>${fxSelect}</div>`;
+  } else if (item.type === 'text_hint') {
+    const thStyleOpts = Object.entries(I18N_ZH.th_style||{}).map(([v,zh])=>
+      `<option value="${v}" ${(item.th_style||'monologue')===v?'selected':''}>${zh}(${v})</option>`).join('');
+    const thVoiceOpts = Object.entries(I18N_ZH.th_voice||{}).map(([v,zh])=>
+      `<option value="${v}" ${(item.th_voice||'protagonist')===v?'selected':''}>${zh}(${v})</option>`).join('');
+    const thPosOpts = [['bottom','底部'],['center','居中'],['top','顶部']].map(([v,l])=>
+      `<option value="${v}" ${(item.th_position||'bottom')===v?'selected':''}>${l}(${v})</option>`).join('');
+    const thFontOpts = Object.entries(I18N_ZH.th_font_size||{}).map(([v,zh])=>
+      `<option value="${v}" ${(item.th_font_size||'medium')===v?'selected':''}>${zh}(${v})</option>`).join('');
+    const thLen = (item.th_content||'').length;
+    configHtml = `
+      <div class="icard-2col">
+        <div class="icard-field"><div class="icard-label">显示时间（秒）</div>
+          <input class="icard-input" type="number" min="0" step="0.5" value="${item.show_at_s||0}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','show_at_s',parseFloat(this.value))"/>
+        </div>
+        <div class="icard-field"><div class="icard-label">持续时间（秒）</div>
+          <input class="icard-input" type="number" min="0.5" step="0.5" value="${item.duration_s||3}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','duration_s',parseFloat(this.value))"/>
+        </div>
+      </div>
+      <div class="icard-2col">
+        <div class="icard-field"><div class="icard-label">淡入(ms)</div>
+          <input class="icard-input" type="number" min="0" step="100" value="${item.fade_in_ms||800}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','fade_in_ms',parseInt(this.value))"/>
+        </div>
+        <div class="icard-field"><div class="icard-label">淡出(ms)</div>
+          <input class="icard-input" type="number" min="0" step="100" value="${item.fade_out_ms||600}"
+            onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','fade_out_ms',parseInt(this.value))"/>
+        </div>
+      </div>
+      <div class="icard-field"><div class="icard-label">风格</div>
+        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','th_style',this.value)">
+          ${thStyleOpts}
+        </select>
+      </div>
+      <div class="icard-field">
+        <div class="icard-label" style="display:flex;justify-content:space-between;">
+          <span>内容</span>
+          <span id="th-cnt-${escHtml(item.id)}" style="color:${thLen>140?'#f55':'#aaa'};font-size:11px;">${thLen} / 140</span>
+        </div>
+        <textarea class="icard-input" rows="3" placeholder="输入文字提示内容（≤140字）..."
+          style="resize:vertical;${thLen>140?'border-color:#f55;':''}"
+          oninput="_onThContentInput('${nodeId}','${escHtml(item.id)}',this)"
+        >${escHtml(item.th_content||'')}</textarea>
+      </div>
+      <div class="icard-2col">
+        <div class="icard-field"><div class="icard-label">视角</div>
+          <select class="icard-input" onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','th_voice',this.value)">
+            ${thVoiceOpts}
+          </select>
+        </div>
+        <div class="icard-field"><div class="icard-label">位置</div>
+          <select class="icard-input" onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','th_position',this.value)">
+            ${thPosOpts}
+          </select>
+        </div>
+      </div>
+      <details class="th-typo-details">
+        <summary>字体排版（高级）</summary>
+        <div class="th-typo-body">
+          <div class="icard-2col">
+            <div class="icard-field"><div class="icard-label">字体大小</div>
+              <select class="icard-input" onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','th_font_size',this.value)">
+                ${thFontOpts}
+              </select>
+            </div>
+            <div class="icard-field"><div class="icard-label">字体颜色</div>
+              <input class="icard-input" type="color" value="${item.th_color||'#FFFFFF'}"
+                onchange="_saveIcardField('${nodeId}','${escHtml(item.id)}','th_color',this.value)"
+                style="height:32px;padding:2px 4px;cursor:pointer;"/>
+            </div>
+          </div>
+          <div class="icard-field">
+            <div class="icard-label" style="display:flex;justify-content:space-between;">
+              <span>背景透明度</span>
+              <span id="th-opa-${escHtml(item.id)}" style="font-size:11px;color:#aaa;">${(item.th_bg_opacity!==undefined?item.th_bg_opacity:0.5).toFixed(2)}</span>
+            </div>
+            <input type="range" min="0" max="1" step="0.05" value="${item.th_bg_opacity!==undefined?item.th_bg_opacity:0.5}"
+              style="width:100%"
+              oninput="_saveIcardField('${nodeId}','${escHtml(item.id)}','th_bg_opacity',parseFloat(this.value));document.getElementById('th-opa-${escHtml(item.id)}').textContent=parseFloat(this.value).toFixed(2)"/>
+          </div>
+        </div>
+      </details>`;
   }
 
   return `<div class="icard${item._expanded?' expanded':''}" id="icard-${escHtml(item.id)}">
@@ -11733,12 +11863,40 @@ function _saveIcardField(nodeId, itemId, field, value) {
     const item = nodeData && nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
     if (item) {
       const preview = card.querySelector('.icard-target-preview');
-      if (preview) preview.textContent = '→ ' + _getNodeDisplayName(item.target_node);
+      if (preview) {
+        if (item.type === 'text_hint') {
+          preview.textContent = item.th_content
+            ? '→ ' + item.th_content.substring(0,20) + (item.th_content.length>20?'...':'') : '→ （未填内容）';
+        } else {
+          preview.textContent = '→ ' + _getNodeDisplayName(item.target_node);
+        }
+      }
       const fxBadge = card.querySelector('.icard-fx-badge');
       if (fxBadge && item.transition_fx && item.transition_fx !== 'none') fxBadge.textContent = item.transition_fx;
     }
   }
 }
+
+function _onThContentInput(nodeId, itemId, el) {
+  const val = el.value.length > 140 ? el.value.substring(0,140) : el.value;
+  if (el.value.length > 140) el.value = val;
+  _updateInteractionV2Field(nodeId, itemId, 'th_content', val);
+  const counter = document.getElementById('th-cnt-' + itemId);
+  if (counter) {
+    counter.textContent = val.length + ' / 140';
+    counter.style.color = val.length >= 140 ? '#f55' : '#aaa';
+  }
+  const card = document.getElementById('icard-' + itemId);
+  if (card) {
+    const preview = card.querySelector('.icard-target-preview');
+    if (preview) {
+      preview.textContent = val
+        ? '→ ' + val.substring(0,20) + (val.length>20?'...':'')
+        : '→ （未填内容）';
+    }
+  }
+}
+
 
 function _saveBbox(nodeId, itemId, bboxIdx, value) {
   const nodeData = state.gameData && state.gameData.nodes[nodeId];
@@ -11792,7 +11950,9 @@ function addInteractionV2(nodeId, type) {
     ...(type === 'hotspot_visible' ? { visible_hint: 'subtle', hint_delay_s: 5 } : {}),
     ...(type === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
     ...(type === 'jump' ? { jump_trigger: 'end' } : {}),
+    ...(type === 'text_hint' ? { show_at_s: 0, duration_s: 3, fade_in_ms: 800, fade_out_ms: 600, th_style: 'monologue', th_content: '', th_voice: 'protagonist', th_position: 'bottom', th_font_size: 'medium', th_color: '#FFFFFF', th_bg_opacity: 0.5 } : {}),
   };
+  nodeData._v2_migrated = true;
   nodeData.interactions_v2.push(newItem);
   renderTabInteractions(nodeId, nodeData);
   // 展开新卡片
@@ -11833,6 +11993,7 @@ function onInteractionTypeChange(nodeId, itemId, newType) {
     ...(newType === 'hotspot_visible' ? { visible_hint: 'subtle', hint_delay_s: 5 } : {}),
     ...(newType === 'qte' ? { qte_trigger_s: 3, qte_input: 'tap', qte_time_limit: 2, qte_fail_behavior: 'retry' } : {}),
     ...(newType === 'jump' ? { jump_trigger: 'end' } : {}),
+    ...(newType === 'text_hint' ? { show_at_s: 0, duration_s: 3, fade_in_ms: 800, fade_out_ms: 600, th_style: 'monologue', th_content: '', th_voice: 'protagonist', th_position: 'bottom', th_font_size: 'medium', th_color: '#FFFFFF', th_bg_opacity: 0.5 } : {}),
   };
   renderTabInteractions(nodeId, nodeData);
 }
