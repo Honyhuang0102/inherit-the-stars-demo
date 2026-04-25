@@ -13396,7 +13396,7 @@ function _musicLibDelete(trackId, idx) {
     renderWorldAudioLibrary();
     return;
   }
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : (window._infidive_token || localStorage.getItem('token'));
+  const token = _getToken();
   fetch(`/api/v1/worlds/${worldId}/audio/${trackId}`, {
     method: 'DELETE',
     headers: token ? { Authorization: 'Bearer ' + token } : {}
@@ -13420,9 +13420,9 @@ function _musicLibModalUpload(input) {
   formData.append('file', file);
   formData.append('filename', file.name);
   if (worldId) formData.append('world_id', worldId);
-  const token = typeof getAuthToken === 'function' ? getAuthToken() : (window._infidive_token || localStorage.getItem('token'));
+  const token = _getToken();
   const headers = token ? { Authorization: 'Bearer ' + token } : {};
-  fetch('/api/v1/upload', { method: 'POST', headers, body: formData })
+  fetch('https://infidive.ai/api/v1/upload/file', { method: 'POST', headers, body: formData })
     .then(r => r.json())
     .then(resp => {
       const prog = document.getElementById('music-upload-progress');
@@ -13535,8 +13535,7 @@ async function uploadAudioFile(event, worldId) {
   event.target.value = '';
   if (!file) return;
   if (file.size > 10 * 1024 * 1024) { showToast('音频文件超过 10MB 限制', 'error'); return; }
-  const authStr = localStorage.getItem('infidive_auth');
-  const token = authStr ? JSON.parse(authStr).token : null;
+  const token = _getToken();
   if (!token) { showToast('请先登录', 'error'); return; }
   showToast('正在上传 BGM...', 'info');
   try {
@@ -13594,8 +13593,7 @@ async function _quickUploadBgm(nodeId, inputEl) {
   if (file.size > 10 * 1024 * 1024) { showToast('文件超过 10MB，请压缩后再上传', 'error'); return; }
   const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
   if (!worldId) { showToast('请先发布世界后再上传 BGM', 'error'); return; }
-  const authStr = localStorage.getItem('infidive_auth');
-  const token = authStr ? JSON.parse(authStr).token : null;
+  const token = _getToken();
   if (!token) { showToast('请先登录', 'error'); return; }
   showToast('⏳ 上传中...', 'info');
   try {
@@ -13646,8 +13644,7 @@ async function deleteAudioTrack(worldId, trackId) {
     const names = usedIn.map(n => n.title || n.id).join('、');
     if (!confirm(`此 BGM 正在被 ${usedIn.length} 个 clip(片段) 使用（${names}），删除后这些 clip 将失去背景音乐，确认删除？`)) return;
   }
-  const authStr = localStorage.getItem('infidive_auth');
-  const token = authStr ? JSON.parse(authStr).token : null;
+  const token = _getToken();
   try {
     const resp = await fetch(`https://infidive.ai/api/v1/worlds/${worldId}/audio/${trackId}`, {
       method: 'DELETE', headers: { Authorization: 'Bearer ' + token }
@@ -13675,8 +13672,7 @@ function closeInspector() {
 async function _loadWorldAudioLibrary() {
   const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
   if (!worldId) return; // 尚未发布到 infidive，跳过
-  const authStr = localStorage.getItem('infidive_auth');
-  const token = authStr ? JSON.parse(authStr).token : null;
+  const token = _getToken();
   if (!token) return;
   try {
     const resp = await fetch('https://infidive.ai/api/v1/worlds/' + worldId + '/audio', {
