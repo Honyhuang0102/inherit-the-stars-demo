@@ -3431,6 +3431,38 @@ const DEFAULT_POSITIONS = {
   node_C: { x: 500, y: 340 },
 };
 
+function _rebuildConnectionLines() {
+  state.connections = [];
+  const data = state.gameData;
+  if (!data || !data.nodes) { renderConnections(); return; }
+  Object.values(data.nodes).forEach(function(nd) {
+    if (nd.choices) nd.choices.forEach(function(c, i) {
+      if (c.target_node && state.nodes[c.target_node])
+        state.connections.push({ from: nd.id, to: c.target_node, choiceIdx: i, label: c.label, connType: null });
+    });
+    if (nd.next_node && state.nodes[nd.next_node])
+      state.connections.push({ from: nd.id, to: nd.next_node, choiceIdx: -1, label: '', connType: null });
+    if (nd.type === 'minigame' && nd.minigame_config && nd.minigame_config.rewards) {
+      [['win','mg_win'],['perfect','mg_perfect'],['lose','mg_lose']].forEach(function(pair) {
+        var k = pair[0], t = pair[1];
+        var r = nd.minigame_config.rewards[k];
+        var sid = r && r.story_unlock_node_id;
+        if (sid && state.nodes[sid]) state.connections.push({ from: nd.id, to: sid, choiceIdx: -1, label: '', connType: t });
+      });
+    }
+    if (Array.isArray(nd.interactions_v2)) {
+      nd.interactions_v2.forEach(function(item) {
+        if (item.type === 'button' || item._v2_legacy) return;
+        if (item.target_node && state.nodes[item.target_node])
+          state.connections.push({ from: nd.id, to: item.target_node, choiceIdx: -1, label: '', connType: null });
+        if (item.type === 'qte' && item.target_node_fail && state.nodes[item.target_node_fail])
+          state.connections.push({ from: nd.id, to: item.target_node_fail, choiceIdx: -1, label: '', connType: 'mg_lose' });
+      });
+    }
+  });
+  renderConnections();
+}
+
 function renderGraph() {
   const canvas = document.getElementById('canvas');
   canvas.querySelectorAll('.node-card').forEach(el => el.remove());
@@ -3469,6 +3501,20 @@ function renderGraph() {
         const r = nodeData.minigame_config.rewards[k];
         const sid = r && r.story_unlock_node_id;
         if (sid && state.nodes[sid]) addConnection(nodeData.id, sid, -1, '', t);
+      });
+    }
+    // interactions_v2: jump / hotspot_hidden / hotspot_visible / qte 出口引线
+    // button 类型已由 choices[] 覆盖；_v2_legacy 迁移副本同理，跳过避免重复箭头
+    if (Array.isArray(nodeData.interactions_v2)) {
+      nodeData.interactions_v2.forEach(function(item) {
+        if (item.type === 'button' || item._v2_legacy) return;
+        if (item.target_node && state.nodes[item.target_node]) {
+          addConnection(nodeData.id, item.target_node, -1, '');
+        }
+        // QTE 失败出口: 复用 mg_lose 红色箭头样式
+        if (item.type === 'qte' && item.target_node_fail && state.nodes[item.target_node_fail]) {
+          addConnection(nodeData.id, item.target_node_fail, -1, '', 'mg_lose');
+        }
       });
     }
   });
@@ -3902,24 +3948,7 @@ function endConnect(e, toId) {
     // 直连（无选项）：写入 next_node 字段
     fromData.next_node = toId;
   }
-  state.connections = [];
-  Object.values(state.gameData.nodes).forEach(nd => {
-    if (nd.choices) nd.choices.forEach((c,i) => {
-      if (c.target_node && state.nodes[c.target_node])
-        state.connections.push({ from: nd.id, to: c.target_node, choiceIdx: i, label: c.label });
-    });
-    if (nd.next_node && state.nodes[nd.next_node])
-      state.connections.push({ from: nd.id, to: nd.next_node, choiceIdx: -1, label: '' });
-    // minigame rewards → outgoing connections
-    if (nd.type === 'minigame' && nd.minigame_config && nd.minigame_config.rewards) {
-      [['win','mg_win'],['perfect','mg_perfect'],['lose','mg_lose']].forEach(([k,t]) => {
-        const r = nd.minigame_config.rewards[k];
-        const sid = r && r.story_unlock_node_id;
-        if (sid && state.nodes[sid]) state.connections.push({ from: nd.id, to: sid, choiceIdx: -1, label: '', connType: t });
-      });
-    }
-  });
-  renderConnections();
+  _rebuildConnectionLines();
   document.getElementById('temp-conn').setAttribute('d','');
   state.connecting = null;
   document.getElementById('canvas-wrap').classList.remove('connecting');
@@ -4557,24 +4586,7 @@ function applyInspector(nodeId) {
   const node = state.nodes[nodeId];
   if (node) { node.el.remove(); delete state.nodes[nodeId]; }
   createNodeCard(nodeData, node?.x || 200, node?.y || 200);
-  state.connections = [];
-  Object.values(state.gameData.nodes).forEach(nd => {
-    if (nd.choices) nd.choices.forEach((c,i) => {
-      if (c.target_node && state.nodes[c.target_node])
-        state.connections.push({ from: nd.id, to: c.target_node, choiceIdx: i, label: c.label });
-    });
-    if (nd.next_node && state.nodes[nd.next_node])
-      state.connections.push({ from: nd.id, to: nd.next_node, choiceIdx: -1, label: '' });
-    // minigame rewards → outgoing connections
-    if (nd.type === 'minigame' && nd.minigame_config && nd.minigame_config.rewards) {
-      [['win','mg_win'],['perfect','mg_perfect'],['lose','mg_lose']].forEach(([k,t]) => {
-        const r = nd.minigame_config.rewards[k];
-        const sid = r && r.story_unlock_node_id;
-        if (sid && state.nodes[sid]) state.connections.push({ from: nd.id, to: sid, choiceIdx: -1, label: '', connType: t });
-      });
-    }
-  });
-  renderConnections();
+  _rebuildConnectionLines();
   updatePreviewPanel(nodeData);
   saveData();
   showToast('节点已更新', 'success');
@@ -12866,7 +12878,13 @@ function _updateInteractionV2Field(nodeId, itemId, field, value) {
   const nodeData = state.gameData && state.gameData.nodes[nodeId];
   if (!nodeData) return;
   const item = nodeData.interactions_v2 && nodeData.interactions_v2.find(it => it.id === itemId);
-  if (item) item[field] = value;
+  if (item) {
+    item[field] = value;
+    // 目标节点变化时实时刷新画布引线
+    if (field === 'target_node' || field === 'target_node_fail') {
+      _rebuildConnectionLines();
+    }
+  }
 }
 
 function _saveIcardField(nodeId, itemId, field, value) {
