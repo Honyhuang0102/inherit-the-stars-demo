@@ -6887,15 +6887,21 @@ function syncAllHudPanels() {
 }
 
 function saveHudOverlay() {
-  if (!immersiveNodeData) { showToast('请先选中一个节点', 'error'); return; }
+  // T3 fix: 支持沉浸模式(immersiveNodeData)和 Inspector Tab 4 两种入口
+  const activeNodeData = immersiveNodeData || (() => {
+    const nodeId = document.getElementById('inspector')?.dataset?.nodeId;
+    return nodeId && state.gameData && state.gameData.nodes
+      ? state.gameData.nodes[nodeId] : null;
+  })();
+  if (!activeNodeData) { showToast('请先选中一个节点', 'error'); return; }
   syncAllHudPanels();
   if (_hudPanels.length === 0) { showToast('至少需要一个面板', 'error'); return; }
 
   const trigger  = document.getElementById('hud-trigger').value;
   const autoAt   = parseFloat(document.getElementById('hud-auto-at').value) || 5;
   const item = {
-    id: (_hudEditIdx >= 0 && (immersiveNodeData.interactions||[])[_hudEditIdx])
-      ? immersiveNodeData.interactions[_hudEditIdx].id
+    id: (_hudEditIdx >= 0 && (activeNodeData.interactions||[])[_hudEditIdx])
+      ? activeNodeData.interactions[_hudEditIdx].id
       : ('hud_' + Date.now()),
     type:     'hud_overlay',
     trigger,
@@ -6906,16 +6912,24 @@ function saveHudOverlay() {
   };
   if (trigger === 'auto_at_time') item.auto_at_s = autoAt;
 
-  if (!immersiveNodeData.interactions) immersiveNodeData.interactions = [];
-  if (_hudEditIdx >= 0 && _hudEditIdx < immersiveNodeData.interactions.length) {
-    immersiveNodeData.interactions[_hudEditIdx] = item;
+  if (!activeNodeData.interactions) activeNodeData.interactions = [];
+  if (_hudEditIdx >= 0 && _hudEditIdx < activeNodeData.interactions.length) {
+    activeNodeData.interactions[_hudEditIdx] = item;
     showToast('浮层菜单已更新', 'success');
   } else {
-    immersiveNodeData.interactions.push(item);
+    activeNodeData.interactions.push(item);
     showToast('浮层菜单已添加', 'success');
   }
-  renderImmersiveAdvanced(immersiveNodeData);
-  updatePreviewPanel(immersiveNodeData);
+  if (immersiveNodeData) {
+    // 沉浸模式：刷新沉浸预览
+    renderImmersiveAdvanced(immersiveNodeData);
+    updatePreviewPanel(immersiveNodeData);
+  } else {
+    // Inspector 模式：刷新 Tab 4 高级交互列表
+    const nodeId = activeNodeData.id;
+    const advEl = document.getElementById('itab-advanced');
+    if (advEl) renderTabAdvanced(nodeId, activeNodeData);
+  }
   closeHudPanel();
 }
 
@@ -7775,7 +7789,7 @@ function initCanvasZoomPan() {
     const btn = document.createElement('button');
     btn.className = 'tool-btn';
     btn.title = '游戏系统设置';
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span class="tool-tip">游戏设置</span>';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span class="tool-tip">菜单设置</span>';
     btn.setAttribute("onclick", "openGamePanel()");
     moreBtn.parentNode.insertBefore(sep, moreBtn);
     moreBtn.parentNode.insertBefore(btn, sep);
@@ -7788,11 +7802,12 @@ function initCanvasZoomPan() {
 ═══════════════════════════════════════════════════════ -->
 <div id="game-panel" style="display:none;flex-direction:column;position:fixed;top:60px;left:260px;width:300px;max-height:calc(100vh - 80px);background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:400;overflow:hidden;">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0;">
-    <span style="font-size:12px;font-weight:600;color:var(--text-primary);">⚙️ Game Settings</span>
+    <span style="font-size:12px;font-weight:600;color:var(--text-primary);">⚙️ 菜单设置</span>
     <button onclick="document.getElementById('game-panel').style.display='none'" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;line-height:1;">✕</button>
   </div>
   <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;">
-    <button class="gp-tab active" data-tab="variables" onclick="renderGamePanelTab('variables')" title="变量">📊</button>
+    <button class="gp-tab active" data-tab="task-info" onclick="renderGamePanelTab('task-info')" title="基础信息">📝</button>
+    <button class="gp-tab" data-tab="variables" onclick="renderGamePanelTab('variables')" title="变量">📊</button>
     <button class="gp-tab" data-tab="items" onclick="renderGamePanelTab('items')" title="道具">🎒</button>
     <button class="gp-tab" data-tab="theme" onclick="renderGamePanelTab('theme')" title="主题">🎨</button>
     <button class="gp-tab" data-tab="shop" onclick="renderGamePanelTab('shop')" title="商城">🛒</button>
@@ -7917,14 +7932,15 @@ function openGamePanel() {
   const p = document.getElementById('game-panel');
   const isOpen = p.style.display === 'flex';
   p.style.display = isOpen ? 'none' : 'flex';
-  if (!isOpen) renderGamePanelTab('variables');
+  if (!isOpen) renderGamePanelTab('task-info');
 }
 
 function renderGamePanelTab(tab) {
   document.querySelectorAll('.gp-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   const body = document.getElementById('gp-body');
   if (!body) return;
-  if (tab === 'variables') body.innerHTML = renderVariablesTab();
+  if (tab === 'task-info') body.innerHTML = renderTaskInfoSection();
+  else if (tab === 'variables') body.innerHTML = renderVariablesTab();
   else if (tab === 'items') body.innerHTML = renderItemsTab();
   else if (tab === 'theme') body.innerHTML = renderThemeTab();
   else if (tab === 'shop') body.innerHTML = renderShopTab();
@@ -8262,6 +8278,49 @@ function deleteEnding(i) { state.gameData.game_settings.endings.splice(i,1); sav
 function setShowEndingsProgress(v) { state.gameData.game_settings.show_endings_progress=v; saveData(); }
 
 // ── INFO TAB (基本信息) ──────────────────────────────────────────
+// ── 基础信息 Tab (T2 Phase 1 W3) ────────────────────────────────────
+function renderTaskInfoSection() {
+  const gs = (state.gameData && state.gameData.game_settings) || {};
+  const taskTitle = escHtml(gs.task_title || '');
+  const taskDesc  = escHtml(gs.task_description || '');
+  return `
+    <div class="gp-section" style="margin-bottom:10px;">
+      <div class="gp-label" style="margin-bottom:3px;">任务标题</div>
+      <input class="gp-input" id="task-title-input" maxlength="40"
+        value="${taskTitle}" placeholder="最多 40 字"
+        oninput="_saveTaskInfoDebounced()"/>
+      <div style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">
+        将显示在 APP 暂停菜单顶部，最多 40 字
+      </div>
+    </div>
+    <div class="gp-section">
+      <div class="gp-label" style="margin-bottom:3px;">任务说明</div>
+      <textarea class="gp-input" id="task-desc-input" rows="4" maxlength="200"
+        placeholder="最多 200 字" style="resize:vertical;font-family:inherit;"
+        oninput="_saveTaskInfoDebounced()">${taskDesc}</textarea>
+      <div style="font-size:10px;color:var(--text-tertiary);margin-top:2px;">
+        将显示在 APP 暂停菜单任务说明区，最多 200 字
+      </div>
+    </div>
+  `;
+}
+
+let _taskInfoSaveTimer = null;
+function _saveTaskInfoDebounced() {
+  clearTimeout(_taskInfoSaveTimer);
+  _taskInfoSaveTimer = setTimeout(() => {
+    if (!state.gameData) return;
+    if (!state.gameData.game_settings) state.gameData.game_settings = {};
+    const title = document.getElementById('task-title-input')?.value || '';
+    const desc  = document.getElementById('task-desc-input')?.value  || '';
+    if (title) state.gameData.game_settings.task_title = title;
+    else        delete state.gameData.game_settings.task_title;
+    if (desc)  state.gameData.game_settings.task_description = desc;
+    else        delete state.gameData.game_settings.task_description;
+    saveData();
+  }, 600);
+}
+
 function renderInfoTab() {
   const title = state.gameData.title || '';
   const desc = state.gameData.description || '';
@@ -9762,7 +9821,8 @@ function buildInteractionDsl(nodeData) {
   if (interactions.length === 0 && audioTracks.length === 0) return null;
   const dslVersion = audioTracks.length > 0 ? 'v0.2.0' : 'v0.1.0';
 
-  return {
+  // T1: mute_video_audio — 仅在 true 时写入 DSL 根层（缺省 = 不静音）
+  const dslRoot = {
     dsl_version: dslVersion,
     clip_id: clipId,
     clip_duration_s: duration,
@@ -9770,6 +9830,8 @@ function buildInteractionDsl(nodeData) {
     ...(audioTracks.length > 0 ? { audio_tracks: audioTracks } : {}),
     metadata: {}
   };
+  if (nodeData.mute_video_audio === true) dslRoot.mute_video_audio = true;
+  return dslRoot;
 }
 
 // ==================== DSL v0 数据转换层结束 ====================
@@ -10470,7 +10532,7 @@ function buildMgTriggerCustomParamsHtml(nodeId, trigIdx, difficulty) {
 function buildMgVarMappingHtml(nodeId, trigIdx, mappings) {
   const vars = (state.gameData.game_settings && state.gameData.game_settings.variables) || [];
   const emptyHint = vars.length === 0
-    ? '<div style="font-size:10px;color:var(--text-muted);padding:4px 0;">请先在游戏设置中定义变量</div>' : '';
+    ? '<div style="font-size:10px;color:var(--text-muted);padding:4px 0;">请先在菜单设置中定义变量</div>' : '';
   const rowsHtml = (mappings||[]).map((m, idx) => {
     const varOpts = vars.map(v => {
       const vn = escHtml(v.name||v.id||'');
@@ -13018,6 +13080,15 @@ function renderTabMusic(nodeId, nodeData) {
     <div style="font-size:10px;color:var(--text-tertiary);padding:4px 0;">
       💡 选择同一首 BGM(背景音乐)的 clip(片段)之间切换时，BGM 连续播放不中断
     </div>
+    <div style="margin-top:10px;padding:8px 0 4px;border-top:1px solid var(--border);">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--text-primary);">
+        <input type="checkbox" id="mute-video-audio-${escHtml(nodeId)}"
+          ${nodeData.mute_video_audio ? 'checked' : ''}
+          onchange="_saveMuteVideoAudio('${nodeId}', this.checked)"
+          style="width:14px;height:14px;cursor:pointer;accent-color:var(--accent);" />
+        关闭视频素材音效
+      </label>
+    </div>
     <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
       <div id="world-audio-library"></div>
     </div>
@@ -13060,6 +13131,17 @@ function _toggleBgmAdv(nodeId) {
   body.classList.toggle('open', isOpen);
   const nodeData = state.gameData.nodes[nodeId];
   if (nodeData && nodeData.bgm) nodeData.bgm._advOpen = isOpen;
+}
+
+function _saveMuteVideoAudio(nodeId, value) {
+  // T1: 关闭视频素材音效 — 写入 nodeData.mute_video_audio
+  const nodeData = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  if (value) {
+    nodeData.mute_video_audio = true;
+  } else {
+    delete nodeData.mute_video_audio;  // false → 不写入 (减少 DSL 体积)
+  }
 }
 
 // ── Tab 4 · ⚙️ 高级 ──────────────────────────────────────────────
