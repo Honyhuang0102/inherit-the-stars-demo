@@ -13428,7 +13428,7 @@ function _musicLibModalUpload(input) {
       const prog = document.getElementById('music-upload-progress');
       if (prog) prog.remove();
       if (resp.error) { alert('上传失败：' + resp.error); return; }
-      const url = resp.url || (resp.data && resp.data.url);
+      const url = resp.file_url || resp.url || (resp.data && resp.data.url);
       if (!url) { alert('上传失败：无 URL 返回'); return; }
       const newTrack = { id: 'bgm_' + Date.now(), name: file.name.replace(/\.[^.]+$/, ''), filename: file.name, url };
       if (!state.gameData.audio_library) state.gameData.audio_library = { tracks: [] };
