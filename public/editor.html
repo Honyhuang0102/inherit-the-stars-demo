@@ -13079,18 +13079,19 @@ function renderTabMusic(nodeId, nodeData) {
           <div class="icard-label">音量</div>
           <div class="bgm-vol-row">
             <input type="range" min="0" max="1" step="0.05" value="${selVol}"
-              oninput="_saveBgmField('${nodeId}','volume',parseFloat(this.value));document.getElementById('bgm-vol-val-${escHtml(nodeId)}').textContent=parseFloat(this.value).toFixed(2)"/>
+              oninput="_saveBgmField('${nodeId}','volume',parseFloat(this.value));document.getElementById('bgm-vol-val-${escHtml(nodeId)}').textContent=parseFloat(this.value).toFixed(2)"
+              onchange="saveData()"/>
             <span class="bgm-vol-val" id="bgm-vol-val-${escHtml(nodeId)}">${selVol.toFixed(2)}</span>
           </div>
         </div>
         <div class="icard-2col">
           <div class="icard-field"><div class="icard-label">淡入(ms)</div>
             <input class="icard-input" type="number" min="0" step="100" value="${selFadeIn}"
-              onchange="_saveBgmField('${nodeId}','fade_in_ms',parseInt(this.value))"/>
+              onchange="_saveBgmField('${nodeId}','fade_in_ms',parseInt(this.value));saveData()"/>
           </div>
           <div class="icard-field"><div class="icard-label">淡出(ms)</div>
             <input class="icard-input" type="number" min="0" step="100" value="${selFadeOut}"
-              onchange="_saveBgmField('${nodeId}','fade_out_ms',parseInt(this.value))"/>
+              onchange="_saveBgmField('${nodeId}','fade_out_ms',parseInt(this.value));saveData()"/>
           </div>
         </div>
       </div>
@@ -13121,6 +13122,7 @@ function _onBgmSelect(nodeId, trackId) {
     delete nodeData.bgm;
     const adv = document.getElementById('bgm-advanced-' + nodeId);
     if (adv) adv.style.display = 'none';
+    saveData();
     return;
   }
   const library = (state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
@@ -13134,6 +13136,7 @@ function _onBgmSelect(nodeId, trackId) {
   };
   const adv = document.getElementById('bgm-advanced-' + nodeId);
   if (adv) adv.style.display = '';
+  saveData();
 }
 
 function _saveBgmField(nodeId, field, value) {
@@ -13461,6 +13464,7 @@ function _musicLibModalUpload(input) {
       }
       renderMusicLibModal();
       renderWorldAudioLibrary();
+      saveData();
       input.value = '';
     })
     .catch(e => { const p = document.getElementById('music-upload-progress'); if (p) p.remove(); alert('上传失败：' + e.message); });
@@ -13649,6 +13653,7 @@ async function _quickUploadBgm(nodeId, inputEl) {
       const advDiv = document.getElementById('bgm-advanced-' + nodeId);
       if (advDiv) advDiv.style.display = '';
     }, 50);
+    saveData();
     showToast('✓ 已上传并选中：' + payload.name, 'success');
   } catch(err) {
     showToast('上传 BGM 失败：' + err.message, 'error');
@@ -13673,6 +13678,7 @@ async function deleteAudioTrack(worldId, trackId) {
     // 清理引用了该 BGM 的节点
     usedIn.forEach(n => { if (n.bgm && n.bgm.id === trackId) delete n.bgm; });
     renderWorldAudioLibrary();
+    saveData();
     showToast('✓ BGM 已删除', 'success');
   } catch(err) {
     showToast('删除失败：' + err.message, 'error');
