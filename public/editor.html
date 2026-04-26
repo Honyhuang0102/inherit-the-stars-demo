@@ -13459,7 +13459,7 @@ function _musicLibModalUpload(input) {
         fetch(`/api/v1/worlds/${worldId}/audio`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-          body: JSON.stringify({ track: newTrack })
+          body: JSON.stringify({ track_id: newTrack.id, name: newTrack.name, url: newTrack.url, size_bytes: newTrack.size_bytes || null })
         }).catch(() => {});
       }
       renderMusicLibModal();
@@ -13632,10 +13632,11 @@ async function _quickUploadBgm(nodeId, inputEl) {
     if (!fileUrl) throw new Error('上传返回 URL 为空');
     // Step 2: 注册到 world audio_library
     const name = file.name.replace(/\.[^.]+$/, '');
-    const payload = { id: 'bgm_' + Date.now(), name, url: fileUrl, size_bytes: file.size, uploaded_at: new Date().toISOString() };
+    const trackId = 'bgm_' + Date.now();
+    const payload = { id: trackId, name, url: fileUrl, size_bytes: file.size, uploaded_at: new Date().toISOString() };
     const regResp = await fetch('https://infidive.ai/api/v1/worlds/' + worldId + '/audio', {
       method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ track_id: trackId, name, url: fileUrl, size_bytes: file.size })
     });
     const regData = await regResp.json();
     if (!regResp.ok) throw new Error(regData.error || '注册失败');
@@ -13696,6 +13697,11 @@ function closeInspector() {
 async function _loadWorldAudioLibrary() {
   const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
   if (!worldId) return; // 尚未发布到 infidive，跳过
+
+  // 项目 JSON 已有音轨时，以 JSON 为准；仅空时才从 API 补充（兼容老项目）
+  const existingTracks = (state.gameData.audio_library && state.gameData.audio_library.tracks) || [];
+  if (existingTracks.length > 0) return;
+
   const token = _getToken();
   if (!token) return;
   try {
@@ -13704,8 +13710,9 @@ async function _loadWorldAudioLibrary() {
     });
     if (!resp.ok) return;
     const data = await resp.json();
-    if (data && data.data && data.data.audio_library) {
+    if (data && data.data && data.data.audio_library && data.data.audio_library.tracks && data.data.audio_library.tracks.length > 0) {
       state.gameData.audio_library = data.data.audio_library;
+      saveData(); // 把 API 补充的数据持久化到项目 JSON
     }
   } catch(e) {
     console.warn('[audio] 音乐库加载失败', e);
