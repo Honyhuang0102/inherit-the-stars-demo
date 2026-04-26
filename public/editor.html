@@ -4265,13 +4265,10 @@ function addNode(type) {
   const newNode = {
     id, type,
     title: type === 'ending' ? '新结局节点' : type === 'minigame' ? '新小游戏节点' : '新视频节点',
-    video_url: type === 'minigame' ? '' : 'https://www.w3schools.com/html/mov_bbb.mp4',
+    video_url: '',
     ...(type === 'branching' ? {
       branch_at_second: 5,
-      choices: [
-        { label: '选项 1', sublabel: '', hotkey: '1', target_node: '', position: DEFAULT_HOTSPOT_POSITIONS[0] },
-        { label: '选项 2', sublabel: '', hotkey: '2', target_node: '', position: DEFAULT_HOTSPOT_POSITIONS[1] },
-      ]
+      choices: []
     } : {}),
     ...(type === 'ending' ? { ending_tag: 'ENDING · NEW', description: '' } : {}),
     ...(type === 'minigame' ? {
@@ -4756,8 +4753,8 @@ async function uploadVideoFile(event, nodeId) {
       tcEl.style.display = 'block';
     }
 
-    // 7. 刷新 Inspector 显示封面
-    setTimeout(() => openInspector(nodeId), 300);
+    // 7. 刷新 Inspector 显示封面（保持当前 tab，不自动跳到交互 tab）
+    setTimeout(() => refreshNodeEditorData(nodeId), 300);
 
   } catch(e) {
     console.error('[VIDEO] 上传失败:', e);
@@ -12990,6 +12987,11 @@ function addInteractionV2(nodeId, type) {
   };
   nodeData._v2_migrated = true;
   nodeData.interactions_v2.push(newItem);
+  // 若是 button 类型，同步到 choices[] 使预览即时更新
+  if (newItem.type === 'button') {
+    _syncInteractionsV2ToChoices(nodeData);
+    updatePreviewPanel(nodeData);
+  }
   renderTabInteractions(nodeId, nodeData);
   _postRenderHotspotThumbs(nodeId, nodeData);
   // 展开新卡片
@@ -13000,11 +13002,30 @@ function addInteractionV2(nodeId, type) {
   }, 50);
 }
 
+// 将 interactions_v2 中的 button 类型项同步回 choices[]，使预览和 DSL 保持一致
+function _syncInteractionsV2ToChoices(nodeData) {
+  if (!nodeData || !nodeData._v2_migrated) return;
+  const buttonItems = (nodeData.interactions_v2 || []).filter(it => it.type === 'button');
+  nodeData.choices = buttonItems.map(it => ({
+    id: it.id,
+    label: it.label || '',
+    sublabel: it.sublabel || '',
+    target_node: it.target_node || '',
+    transition_fx: it.transition_fx || 'fade',
+    position: { x: it.pos_x || '50%', y: it.pos_y || '65%' }
+  }));
+}
+
 function deleteInteractionV2(nodeId, itemId) {
   const nodeData = state.gameData.nodes[nodeId];
   if (!nodeData || !nodeData.interactions_v2) return;
   nodeData.interactions_v2 = nodeData.interactions_v2.filter(it => it.id !== itemId);
+  // 同步 button 类型回 choices[]，保证预览和 DSL 正确
+  _syncInteractionsV2ToChoices(nodeData);
   renderTabInteractions(nodeId, nodeData);
+  updatePreviewPanel(nodeData);
+  renderConnections();
+  saveData();
 }
 
 function onInteractionTypeChange(nodeId, itemId, newType) {
