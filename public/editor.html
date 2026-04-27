@@ -2263,6 +2263,16 @@ body.bbox-drawing-mode #immersive-screen .imm-video-el * {
   flex-direction: column; gap: 8px;
 }
 .icard.expanded .icard-body { display: flex; }
+.icard-autojump-warn {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.35);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #fca5a5;
+  margin: 4px 0;
+  line-height: 1.5;
+}
 .icard-field { display: flex; flex-direction: column; gap: 3px; }
 .icard-label { font-size: 10px; color: var(--text-secondary); font-weight: 500; }
 .icard-input {
@@ -8855,6 +8865,71 @@ function _pubClearCover() {
   if (modal) { const btn = modal.querySelector('.gp-micro-btn.danger'); if (btn) btn.remove(); }
 }
 
+function _showAutoJumpTimingModal(timingErrors) {
+  const existing = document.getElementById('_autojump_timing_modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = '_autojump_timing_modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+  const errorItems = timingErrors.map(e =>
+    `<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 12px;margin-bottom:6px;">
+      <div style="font-size:12px;font-weight:600;color:#fca5a5;">节点 ${escHtml(String(e.nodeTitle))}</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">触发时间 ${e.triggerTime.toFixed(1)}s，视频时长 ${e.duration.toFixed(1)}s，距片尾不足 2 秒</div>
+    </div>`
+  ).join('');
+
+  const nodeList = timingErrors.map(e => `节点 ${escHtml(String(e.nodeTitle))}`).join('、');
+
+  modal.innerHTML = `
+    <div style="background:var(--bg-panel);border:1px solid rgba(239,68,68,0.4);border-radius:12px;padding:24px 28px;width:440px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.5);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-size:20px;">🛑</span>
+        <span style="font-size:15px;font-weight:600;color:var(--text-primary);">发布被阻断：自动跳转触发时间太晚</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:16px;">播放端 HLS 协议来不及预加载下一段，会出现黑屏。</div>
+      ${errorItems}
+      <div style="font-size:11px;color:var(--text-tertiary);margin:12px 0 16px 0;">
+        开启「循环模式」后，视频将在片尾循环播放，争取 HLS 预加载时间，消除黑屏风险。
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="_autoFixJumpLoopMode()" style="flex:1;padding:8px 16px;border-radius:6px;border:none;background:#6366f1;color:#fff;font-size:13px;font-weight:500;cursor:pointer;min-width:140px;">
+          一键修复：全部开启循环模式
+        </button>
+        <button onclick="document.getElementById('_autojump_timing_modal').remove()" style="padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-size:13px;cursor:pointer;">
+          取消
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function _autoFixJumpLoopMode() {
+  let fixedCount = 0;
+  const HLS_PRELOAD_BUFFER = 2.0;
+  Object.values(state.gameData.nodes || {}).forEach(node => {
+    if (!node._v2_migrated || !node.interactions_v2) return;
+    const dur = node._videoDuration || node.branch_at_second || node.branch_time || null;
+    if (!dur || dur <= 0) return;
+    (node.interactions_v2 || []).filter(it => it.type === 'jump').forEach(jt => {
+      if (!jt.target_node) return;
+      const tt = jt.jump_trigger === 'start' ? 0
+        : jt.jump_trigger === 'custom' ? (parseFloat(jt.jump_trigger_s) || dur)
+        : dur;
+      if (tt > dur - HLS_PRELOAD_BUFFER && jt.video_mode !== 'loop') {
+        jt.video_mode = 'loop';
+        fixedCount++;
+      }
+    });
+  });
+  saveData();
+  document.getElementById('_autojump_timing_modal').remove();
+  showToast(`已为 ${fixedCount} 个跳转开启循环模式，可重新发布。`, 'success');
+}
+
 async function _doPublish(existingWorldId) {
   const modal = document.getElementById('_publish_modal');
 
@@ -8906,8 +8981,12 @@ async function _doPublish(existingWorldId) {
     try {
       publishData = await prepareGameDataForPublish(state.gameData);
     } catch (validErr) {
-      showToast('发布校验失败：' + validErr.message, 'error');
       if (btn) btn.style.opacity = '1';
+      if (validErr.code === 'AUTOJUMP_TIMING_BLOCK') {
+        _showAutoJumpTimingModal(validErr.timingErrors);
+      } else {
+        showToast('发布校验失败：' + validErr.message, 'error');
+      }
       return;
     }
     const response = await _apiFetch('https://infidive.ai/api/v1/bridge/publish', {
@@ -9530,12 +9609,40 @@ function polygonToBbox(points) {
 
 /** choice -> DSL Outcome 对象 */
 function buildDslOutcome(choice) {
+  const action = choice.outcome_action || null;
   const targetId = choice.target_node || choice.target || null;
+
+  // Variable / inventory actions (RFC-2)
+  if (action === 'set_variable' || action === 'add_variable') {
+    const out = { action };
+    if (choice.outcome_variable_ref) out.variable_ref = choice.outcome_variable_ref;
+    if (typeof choice.outcome_variable_value === 'number') out.variable_value = choice.outcome_variable_value;
+    _appendSideEffects(out, choice);
+    return out;
+  }
+  if (action === 'set_inventory_count') {
+    const out = { action };
+    if (choice.outcome_item_ref) out.item_ref = choice.outcome_item_ref;
+    if (typeof choice.outcome_inventory_count === 'number') out.inventory_count = choice.outcome_inventory_count;
+    _appendSideEffects(out, choice);
+    return out;
+  }
+  if (action === 'continue') return { action: 'continue' };
+  if (action === 'retry') return { action: 'retry' };
+
+  // Default: jump_to_clip / jump_to_timestamp
   if (!targetId) return { action: 'continue' };
   if (typeof choice.seek_to === 'number') {
     return { action: 'jump_to_timestamp', target_clip_id: targetId, target_time_s: choice.seek_to };
   }
-  return { action: 'jump_to_clip', target_clip_id: targetId };
+  const out = { action: 'jump_to_clip', target_clip_id: targetId };
+  _appendSideEffects(out, choice);
+  return out;
+}
+
+function _appendSideEffects(out, choice) {
+  if (!Array.isArray(choice.side_effects) || choice.side_effects.length === 0) return;
+  out.side_effects = choice.side_effects.slice(0, 5).map(se => buildDslOutcome(se));
 }
 
 /** 文字热区 choice -> DSL hotspot 条目 (中心点展开为 bbox) */
@@ -9693,7 +9800,7 @@ function buildInteractionDsl(nodeData) {
       const jumpTrigger = jt.jump_trigger === 'start' ? 0
         : jt.jump_trigger === 'custom' ? (parseFloat(jt.jump_trigger_s) || duration)
         : duration; // 'end' → 片尾
-      interactions.push({
+      const _branchInteraction = {
         id: jt.id || ('jump_' + ji),
         type: 'branch',
         trigger_time_s: Math.min(jumpTrigger, duration),
@@ -9706,7 +9813,9 @@ function buildInteractionDsl(nodeData) {
             transition_fx: jt.transition_fx || 'fade'
           }
         }],
-      });
+      };
+      if (jt.video_mode === 'loop') _branchInteraction.video_mode = 'loop';
+      interactions.push(_branchInteraction);
     });
   }
 
@@ -10012,7 +10121,52 @@ function _navigateToDslError(err) {
 // ==================== W5 客户端 DSL Schema 校验结束 ====================
 
 
+/**
+ * Phase 5: Auto-jump HLS timing guard.
+ * Returns { errors: [...], warnings: [...] }
+ * errors  = nodes that MUST fix (trigger too close to end, no loop)
+ * warnings = nodes with loop mode as fallback (allowed but suboptimal)
+ */
+function checkAutoJumpTiming(gameData) {
+  const errors = [];
+  const warnings = [];
+  const HLS_PRELOAD_BUFFER = 2.0;
+
+  Object.values(gameData.nodes || {}).forEach(node => {
+    if (!node._v2_migrated || !node.interactions_v2) return;
+    const dur = node._videoDuration || node.branch_at_second || node.branch_time || null;
+    if (!dur || dur <= 0) return;
+
+    (node.interactions_v2 || []).filter(it => it.type === 'jump').forEach(jt => {
+      if (!jt.target_node) return;
+      const tt = jt.jump_trigger === 'start' ? 0
+        : jt.jump_trigger === 'custom' ? (parseFloat(jt.jump_trigger_s) || dur)
+        : dur; // 'end'
+
+      if (tt > dur - HLS_PRELOAD_BUFFER) {
+        const entry = { nodeId: node.id, nodeTitle: node.title || node.id, itemId: jt.id, triggerTime: tt, duration: dur };
+        if (jt.video_mode !== 'loop') {
+          errors.push(entry);
+        } else {
+          warnings.push(entry);
+        }
+      }
+    });
+  });
+
+  return { errors, warnings };
+}
+
 async function prepareGameDataForPublish(gameData) {
+  // Phase 5: Check auto_jump timing before publish
+  const timingCheck = checkAutoJumpTiming(gameData);
+  if (timingCheck.errors.length > 0) {
+    const err = new Error('AUTOJUMP_TIMING_BLOCK:' + JSON.stringify(timingCheck.errors));
+    err.code = 'AUTOJUMP_TIMING_BLOCK';
+    err.timingErrors = timingCheck.errors;
+    throw err;
+  }
+
   const data = JSON.parse(JSON.stringify(gameData));
   const errors = [];
   Object.values(data.nodes || {}).forEach(node => {
@@ -12505,6 +12659,65 @@ const INTERACTION_TYPE_NAMES = {
   graphic_hint: '图形提示',
 };
 const FX_OPTIONS = [['none','无(none)'],['fade','淡入淡出(fade)'],['dash_blur','动态模糊(dash_blur)'],['screen_shatter_red','红色碎屏(screen_shatter_red)']];
+const OUTCOME_ACTION_OPTIONS = [
+  ['jump_to_clip',         '跳转节点 (jump_to_clip)'],
+  ['continue',             '继续播放 (continue)'],
+  ['set_variable',         '设置变量 (set_variable)'],
+  ['add_variable',         '增减变量 (add_variable)'],
+  ['set_inventory_count',  '设置道具数量 (set_inventory_count)'],
+  ['retry',                '重试 (retry)'],
+];
+
+/** Build outcome sub-fields HTML for a choice item */
+function buildOutcomeFields(nodeId, item, labelPrefix) {
+  const action = item.outcome_action || 'jump_to_clip';
+  const vars = (state.gameData.game_settings && state.gameData.game_settings.variables) || [];
+  const items = (state.gameData.game_settings && state.gameData.game_settings.items) || [];
+
+  const actionSel = `<select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','outcome_action',this.value);refreshInteractionCard('${nodeId}','${item.id}')">
+    ${OUTCOME_ACTION_OPTIONS.map(([v,l]) => `<option value="${v}" ${action===v?'selected':''}>${escHtml(l)}</option>`).join('')}
+  </select>`;
+
+  let subFields = '';
+  if (action === 'jump_to_clip') {
+    const dd = buildNodeDropdown('dd_out_' + item.id, item.target_node,
+      (nid) => { _updateInteractionV2Field(nodeId, item.id, 'target_node', nid); refreshInteractionCard(nodeId, item.id); });
+    subFields = `<div class="icard-field"><div class="icard-label">目标节点</div>${dd}</div>`;
+  } else if (action === 'set_variable' || action === 'add_variable') {
+    const varOpts = vars.length
+      ? vars.map(v => `<option value="${escHtml(v.id)}" ${item.outcome_variable_ref===v.id?'selected':''}>${escHtml(v.name||v.id)}</option>`).join('')
+      : '<option value="">（请先在游戏设置中定义变量）</option>';
+    const opLabel = action === 'set_variable' ? '设为' : '增减量';
+    subFields = `
+      <div class="icard-field"><div class="icard-label">变量</div>
+        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','outcome_variable_ref',this.value)">
+          ${varOpts}
+        </select>
+      </div>
+      <div class="icard-field"><div class="icard-label">${escHtml(opLabel)}</div>
+        <input class="icard-input" type="number" step="1" value="${item.outcome_variable_value||0}"
+          onchange="_saveIcardField('${nodeId}','${item.id}','outcome_variable_value',parseFloat(this.value))"/>
+      </div>`;
+  } else if (action === 'set_inventory_count') {
+    const itemOpts = items.length
+      ? items.map(it => `<option value="${escHtml(it.id)}" ${item.outcome_item_ref===it.id?'selected':''}>${escHtml(it.name||it.id)}</option>`).join('')
+      : '<option value="">（请先在游戏设置中定义道具）</option>';
+    subFields = `
+      <div class="icard-field"><div class="icard-label">道具</div>
+        <select class="icard-input" onchange="_saveIcardField('${nodeId}','${item.id}','outcome_item_ref',this.value)">
+          ${itemOpts}
+        </select>
+      </div>
+      <div class="icard-field"><div class="icard-label">数量</div>
+        <input class="icard-input" type="number" min="0" step="1" value="${item.outcome_inventory_count||0}"
+          onchange="_saveIcardField('${nodeId}','${item.id}','outcome_inventory_count',parseInt(this.value))"/>
+      </div>`;
+  }
+
+  return `
+    <div class="icard-field"><div class="icard-label">${escHtml(labelPrefix||'结果走向')} Action</div>${actionSel}</div>
+    ${subFields}`;
+}
 const TRIGGER_OPTIONS = [['end','片尾（默认）'],['start','片头'],['custom','指定秒数']];
 const INPUT_OPTIONS = [['tap','点击(tap)'],['long_press','长按(long_press)'],['swipe_left','左滑(swipe_left)'],['swipe_right','右滑(swipe_right)'],['swipe_up','上滑(swipe_up)'],['swipe_down','下滑(swipe_down)'],['shake','摇晃(shake)'],['charge_release','蓄力释放(charge_release)']];
 const FEEDBACK_OPTIONS = [['ripple','涟漪(ripple)'],['flash','闪光(flash)'],['particle_burst','粒子迸发(particle_burst)'],['none','无(none)']];
@@ -12549,7 +12762,26 @@ function renderInteractionCard(nodeId, item, idx) {
         </div>
       </div>
       <div class="icard-field"><div class="icard-label">目标节点</div>${targetDd}</div>
-      <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>`;
+      <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>
+      ${(()=>{
+        const _nd = state.gameData.nodes[nodeId];
+        const _dur = _nd && (_nd._videoDuration || _nd.branch_at_second || _nd.branch_time || null);
+        const _tt = trig === 'end' ? (_dur || 0) : trig === 'custom' ? (parseFloat(item.jump_trigger_s) || 0) : 0;
+        const _risk = _dur && _tt > _dur - 2.0;
+        return _risk && item.video_mode !== 'loop'
+          ? '<div class="icard-autojump-warn">⚠️ 自动跳转触发时间距片尾不足 2 秒，播放端可能出现黑屏。请开启循环模式。</div>'
+          : '';
+      })()}
+      <div class="icard-field">
+        <div class="icard-label" style="display:flex;align-items:center;gap:6px;">
+          循环模式
+          ${(()=>{ const _nd=state.gameData.nodes[nodeId]; const _dur=_nd&&(_nd._videoDuration||_nd.branch_at_second||_nd.branch_time||null); const _tt=trig==='end'?(_dur||0):trig==='custom'?(parseFloat(item.jump_trigger_s)||0):0; return (_dur && _tt > _dur - 2.0) ? '<span style="font-size:9px;background:#ef4444;color:#fff;border-radius:3px;padding:1px 5px;margin-left:2px;">黑帧风险</span>' : ''; })()}
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" ${item.video_mode==='loop'?'checked':''} onchange="_saveIcardField('${nodeId}','${item.id}','video_mode',this.checked?'loop':'');refreshInteractionCard('${nodeId}','${item.id}')" style="accent-color:var(--accent,#6366f1);width:14px;height:14px;"/>
+          <span style="font-size:11px;color:var(--text-secondary);">开启循环（防止片尾跳转黑屏）</span>
+        </label>
+      </div>\`;
   } else if (item.type === 'button') {
     configHtml = `
       <div class="icard-field"><div class="icard-label">按钮文字（≤30字）</div>
@@ -12570,7 +12802,7 @@ function renderInteractionCard(nodeId, item, idx) {
             oninput="_saveIcardField('${nodeId}','${item.id}','pos_y',this.value)"/>
         </div>
       </div>
-      <div class="icard-field"><div class="icard-label">目标节点</div>${targetDd}</div>
+      ${buildOutcomeFields(nodeId, item, '点击结果')}
       <div class="icard-field"><div class="icard-label">过渡效果</div>${fxSelect}</div>`;
   } else if (item.type === 'hotspot_hidden' || item.type === 'hotspot_visible') {
     // v0.2.3: 三态热区 UI（引导绘制，不填坐标）
@@ -12631,7 +12863,7 @@ function renderInteractionCard(nodeId, item, idx) {
       + '<select class="icard-input" onchange="_saveIcardField(' + nodeArg + ',' + itemArg + ',\'feedback_fx\',this.value)">'
       + FEEDBACK_OPTIONS.map(([v,l]) => '<option value="' + v + '"' + ((item.feedback_fx||'ripple')===v?' selected':'') + '>' + escHtml(l) + '</option>').join('')
       + '</select></div>'
-      + '<div class="icard-field"><div class="icard-label">目标节点</div>' + targetDd + '</div>'
+      + buildOutcomeFields(nodeId, item, '点击结果')
       + '<div class="icard-field"><div class="icard-label">过渡效果</div>' + fxSelect + '</div>';
   } else if (item.type === 'qte') {
     configHtml = `
