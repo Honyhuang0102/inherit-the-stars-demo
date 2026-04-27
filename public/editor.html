@@ -8982,11 +8982,7 @@ async function _doPublish(existingWorldId) {
       publishData = await prepareGameDataForPublish(state.gameData);
     } catch (validErr) {
       if (btn) btn.style.opacity = '1';
-      if (validErr.code === 'AUTOJUMP_TIMING_BLOCK') {
-        _showAutoJumpTimingModal(validErr.timingErrors);
-      } else {
-        showToast('发布校验失败：' + validErr.message, 'error');
-      }
+      showToast('发布校验失败：' + validErr.message, 'error');
       return;
     }
     const response = await _apiFetch('https://infidive.ai/api/v1/bridge/publish', {
@@ -10158,15 +10154,6 @@ function checkAutoJumpTiming(gameData) {
 }
 
 async function prepareGameDataForPublish(gameData) {
-  // Phase 5: Check auto_jump timing before publish
-  const timingCheck = checkAutoJumpTiming(gameData);
-  if (timingCheck.errors.length > 0) {
-    const err = new Error('AUTOJUMP_TIMING_BLOCK:' + JSON.stringify(timingCheck.errors));
-    err.code = 'AUTOJUMP_TIMING_BLOCK';
-    err.timingErrors = timingCheck.errors;
-    throw err;
-  }
-
   const data = JSON.parse(JSON.stringify(gameData));
   const errors = [];
   Object.values(data.nodes || {}).forEach(node => {
