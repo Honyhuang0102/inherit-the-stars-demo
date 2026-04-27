@@ -4222,7 +4222,7 @@ async function startAI3DGeneration() {
     selectNode(newId);
 
     await saveData();
-    showToast(`360° 全景图节点「${state.nodeIndexMap[newId]}」已创建，可在右侧面板编辑 ✓`, 'success');
+    showToast(`360° 全景图节点「${newId}」已创建，可在右侧面板编辑 ✓`, 'success');
 
     // 延迟关闭 Modal
     setTimeout(() => closeAI3DModal(), 1200);
@@ -4360,7 +4360,7 @@ function openInspector(nodeId) {
   if (!nodeData) return;
   closeAllNodeDropdowns();
   const insp = document.getElementById('inspector');
-  const nodeSeq = state.nodeIndexMap[nodeId] || nodeId;
+  const nodeSeq = nodeId;
   document.getElementById('insp-title').textContent =
     `编辑 · ${nodeSeq}：${nodeData.title || ''}`;
 
@@ -13245,16 +13245,17 @@ function buildNodeDropdown(fieldId, currentId, onChangeFn) {
 
 function _buildNodeDdOptions(fieldId, currentId, query) {
   const nodes = Object.values((state.gameData && state.gameData.nodes) || {});
+  nodes.sort((a, b) => { const na = parseInt(a.id, 10), nb = parseInt(b.id, 10); return (isNaN(na) || isNaN(nb)) ? String(a.id).localeCompare(String(b.id)) : na - nb; });
   const q = query.trim().toLowerCase();
   const filtered = nodes.filter(n => {
     if (!q) return true;
-    const seq = String(state.nodeIndexMap[n.id] || '');
+    const seq = String(n.id || '');
     return seq.startsWith(q) || (n.title || '').toLowerCase().includes(q);
   });
   if (filtered.length === 0) return `<div class="node-dd-empty">没有匹配的节点</div>`;
   const noneOpt = `<div class="node-dd-none-opt" onclick="selectNodeDropdown('${escHtml(fieldId)}','',event)">（无）</div>`;
   const opts = filtered.map(n => {
-    const seq = state.nodeIndexMap[n.id] || '';
+    const seq = n.id || '';
     const thumb = _getNodeThumbHtml(n.id, 40, 23);
     const sel = currentId === n.id ? ' sel' : '';
     return `<div class="node-dd-opt${sel}" onclick="selectNodeDropdown('${escHtml(fieldId)}','${escHtml(n.id)}',event)">
@@ -13328,7 +13329,7 @@ function _getNodeDisplayName(nodeId) {
   if (!nodeId) return '';
   const n = state.gameData && state.gameData.nodes && state.gameData.nodes[nodeId];
   if (!n) return nodeId;
-  const seq = state.nodeIndexMap[nodeId] || '';
+  const seq = nodeId || '';
   return `[${seq}] ${n.title || nodeId}`;
 }
 
