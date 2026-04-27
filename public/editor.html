@@ -12781,7 +12781,7 @@ function renderInteractionCard(nodeId, item, idx) {
           <input type="checkbox" ${item.video_mode==='loop'?'checked':''} onchange="_saveIcardField('${nodeId}','${item.id}','video_mode',this.checked?'loop':'');refreshInteractionCard('${nodeId}','${item.id}')" style="accent-color:var(--accent,#6366f1);width:14px;height:14px;"/>
           <span style="font-size:11px;color:var(--text-secondary);">开启循环（防止片尾跳转黑屏）</span>
         </label>
-      </div>\`;
+      </div>`;
   } else if (item.type === 'button') {
     configHtml = `
       <div class="icard-field"><div class="icard-label">按钮文字（≤30字）</div>
