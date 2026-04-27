@@ -1,5 +1,6 @@
 # Studio CHANGELOG
 
+- [C3] feat(P2-W1/c3):bgm library management Studio UI（commit c6e0540）：音乐管理modal双Tab(上传库/BGM库);BGM库面板GET /bgm/library列表展示;✏️改名modal POST /bgm/rename;📋批量应用modal checkbox多选节点 POST /bgm/apply-batch;已有同url节点灰色disabled跳过;未发布world显示引导;DSL schema v0.2.3同步(label optional) | public/editor.html, public/interaction-dsl-v0.schema.json
 ## [C3] 2026-04-26 — 节点创建 UX 3 项优化
 
 ### feat(P1-early/c3): node UX — commit `5198c22`
