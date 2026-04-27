@@ -7839,22 +7839,77 @@ function initCanvasZoomPan() {
 
 
 <!-- ═══════════════════════════════════════════════════════
-     MUSIC LIBRARY MODAL (Task 2)
+     MUSIC LIBRARY MODAL (Task 2) + BGM 库管理面板 (RFC-5)
 ═══════════════════════════════════════════════════════ -->
 <div id="music-lib-modal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
-  <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);width:420px;max-height:80vh;display:flex;flex-direction:column;">
+  <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);width:460px;max-height:82vh;display:flex;flex-direction:column;">
+    <!-- Header -->
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
       <span style="font-size:13px;font-weight:600;color:var(--text-primary);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>音乐管理</span>
       <button onclick="closeMusicLibModal()" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:16px;line-height:1;">✕</button>
     </div>
-    <div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);font-size:12px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        上传 BGM（MP3 / M4A / AAC，≤10MB）
-        <input type="file" id="music-lib-modal-upload" accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,.mp3,.m4a,.aac" style="display:none" onchange="_musicLibModalUpload(this)"/>
-      </label>
+    <!-- Tab bar -->
+    <div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <button id="mlib-tab-upload" onclick="switchMusicLibTab('upload')" style="flex:1;padding:8px 12px;font-size:12px;font-weight:500;border:none;border-bottom:2px solid var(--accent);background:var(--bg-panel);color:var(--accent);cursor:pointer;">🎵 上传库</button>
+      <button id="mlib-tab-bgmlib" onclick="switchMusicLibTab('bgmlib')" style="flex:1;padding:8px 12px;font-size:12px;font-weight:500;border:none;border-bottom:2px solid transparent;background:var(--bg-panel);color:var(--text-secondary);cursor:pointer;">📚 BGM 库</button>
     </div>
-    <div id="music-lib-modal-list" style="overflow-y:auto;flex:1;padding:8px 14px;min-height:80px;"></div>
+    <!-- 上传库 pane (existing) -->
+    <div id="mlib-upload-pane" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px dashed var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);font-size:12px;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          上传 BGM（MP3 / M4A / AAC，≤10MB）
+          <input type="file" id="music-lib-modal-upload" accept="audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,.mp3,.m4a,.aac" style="display:none" onchange="_musicLibModalUpload(this)"/>
+        </label>
+      </div>
+      <div id="music-lib-modal-list" style="overflow-y:auto;flex:1;padding:8px 14px;min-height:80px;"></div>
+    </div>
+    <!-- BGM 库 pane (RFC-5 new) -->
+    <div id="mlib-bgmlib-pane" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+      <div style="padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:11px;color:var(--text-secondary);">当前 world 中已使用的 BGM（按 URL 去重）</span>
+        <button onclick="renderBgmLibPane()" style="padding:3px 10px;font-size:11px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);cursor:pointer;">↻ 刷新</button>
+      </div>
+      <div id="mlib-bgmlib-list" style="overflow-y:auto;flex:1;padding:8px 14px;min-height:80px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     BGM 库 — 改名 modal (RFC-5)
+═══════════════════════════════════════════════════════ -->
+<div id="bgmlib-rename-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
+  <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);width:360px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+    <div style="font-size:13px;font-weight:600;color:var(--text-primary);">✏️ 改名 BGM</div>
+    <div style="font-size:11px;color:var(--text-secondary);word-break:break-all;" id="bgmlib-rename-url"></div>
+    <input id="bgmlib-rename-input" type="text" class="insp-input" placeholder="输入 BGM 名称，如：主题曲 / 战斗音乐"
+      style="width:100%;box-sizing:border-box;" maxlength="80"/>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="closeBgmlibRenameModal()" style="padding:5px 14px;font-size:12px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);cursor:pointer;">取消</button>
+      <button onclick="_bgmLibDoRename()" style="padding:5px 14px;font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     BGM 库 — 批量应用 modal (RFC-5)
+═══════════════════════════════════════════════════════ -->
+<div id="bgmlib-apply-modal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);align-items:center;justify-content:center;">
+  <div style="background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);width:400px;max-height:72vh;display:flex;flex-direction:column;">
+    <div style="padding:12px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary);">📋 批量应用 BGM</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;" id="bgmlib-apply-trackname"></div>
+    </div>
+    <div style="padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;gap:8px;">
+      <button onclick="_bgmLibSelectAllNodes(true)" style="padding:3px 10px;font-size:11px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);cursor:pointer;">全选</button>
+      <button onclick="_bgmLibSelectAllNodes(false)" style="padding:3px 10px;font-size:11px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);cursor:pointer;">全不选</button>
+      <span style="font-size:11px;color:var(--text-muted);align-self:center;">已有该 BGM 的节点自动跳过</span>
+    </div>
+    <div id="bgmlib-apply-list" style="overflow-y:auto;flex:1;padding:8px 16px;"></div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;">
+      <button onclick="closeBgmlibApplyModal()" style="padding:5px 14px;font-size:12px;background:none;border:1px solid var(--border);border-radius:4px;color:var(--text-secondary);cursor:pointer;">取消</button>
+      <button onclick="_bgmLibDoApplyBatch()" style="padding:5px 14px;font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer;">应用到选中节点</button>
+    </div>
   </div>
 </div>
 
@@ -13960,5 +14015,205 @@ async function _loadWorldAudioLibrary() {
   }
 }
 
+
+
+// ─── RFC-5 BGM 库管理 ────────────────────────────────────────────────────────
+
+let _bgmLibCurrentTab = 'upload';
+let _bgmLibRenameUrl = '';
+let _bgmLibApplyTrack = null;
+
+function switchMusicLibTab(tab) {
+  _bgmLibCurrentTab = tab;
+  const uploadPt = document.getElementById('mlib-upload-pane');
+  const bgmPt = document.getElementById('mlib-bgmlib-pane');
+  const tabUpload = document.getElementById('mlib-tab-upload');
+  const tabBgm = document.getElementById('mlib-tab-bgmlib');
+  if (!uploadPt || !bgmPt) return;
+  if (tab === 'upload') {
+    uploadPt.style.display = 'flex';
+    bgmPt.style.display = 'none';
+    if (tabUpload) { tabUpload.style.borderBottomColor = 'var(--accent)'; tabUpload.style.color = 'var(--accent)'; }
+    if (tabBgm) { tabBgm.style.borderBottomColor = 'transparent'; tabBgm.style.color = 'var(--text-secondary)'; }
+  } else {
+    uploadPt.style.display = 'none';
+    bgmPt.style.display = 'flex';
+    if (tabBgm) { tabBgm.style.borderBottomColor = 'var(--accent)'; tabBgm.style.color = 'var(--accent)'; }
+    if (tabUpload) { tabUpload.style.borderBottomColor = 'transparent'; tabUpload.style.color = 'var(--text-secondary)'; }
+    renderBgmLibPane();
+  }
+}
+
+function openMusicLibModalBgm() {
+  openMusicLibModal();
+  switchMusicLibTab('bgmlib');
+}
+
+function renderBgmLibPane() {
+  const list = document.getElementById('mlib-bgmlib-list');
+  if (!list) return;
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  if (!worldId) {
+    list.innerHTML = '<div style="text-align:center;padding:24px 8px;color:var(--text-muted);font-size:12px;">请先发布项目，才能使用 BGM 库视图</div>';
+    return;
+  }
+  list.innerHTML = '<div style="text-align:center;padding:16px 8px;color:var(--text-muted);font-size:12px;">加载中…</div>';
+  const token = _getToken();
+  fetch('/api/v1/bgm/library?world_id=' + encodeURIComponent(worldId), {
+    headers: token ? { Authorization: 'Bearer ' + token } : {}
+  })
+  .then(r => r.json())
+  .then(resp => {
+    if (resp.error) { list.innerHTML = '<div style="padding:12px;color:#e55;font-size:12px;">加载失败：' + escHtml(resp.error) + '</div>'; return; }
+    const tracks = (resp.data && resp.data.tracks) || [];
+    if (tracks.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:24px 8px;color:var(--text-muted);font-size:12px;">暂无已使用的 BGM<br><span style="font-size:10px;">在节点编辑器 Tab 3 给节点配 BGM 后将出现在这里</span></div>';
+      return;
+    }
+    list.innerHTML = tracks.map((t, i) => {
+      const urlShort = t.url.length > 50 ? '…' + t.url.slice(-42) : t.url;
+      const displayName = t.label || '（未命名）';
+      const meta = 'vol:' + (t.default_volume || 0.3).toFixed(1) + ' · fade:' + Math.round(t.default_fade_in_ms || 1000) + 'ms · ' + t.used_in_clip_ids.length + ' 个节点';
+      return `<div class="audio-track-item" style="margin-bottom:6px;">
+        <div class="audio-track-icon">🎵</div>
+        <div class="audio-track-info">
+          <div class="audio-track-name" title="${escHtml(t.url)}">${escHtml(displayName)}</div>
+          <div class="audio-track-meta">${escHtml(urlShort)}</div>
+          <div class="audio-track-meta">${escHtml(meta)}</div>
+        </div>
+        <div class="audio-track-actions">
+          <button class="atbtn" onclick="_bgmLibOpenRename('${escHtml(t.url)}','${escHtml(t.label || '')}')">✏️ 改名</button>
+          <button class="atbtn" onclick="_bgmLibOpenApply(${i})">📋 批量应用</button>
+        </div>
+      </div>`;
+    }).join('');
+    // store tracks for modal access
+    window._bgmLibTracks = tracks;
+  })
+  .catch(e => { list.innerHTML = '<div style="padding:12px;color:#e55;font-size:12px;">加载失败：' + escHtml(e.message) + '</div>'; });
+}
+
+// ── Rename ─────────────────────────────────────────────────────────────────
+
+function _bgmLibOpenRename(url, currentLabel) {
+  _bgmLibRenameUrl = url;
+  const el = document.getElementById('bgmlib-rename-url');
+  if (el) el.textContent = url.length > 60 ? '…' + url.slice(-52) : url;
+  const inp = document.getElementById('bgmlib-rename-input');
+  if (inp) inp.value = currentLabel || '';
+  const modal = document.getElementById('bgmlib-rename-modal');
+  if (modal) { modal.style.display = 'flex'; setTimeout(() => inp && inp.focus(), 50); }
+}
+
+function closeBgmlibRenameModal() {
+  const modal = document.getElementById('bgmlib-rename-modal');
+  if (modal) modal.style.display = 'none';
+  _bgmLibRenameUrl = '';
+}
+
+function _bgmLibDoRename() {
+  const label = (document.getElementById('bgmlib-rename-input') || {}).value || '';
+  if (!label.trim()) { alert('请输入名称'); return; }
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  if (!worldId || !_bgmLibRenameUrl) return;
+  const token = _getToken();
+  fetch('/api/v1/bgm/rename', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: JSON.stringify({ world_id: worldId, url: _bgmLibRenameUrl, label: label.trim() })
+  })
+  .then(r => r.json())
+  .then(resp => {
+    if (resp.error) { alert('改名失败：' + resp.error); return; }
+    closeBgmlibRenameModal();
+    showToast('改名成功，已更新 ' + resp.data.updated_clip_count + ' 个节点', 'success');
+    renderBgmLibPane();
+  })
+  .catch(e => alert('改名失败：' + e.message));
+}
+
+// ── Batch Apply ───────────────────────────────────────────────────────────
+
+function _bgmLibOpenApply(trackIdx) {
+  const tracks = window._bgmLibTracks || [];
+  const track = tracks[trackIdx];
+  if (!track) return;
+  _bgmLibApplyTrack = track;
+  const nameEl = document.getElementById('bgmlib-apply-trackname');
+  if (nameEl) nameEl.textContent = track.label ? ('"' + track.label + '"') : track.url.slice(-40);
+  // Render clip list from local state nodes + _nodeClipMap
+  const list = document.getElementById('bgmlib-apply-list');
+  if (!list) return;
+  const nodes = state.gameData && state.gameData.nodes ? Object.values(state.gameData.nodes) : [];
+  const usedSet = new Set(track.used_in_clip_ids || []);
+  const rows = nodes.filter(n => _nodeClipMap[n.id]).map(n => {
+    const clipId = _nodeClipMap[n.id];
+    const alreadyHas = usedSet.has(clipId);
+    const label = (n.title ? (n.id + '：' + n.title) : n.id);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--border-light);cursor:${alreadyHas ? 'default' : 'pointer'};">
+      <input type="checkbox" class="bgmlib-apply-check" value="${escHtml(clipId)}" ${alreadyHas ? 'disabled checked' : ''}/>
+      <span style="font-size:12px;color:${alreadyHas ? 'var(--text-muted)' : 'var(--text-primary)'};">${escHtml(label)}</span>
+      ${alreadyHas ? '<span style="font-size:10px;color:var(--text-muted);">(已有)</span>' : ''}
+    </label>`;
+  });
+  if (rows.length === 0) {
+    list.innerHTML = '<div style="padding:12px;font-size:12px;color:var(--text-muted);">当前项目尚未发布，无法获取节点 ID 列表<br>请先发布再使用批量应用</div>';
+  } else {
+    list.innerHTML = rows.join('');
+  }
+  const modal = document.getElementById('bgmlib-apply-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeBgmlibApplyModal() {
+  const modal = document.getElementById('bgmlib-apply-modal');
+  if (modal) modal.style.display = 'none';
+  _bgmLibApplyTrack = null;
+}
+
+function _bgmLibSelectAllNodes(select) {
+  document.querySelectorAll('.bgmlib-apply-check:not(:disabled)').forEach(cb => { cb.checked = select; });
+}
+
+function _bgmLibDoApplyBatch() {
+  if (!_bgmLibApplyTrack) return;
+  const worldId = state.gameData && (state.gameData._infidive_world_id || state.gameData.id);
+  if (!worldId) { alert('请先发布项目'); return; }
+  const checked = [...document.querySelectorAll('.bgmlib-apply-check:not(:disabled):checked')].map(cb => cb.value);
+  if (checked.length === 0) { alert('请选择至少一个节点'); return; }
+  const t = _bgmLibApplyTrack;
+  const token = _getToken();
+  fetch('/api/v1/bgm/apply-batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: JSON.stringify({
+      world_id: worldId,
+      url: t.url,
+      label: t.label || undefined,
+      default_volume: t.default_volume,
+      default_fade_in_ms: t.default_fade_in_ms,
+      default_fade_out_ms: t.default_fade_out_ms,
+      type: t.type || 'bgm',
+      loop: true,
+      trigger_time_s: 0,
+      target_clip_ids: checked
+    })
+  })
+  .then(r => r.json())
+  .then(resp => {
+    if (resp.error) { alert('批量应用失败：' + resp.error); return; }
+    closeBgmlibApplyModal();
+    showToast('已应用到 ' + resp.data.applied_clip_count + ' 个节点（跳过 ' + resp.data.skipped + ' 个已有）', 'success');
+    renderBgmLibPane();
+  })
+  .catch(e => alert('批量应用失败：' + e.message));
+}
+
+document.addEventListener('click', function(e) {
+  const rm = document.getElementById('bgmlib-rename-modal');
+  if (rm && rm.style.display === 'flex' && e.target === rm) closeBgmlibRenameModal();
+  const am = document.getElementById('bgmlib-apply-modal');
+  if (am && am.style.display === 'flex' && e.target === am) closeBgmlibApplyModal();
+});
 
 </script>

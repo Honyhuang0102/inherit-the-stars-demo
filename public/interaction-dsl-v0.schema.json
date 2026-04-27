@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://infidive.ai/dsl/v0/schema.json",
-  "title": "infiDive Interaction DSL v0.2.0",
+  "title": "infiDive Interaction DSL v0.2.3",
   "description": "Schema for infidive 3.0 interaction DSL stored in clips.interaction_dsl",
   "type": "object",
   "required": [
@@ -45,6 +45,11 @@
       "items": {
         "$ref": "#/definitions/audioTrack"
       }
+    },
+    "mute_video_audio": {
+      "type": "boolean",
+      "default": false,
+      "description": "[v0.2] When true, Player mutes video native audio track (Video volume=0). BGM via audio_tracks plays normally. Default=false (equivalent to current behavior)."
     }
   },
   "definitions": {
@@ -620,7 +625,10 @@
             "jump_to_clip",
             "jump_to_timestamp",
             "retry",
-            "trigger_branch"
+            "trigger_branch",
+            "set_variable",
+            "add_variable",
+            "set_inventory_count"
           ]
         },
         "target_clip_id": {
@@ -657,6 +665,31 @@
         "metadata": {
           "type": "object",
           "additionalProperties": true
+        },
+        "variable_ref": {
+          "type": "string",
+          "description": "Variable ID from game_settings.variables[].id (required for set_variable/add_variable)"
+        },
+        "variable_value": {
+          "type": "number",
+          "description": "Target value for set_variable; delta (positive or negative) for add_variable"
+        },
+        "item_ref": {
+          "type": "string",
+          "description": "Item ID from game_settings.items[].id (required for set_inventory_count)"
+        },
+        "inventory_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "New inventory count for set_inventory_count"
+        },
+        "side_effects": {
+          "type": "array",
+          "maxItems": 5,
+          "description": "Optional chained effects executed after main action (W1 Phase 2 feature)",
+          "items": {
+            "$ref": "#/definitions/outcome"
+          }
         }
       }
     },
@@ -724,6 +757,10 @@
           "type": "string",
           "minLength": 1,
           "description": "Audio file URL (CDN or S3 direct)"
+        },
+        "label": {
+          "type": "string",
+          "description": "[v0.2.3] Creator-friendly display name for this BGM track. Optional, display-only, does not affect playback."
         },
         "loop": {
           "type": "boolean",
