@@ -2997,9 +2997,9 @@ body.bbox-drawing-mode #immersive-screen .imm-video-el * {
       <div class="th-field">
         <label>位置</label>
         <select id="th-position">
-          <option value="bottom" selected>底部</option>
-          <option value="center">中央</option>
+          <option value="center" selected>中央（推荐）</option>
           <option value="top">顶部</option>
+          <option value="bottom">底部 ⚠️ 可能被 APP UI 遮挡</option>
         </select>
       </div>
       <div class="th-timing-row">
@@ -6640,7 +6640,7 @@ function openTextHintPanel(idx) {
       document.getElementById('th-content').value  = th.content || '';
       document.getElementById('th-style').value    = th.style || 'monologue';
       document.getElementById('th-voice').value    = th.voice || 'protagonist';
-      document.getElementById('th-position').value = th.position || 'bottom';
+      document.getElementById('th-position').value = th.position || 'center';
       document.getElementById('th-show-at').value  = th.timing ? th.timing.show_at_s : 2;
       document.getElementById('th-duration').value = th.timing ? th.timing.duration_s : 4;
       onThContentInput();
@@ -6652,7 +6652,7 @@ function openTextHintPanel(idx) {
   document.getElementById('th-content').value  = '';
   document.getElementById('th-style').value    = 'monologue';
   document.getElementById('th-voice').value    = 'protagonist';
-  document.getElementById('th-position').value = 'bottom';
+  document.getElementById('th-position').value = 'center';
   // 默认出现时间：当前视频播放位置（若有）
   const immVid = document.querySelector('#immersive-screen .imm-video-el');
   const defaultAt = (immVid && immVid.currentTime > 0) ? Math.round(immVid.currentTime * 10) / 10 : 2;
@@ -13017,8 +13017,8 @@ function renderInteractionCard(nodeId, item, idx) {
       `<option value="${v}" ${(item.th_style||'monologue')===v?'selected':''}>${zh}(${v})</option>`).join('');
     const thVoiceOpts = Object.entries(I18N_ZH.th_voice||{}).map(([v,zh])=>
       `<option value="${v}" ${(item.th_voice||'protagonist')===v?'selected':''}>${zh}(${v})</option>`).join('');
-    const thPosOpts = [['bottom','底部'],['center','居中'],['top','顶部']].map(([v,l])=>
-      `<option value="${v}" ${(item.th_position||'bottom')===v?'selected':''}>${l}(${v})</option>`).join('');
+    const thPosOpts = [['center','中央（推荐）'],['top','顶部'],['bottom','底部 ⚠️ 可能被 APP UI 遮挡']].map(([v,l])=>
+      `<option value="${v}" ${(item.th_position||'center')===v?'selected':''}>${l}</option>`).join('');
     const thFontOpts = Object.entries(I18N_ZH.th_font_size||{}).map(([v,zh])=>
       `<option value="${v}" ${(item.th_font_size||'medium')===v?'selected':''}>${zh}(${v})</option>`).join('');
     const thLen = (item.th_content||'').length;
