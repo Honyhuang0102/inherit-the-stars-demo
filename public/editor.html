@@ -9801,7 +9801,7 @@ function buildInteractionDsl(nodeData) {
     interactions.push({
       id: 'hotspot_' + nodeData.id,
       type: 'hotspot',
-      video_mode: nodeData.node_type === 'loop' ? 'loop' : 'pause_at_end',
+      video_mode: (nodeData.loop_enabled || nodeData.node_type === 'loop') ? 'loop' : 'pause_at_end',
       hotspots: hotspotItems,
       help_after_s: 15,
       max_wait_s: 60,
@@ -9997,7 +9997,7 @@ function buildInteractionDsl(nodeData) {
         interactions.push({
           id: 'hotspot_v2_' + nodeData.id,
           type: 'hotspot',
-          video_mode: nodeData.node_type === 'loop' ? 'loop' : 'pause_at_end',
+          video_mode: (nodeData.loop_enabled || nodeData.node_type === 'loop') ? 'loop' : 'pause_at_end',
           hotspots: hotspotEntries,
           help_after_s: 15,
           max_wait_s: 60,
@@ -10291,7 +10291,7 @@ async function prepareGameDataForPublish(gameData) {
   // Pre-check: 循环节点无退出交互 → 警告（不阻断发布，尊重用户）
   const _loopDeadlockNodes = [];
   Object.values(data.nodes || {}).forEach(node => {
-    if (node.node_type !== 'loop') return;
+    if (node.node_type !== 'loop' && !node.loop_enabled) return;
     const v2 = node.interactions_v2 || [];
     const hasExit = v2.some(it => it.type === 'jump' || it.type === 'hotspot_hidden' || it.type === 'hotspot_visible');
     if (!hasExit) _loopDeadlockNodes.push(node.title || node.id || '未命名节点');
@@ -12492,7 +12492,10 @@ function renderTabBasic(nodeId, nodeData) {
     : '—（上传视频后自动读取）';
 
   const isStart = state.gameData && state.gameData.start_node === nodeId;
-  const nodeType = nodeData.node_type || (isStart ? 'start' : 'normal');
+  // 向后兼容: node_type='loop' 的旧节点展示为 普通+循环启用
+  const _rawType = nodeData.node_type || (isStart ? 'start' : 'normal');
+  const primaryType = _rawType === 'loop' ? 'normal' : _rawType;
+  const loopEnabled = !!(nodeData.loop_enabled || _rawType === 'loop');
 
   let videoHtml = '';
   if (nodeData.video_url) {
@@ -12547,11 +12550,16 @@ function renderTabBasic(nodeId, nodeData) {
     <div class="insp-field">
       <div class="insp-label">节点类型</div>
       <div class="insp-node-type-group">
-        ${[['normal','普通'],['start','🚀 起始节点'],['checkpoint','📌 检查点'],['loop','🔁 循环播放']].map(([val,label]) =>
-          `<label class="insp-type-radio${nodeType===val?' selected':''}">
-            <input type="radio" name="insp-node-type" value="${val}" ${nodeType===val?'checked':''} onchange="onNodeTypeChange('${nodeId}',this.value)"/> ${escHtml(label)}
+        ${[['normal','普通'],['start','🚀 起始节点'],['checkpoint','📌 检查点']].map(([val,label]) =>
+          `<label class="insp-type-radio${primaryType===val?' selected':''}">
+            <input type="radio" name="insp-node-type" value="${val}" ${primaryType===val?'checked':''} onchange="onNodeTypeChange('${nodeId}',this.value)"/> ${escHtml(label)}
           </label>`).join('')}
       </div>
+      <label class="insp-type-radio${loopEnabled?' selected':''}" style="margin-top:6px;display:flex;align-items:center;gap:6px;width:100%;cursor:pointer;">
+        <input type="checkbox" id="insp-loop-enabled" ${loopEnabled?'checked':''} onchange="onLoopEnabledChange('${nodeId}',this.checked)" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;"/>
+        <span>🔁 循环播放</span>
+        <span style="font-size:10px;color:var(--text-tertiary);font-weight:400;margin-left:2px;">（可与起始节点叠加）</span>
+      </label>
     </div>
   `;
 }
@@ -12563,33 +12571,48 @@ function onNodeTypeChange(nodeId, newType) {
   if (newType === 'start') {
     state.gameData.start_node = nodeId;
   }
+  // 更新 radio 选中态（仅 radio，不动 checkbox）
   document.querySelectorAll('.insp-type-radio').forEach(el => {
-    const inp = el.querySelector('input');
-    el.classList.toggle('selected', inp && inp.value === newType);
+    const inp = el.querySelector('input[type="radio"]');
+    if (inp) el.classList.toggle('selected', inp.value === newType);
   });
   // 更新节点卡片上的 🔁 badge
-  const card = state.nodes[nodeId]?.el;
-  if (card) {
-    const footer = card.querySelector('.node-footer');
-    if (footer) {
-      let badge = footer.querySelector('.node-loop-badge');
-      if (newType === 'loop' && !badge) {
-        badge = document.createElement('span');
-        badge.className = 'node-loop-badge';
-        badge.style.cssText = 'font-size:9px;background:#7c3aed;color:#e9d5ff;border-radius:3px;padding:1px 4px;margin-right:4px;';
-        badge.textContent = '🔁';
-        footer.prepend(badge);
-      } else if (newType !== 'loop' && badge) {
-        badge.remove();
-      }
-    }
-  }
-  // 切换到循环类型时，检查是否缺少退出交互
-  if (newType === 'loop') {
+  _updateLoopBadge(nodeId, nodeData);
+}
+
+function onLoopEnabledChange(nodeId, checked) {
+  const nodeData = state.gameData.nodes[nodeId];
+  if (!nodeData) return;
+  nodeData.loop_enabled = checked;
+  // 向后兼容：旧节点 node_type='loop' 迁移到 normal
+  if (nodeData.node_type === 'loop') nodeData.node_type = 'normal';
+  // 更新 checkbox label 高亮
+  const cb = document.getElementById('insp-loop-enabled');
+  if (cb) cb.closest('label')?.classList.toggle('selected', checked);
+  // 更新节点卡片 badge
+  _updateLoopBadge(nodeId, nodeData);
+  // 开启循环时检查退出交互
+  if (checked) {
     const items = nodeData.interactions_v2 || [];
-    if (items.length === 0) {
-      _showLoopNodeGuide(nodeId);
-    }
+    if (items.length === 0) _showLoopNodeGuide(nodeId);
+  }
+}
+
+function _updateLoopBadge(nodeId, nodeData) {
+  const isLoop = !!(nodeData.loop_enabled || nodeData.node_type === 'loop');
+  const card = state.nodes[nodeId]?.el;
+  if (!card) return;
+  const footer = card.querySelector('.node-footer');
+  if (!footer) return;
+  let badge = footer.querySelector('.node-loop-badge');
+  if (isLoop && !badge) {
+    badge = document.createElement('span');
+    badge.className = 'node-loop-badge';
+    badge.style.cssText = 'font-size:9px;background:#7c3aed;color:#e9d5ff;border-radius:3px;padding:1px 4px;margin-right:4px;';
+    badge.textContent = '🔁';
+    footer.prepend(badge);
+  } else if (!isLoop && badge) {
+    badge.remove();
   }
 }
 
