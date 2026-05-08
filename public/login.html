@@ -226,6 +226,38 @@
     </div>
   </div>
 
+  <!-- Register modal (email + password) -->
+  <div class="modal-overlay" id="register-modal">
+    <div class="modal-box">
+      <div class="modal-title">注册 DeepDivers Studio 账号</div>
+      <div class="modal-sub">使用邀请码 + 邮箱密码注册。注册成功后即可创作内容。</div>
+      <div class="error-msg" id="register-error"></div>
+      <div class="form-group">
+        <label>邮箱</label>
+        <input type="email" id="register-email" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>用户名（可选，留空将自动生成）</label>
+        <input type="text" id="register-username" placeholder="diver" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>密码（至少 8 位）</label>
+        <input type="password" id="register-password" placeholder="••••••••" autocomplete="new-password" />
+      </div>
+      <div class="form-group">
+        <label>邀请码 INF-XXXXXXXX</label>
+        <input type="text" id="register-invite" placeholder="INF-XXXXXXXX" autocomplete="off"
+               style="text-transform:uppercase;letter-spacing:1px;"
+               oninput="this.value=this.value.toUpperCase()"
+               onkeydown="if(event.key==='Enter')submitRegister()" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeRegisterModal()">取消</button>
+        <button class="btn-confirm" id="register-confirm-btn" onclick="submitRegister()">注册并登录</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Main card -->
   <div class="card">
     <div class="logo">
@@ -245,9 +277,11 @@
       </div>
     </div>
 
-    <!-- Email login (fallback) -->
+    <!-- Email login (fallback) + register entry -->
     <div class="email-toggle">
       <a onclick="toggleEmailForm()" id="email-toggle-link">使用邮箱密码登录</a>
+      <span style="opacity:0.4;margin:0 8px;">·</span>
+      <a onclick="openRegisterModal()" id="register-toggle-link">注册新账号</a>
     </div>
 
     <div class="email-form" id="email-form">
@@ -381,6 +415,75 @@
         saveAndRedirect(body);
       } catch(e) {
         showInviteError('网络错误，请重试');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '注册并登录';
+      }
+    }
+
+    // ── Register flow (email + password + invite_code) ─────────────
+    function openRegisterModal() {
+      hideError();
+      document.getElementById('register-modal').classList.add('visible');
+      setTimeout(() => document.getElementById('register-email').focus(), 100);
+    }
+    function closeRegisterModal() {
+      document.getElementById('register-modal').classList.remove('visible');
+      ['register-email', 'register-username', 'register-password', 'register-invite'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      hideRegisterError();
+    }
+    function showRegisterError(msg) {
+      const el = document.getElementById('register-error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideRegisterError() {
+      document.getElementById('register-error').style.display = 'none';
+    }
+
+    async function submitRegister() {
+      const email = document.getElementById('register-email').value.trim();
+      let username = document.getElementById('register-username').value.trim();
+      const password = document.getElementById('register-password').value;
+      const invite = document.getElementById('register-invite').value.trim();
+
+      hideRegisterError();
+      if (!email) { showRegisterError('请输入邮箱'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showRegisterError('邮箱格式不正确'); return; }
+      if (!password || password.length < 8) { showRegisterError('密码至少 8 位'); return; }
+      if (!invite) { showRegisterError('请输入邀请码'); return; }
+      if (!/^INF-[A-Z0-9]{8}$/.test(invite)) { showRegisterError('邀请码格式应为 INF- 后接 8 位字符'); return; }
+
+      // Auto-generate username if empty (mirror backend generateUniqueUsername style)
+      if (!username) {
+        const prefix = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16) || 'diver';
+        username = prefix + '_' + Math.floor(1000 + Math.random() * 9000);
+      }
+
+      const btn = document.getElementById('register-confirm-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>注册中...';
+
+      try {
+        const res = await fetch(INFIDIVE_API + '/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, username, invite_code: invite })
+        });
+        const body = await res.json();
+
+        if (!res.ok) {
+          showRegisterError(body.error || '注册失败，请重试');
+          return;
+        }
+
+        closeRegisterModal();
+        saveAndRedirect(body);
+      } catch(e) {
+        showRegisterError('网络错误，请重试');
       } finally {
         btn.disabled = false;
         btn.textContent = '注册并登录';
