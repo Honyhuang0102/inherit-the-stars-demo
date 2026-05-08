@@ -1,5 +1,11 @@
 # Studio CHANGELOG
 
+- [C3] feat(P2-W1/c3): login register UI + remove default proj_legacy from new-user dashboard (commit ab0b2b5) | public/login.html, projects/_index.json, projects/proj_legacy.json (D), projects/proj_1775582353458.json (D)
+  - **Task A login.html (+103 行)**：email-toggle 加 "注册新账号" link 与 "使用邮箱密码登录" 并列；新 register modal (email + username 可选自动生成 + password ≥8 + invite_code INF-XXXXXXXX 格式校验)；POST /auth/register (backend auth.js:54 已就绪) 复用 saveAndRedirect()；Google OAuth + 邮箱登录 + invite-modal 现有 flow 不动
+  - **Task B 默认项目清理**："星之继承者"投资人新用户 dashboard 默认显示根因 = `_index.json` 残留 proj_legacy (user_id=null) + server.js:84 checkOwnership null=全局可见。`_migrated` flag 文件 (size=1) 保留 → server.js:92 migrateIfNeeded() 不会重跑迁移 → proj_legacy 不再注入。同时清理 dashboard 手动删除残留的 proj_1775582353458 (test 残留)。4 active project (熊猫/Way Home/Horse House/Fighting) 不动；data.json + projects/backups/legacy_*.json out-of-scope dirty 不提交
+  - **E2E curl smoke PASS**：① POST /auth/register 新邮箱 + INF-90EF9C6F → 201 user+tokens；② GET /api/projects 新 user token → {data:[]} 空数组（task B 验证）；③ POST /auth/login admin → tokens OK，no regression；④ GET /api/projects admin → 1 项 (熊猫历险记 only，不再含 proj_legacy)；⑤ PM2 restart linkpark-engine 后 [Projects] data.json migrated 日志未出现 → migration 未重跑 ✓
+  - **refactor-safety-gate v1.0-patch5 §9.1 audit**：N/A §1A Maestro / ✓ §1B Studio e2e curl smoke / N/A §1.5 mobile build / ✓ §2 service migration (data.json /api/game-data 路由保留, _migrated flag 保留) / N/A §3/§4/§6/§7/§8 / ✓ §5 hot patch (curl evidence 后 fix)
+
 - [C3] feat(P2-W1/c3):demo hint+hotspot content-side绕行 (commit 441cdec) [TEMP §6 demo期]：TaskA text_hint position默认改center(select center首+selected，bottom加⚠️warning，JS fallback两处，icard同步)；TaskB 6个demo clip hotspot visible_hint hidden→always(SQL UPDATE Horse House 5clip×2hotspot + The Way Home节点1×4hotspot，hidden_count=0全过)；The Way Home节点1 text_hint"妈妈呢？"position bottom→center(SQL JSONB set)。不改schema不触发§1回归。TEMP适用范围demo期，根治归C7。 | public/editor.html, DB clips×6
 - [C3] feat(P2-W1/c3):bgm library management Studio UI（commit c6e0540）：音乐管理modal双Tab(上传库/BGM库);BGM库面板GET /bgm/library列表展示;✏️改名modal POST /bgm/rename;📋批量应用modal checkbox多选节点 POST /bgm/apply-batch;已有同url节点灰色disabled跳过;未发布world显示引导;DSL schema v0.2.3同步(label optional) | public/editor.html, public/interaction-dsl-v0.schema.json
 ## [C3] 2026-04-26 — 节点创建 UX 3 项优化
